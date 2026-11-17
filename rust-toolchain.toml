@@ -1,0 +1,5 @@
+# The toolchain CI and releases use. Bump it on purpose (a new clippy can add warnings).
+[toolchain]
+channel = "1.99.1"
+profile = "minimal"
+components = ["rustfmt", "clippy"]

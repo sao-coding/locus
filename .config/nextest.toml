@@ -1,0 +1,38 @@
+# cargo-nextest settings. `ci` runs the unit tests (no servers); `integration` runs the tests in
+# crates/*/tests against MariaDB, Redis, PostgreSQL and the Go sidecar (see .github/workflows/ci.yml
+# and scripts/ci/). Locally: `cargo nextest run --workspace` works with the default profile.
+
+[profile.default]
+# A unit test running for 2 minutes is stuck.
+slow-timeout = { period = "30s", terminate-after = 4 }
+
+[profile.ci]
+fail-fast = false
+retries = 1
+
+[profile.ci.junit]
+path = "junit.xml"
+# Failing tests keep their panic output in the report, so CI results show why without the log.
+store-failure-output = true
+store-success-output = false
+
+[profile.integration]
+inherits = "ci"
+# Some of these stream 400k rows or wait on a 30 s SLEEP they cancel; 5 minutes is stuck.
+slow-timeout = { period = "60s", terminate-after = 5 }
+
+# All the server tests share one MariaDB: they would measure each other (cancel latency, memory)
+# and race on the schemas they create and drop (wbimport, wbexport), so they run one at a time.
+[test-groups.mariadb]
+max-threads = 1
+
+[[profile.integration.overrides]]
+filter = 'package(db-mysql) | package(db-sidecar-client) | package(locus-core)'
+test-group = "mariadb"
+
+# Timing-sensitive tests: latency limits (cancel/kill/drop/timeout, throughput, memory growth while
+# the reader is stalled) are measured on a shared runner. LOCUS_TEST_SLACK already widens the
+# limits; one retry covers a stall that is longer than that. A real regression fails every try.
+[[profile.integration.overrides]]
+filter = 'test(/^(full_stream|drop_handle_without_reading_to_the_end|timeout_stops_the_query_on_the_server|kill_session_from_a_second_driver|cancel_during_sleep|back_pressure.*|cancel_.*|drop_handle.*|host_exit.*|.*recovery.*|.*shutdown.*)$/)'
+retries = 2

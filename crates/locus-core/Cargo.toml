@@ -1,0 +1,50 @@
+[package]
+name = "locus-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Everything of Locus that does not need GPUI: saved files
+# (connections.json, settings.json, spaces.json, history.json), credentials,
+# driver dispatch and the shared pool, Production guard and audit log, grid
+# filter / copy / export formats, EXPLAIN plan model, palette matching.
+# Unit tests run without a window: `cargo test -p locus-core`.
+
+[dependencies]
+db-core.workspace = true
+db-mysql.workspace = true
+db-postgres.workspace = true
+db-sqlite.workspace = true
+db-redis.workspace = true
+db-sidecar-client.workspace = true
+tokio.workspace = true
+rust-i18n.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+log.workspace = true
+sys-locale.workspace = true
+windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_Security_Credentials"] }
+bigdecimal.workspace = true
+rust_xlsxwriter.workspace = true
+russh.workspace = true
+jiff.workspace = true
+parking_lot.workspace = true
+uuid.workspace = true
+hex.workspace = true
+sha2.workspace = true
+csv.workspace = true
+encoding_rs.workspace = true
+imagesize.workspace = true
+encoding_rs_io.workspace = true
+chardetng.workspace = true
+calamine.workspace = true
+
+[dev-dependencies]
+windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_Security_Credentials", "Win32_System_ProcessStatus", "Win32_System_Threading"] }
+
+[features]
+dev = []
+
+[lints]
+workspace = true

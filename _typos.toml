@@ -1,0 +1,16 @@
+[files]
+extend-exclude = [
+  "THIRD_PARTY_LICENSES.md", # generated from upstream license texts (their typos are not ours)
+  "Cargo.lock",
+  "go.sum",
+  "*.tsv",
+  "*.svg",
+]
+
+# Deliberately wrong or partial text that tests feed to the server or to the code under test.
+[default.extend-words]
+SELEC = "SELEC" # syntax-error statements
+DELET = "DELET" # keyword prefix test in guard.rs
+hel = "hel"     # get_prefix("wb_test:s", 3) of "hello"
+onnection = "onnection" # substring match of "Connection"/"connection" in redis/mod.rs
+iy = "iy"       # y of the table icon in er-diagram

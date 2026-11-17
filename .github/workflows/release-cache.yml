@@ -1,0 +1,54 @@
+# Keeps the release build's compiled dependencies in the Actions cache so a release compiles only
+# Locus itself. A tag's own runs can't save a cache another run can use, so it is saved here, from
+# main, where tags can read it. It is rebuilt when the dependencies change (and only when the cache
+# for them isn't there yet), and twice a week so it isn't evicted after a week unused.
+name: release cache
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Cargo.lock
+      - "**/Cargo.toml"
+      - rust-toolchain.toml
+      - .github/workflows/release-cache.yml
+  schedule:
+    - cron: "0 20 * * 1,4"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-cache
+  cancel-in-progress: true
+
+# No CARGO_* settings here or in release.yml's build job: the cache key hashes them, so the keys
+# only match while both leave them unset.
+jobs:
+  cache:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: toolchain (rust-toolchain.toml)
+        run: rustup toolchain install
+      # Same key as release.yml's build job.
+      - id: lookup
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: release
+          lookup-only: true
+          save-if: false
+      - id: cache
+        if: steps.lookup.outputs.cache-hit != 'true'
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: release
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      # The release build without the sidecar embedded (build.rs writes an empty placeholder, which
+      # only changes the app crate).
+      - name: build
+        if: steps.lookup.outputs.cache-hit != 'true'
+        run: cargo build --locked --release -p app

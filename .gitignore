@@ -1,0 +1,25 @@
+target/
+target-*/
+*.exe
+devenv/tools/
+archive/poc/bin/
+archive/poc/**/target/
+
+# secrets and local app data
+*.env
+*.pem
+*.key
+audit.log
+crash.log
+
+.claude/skills/
+.ui-lock
+
+# internal plans, old reports, POCs (local only; contain internal hosts)
+archive/
+# masked real data for local integration tests (kept in archive/, never committed)
+devenv/fixtures-real
+devenv/fixtures/
+
+# CI tool downloads and scratch servers (scripts/ci)
+.ci-tools/

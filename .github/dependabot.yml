@@ -1,0 +1,40 @@
+version: 2
+updates:
+  # Workflow actions are pinned to commit SHAs, so something has to bump them.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: ci
+  # cargo-deny catches known advisories; this keeps ordinary versions moving.
+  # gpui-kit is pinned with `=` on purpose (gpui-fast / gpui-pre are snapshots that break API)
+  # and is upgraded by hand.
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    # Don't take a release in its first week: yanks and bad releases show up quickly.
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      # windows-* crates must move together (and with what gpui builds against)
+      windows:
+        patterns: ["windows", "windows-*"]
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: "gpui-kit*"
+  - package-ecosystem: gomod
+    directory: /sidecar
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: chore(deps)

@@ -1,0 +1,17 @@
+# Release flow: `knope document-change` records a change in .changeset/, `knope release`
+# bumps the workspace version and updates CHANGELOG.md. See CONTRIBUTING.md.
+[package]
+versioned_files = ["Cargo.toml"]
+changelog = "CHANGELOG.md"
+
+[[workflows]]
+name = "document-change"
+
+[[workflows.steps]]
+type = "CreateChangeFile"
+
+[[workflows]]
+name = "release"
+
+[[workflows.steps]]
+type = "PrepareRelease"

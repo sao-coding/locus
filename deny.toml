@@ -1,0 +1,20 @@
+[licenses]
+allow = [
+  "AGPL-3.0-only", "MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-3.0", "Zlib", "MPL-2.0", "CC0-1.0",
+  "BSL-1.0", "0BSD",
+]
+
+[bans]
+multiple-versions = "allow"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "warn"
+
+[advisories]
+# "Unmaintained" notices only block for crates we depend on directly. The ones that fire today
+# (chrono, instant, paste, rustls-pemfile, rustybuzz, ttf-parser, zbus_names, zvariant,
+# zvariant_derive) are all transitive, mostly through gpui-kit, which pins them; we can't move
+# them without leaving gpui. Real vulnerabilities and yanked crates still fail the check.
+unmaintained = "workspace"

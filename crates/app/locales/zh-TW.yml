@@ -1,0 +1,1225 @@
+app:
+  title: Locus
+  title_with_space: "%{space} — %{name}"
+  title_with_space_only: "%{space} — Locus"
+common:
+  save: 儲存
+  cancel: 取消
+sidebar:
+  connections: 連線
+  tabs: 分頁
+  add: 在這個空間加入連線
+  add_new: 新增連線…
+  add_existing: 加入已儲存的連線
+  edit: 編輯連線
+  empty: 這個空間還沒有連線，按 + 加入。
+  toggle: "側邊欄：完整、只顯示圖示、隱藏（Ctrl+B 隱藏，Ctrl+Shift+B 圖示）"
+  move_conn_to: "移到空間「%{space}」"
+  remove_conn: 從這個空間移除
+  tls_unverified_tip: "連線有加密，但不檢查伺服器憑證：能攔截連線的人可以冒充伺服器。"
+  tls_disabled_tip: "未加密：密碼和每一筆資料都以明文傳輸。"
+space:
+  default: 我的空間
+  new: 新增空間
+  new_name: "空間 %{n}"
+  menu: 空間選項
+  rename: 重新命名空間
+  color: 顏色
+  name: 名稱
+  icon: 圖示
+  icon_none: 顏色圓點
+  colors:
+    c0: 藍
+    c1: 綠
+    c2: 橘
+    c3: 粉紅
+    c4: 紫
+    c5: 青
+    c6: 黃
+    c7: 紅
+  bind_folder: 綁定資料夾…
+  unbind_folder: 解除資料夾綁定
+  delete_menu: 刪除空間…
+  delete_title: "刪除「%{name}」？"
+  delete_body: "空間裡的分頁會關閉，執行中的查詢會取消。連線仍會保留，可以加到其他空間。"
+  delete: 刪除空間
+  switch_tip: "%{name}（Ctrl+PgUp／Ctrl+PgDn：上一個／下一個空間）"
+tab:
+  new: 新增分頁（Ctrl+T）
+  untitled: 未命名查詢
+  close: 關閉分頁（Ctrl+W）
+  rename: 重新命名
+  pin: 釘選到最上方
+  unpin: 取消釘選
+  move_to: "移到空間「%{space}」"
+  unsaved: 有未儲存的變更
+pane:
+  split_right: 向右分割（Ctrl+\）
+  split_down: 向下分割（Ctrl+Shift+\）
+  split_left: 向左分割（Ctrl+Shift+K ←）
+  split_up: 向上分割（Ctrl+Shift+K ↑）
+  unsplit: 關閉這個窗格（取消分割）
+  close: 關閉窗格（Ctrl+Shift+W）
+toolbar:
+  run: 執行
+  run_hint: 執行選取的文字，沒有選取時執行游標所在的陳述式（Ctrl+Enter）
+  run_script_hint: 執行整個指令碼（Ctrl+Shift+Enter）
+  cancel_hint: 在伺服器上停止執行中的查詢（Esc 或 Shift+F5）
+  pick_connection: 選擇連線
+  pick_connection_hint: 這個分頁使用的連線
+  no_space_connections: 這個空間還沒有連線
+limit:
+  rows: "上限 %{n} 列"
+  unlimited: 不限列數
+  hint: "結果存放在記憶體中：達到上限時會在伺服器上停止查詢"
+state:
+  idle: 閒置
+  connecting: 連線中…
+  running: 執行中…
+  cancelling: 取消中…
+  paused: 已暫停，還有更多資料
+  done: 完成
+  cancelled: 已取消
+  failed: 失敗
+status:
+  session: "工作階段 %{id}"
+  no_session: 沒有工作階段
+fmt:
+  group_separator: ","
+  row_one: 1 列
+  rows: "%{n} 列"
+  ms: "%{v} 毫秒"
+  seconds: "%{v} 秒"
+  minutes: "%{m} 分 %{s} 秒"
+results:
+  result: 結果
+  result_n: "結果 %{n}"
+  messages: "訊息（%{n}）"
+  waiting: 等待第一批資料…
+  note_cancelled: "已取消：顯示取消前收到的 %{n} 列。"
+  note_failed: "陳述式失敗：顯示失敗前收到的 %{n} 列，詳情見「訊息」。"
+  note_truncated: "已達列數上限而停止：只顯示前 %{n} 列。"
+  cancelled_empty: 在收到任何資料前就已取消。
+msg:
+  rows: "傳回 %{n}"
+  affected: "影響 %{n}"
+  truncated: "達到列數上限，截斷於 %{n} 列"
+  cancelled: "在 %{n} 後取消"
+  rows_kept: "保留 %{n}"
+grid:
+  "null": "NULL"
+  empty: 執行查詢後，結果會顯示在這裡。
+  no_rows: 查詢沒有傳回任何資料。
+  bytes: "%{n} 位元組"
+  default: （預設值）
+  copy_selection: 複製選取範圍
+  copy_cell: 複製儲存格
+  edit_failed: '無法編輯這個儲存格，詳細資訊已寫入 %APPDATA%\Locus\crash.log。'
+  copy_column_name: 複製欄位名稱
+  copy_column_names: 複製所有欄位名稱
+  copy_row: 複製整列
+  copy_csv: 以 CSV 複製整列
+  copy_insert: 以 INSERT 複製整列
+  view_value: 檢視完整內容…
+  edit_cell: 編輯儲存格
+  set_null: 設為 NULL
+  add_row: 新增一列
+  delete_row: 刪除／還原這一列
+viewer:
+  empty: "（空）"
+  title: "%{column} 的內容"
+  chars: "%{n} 個字元"
+edit:
+  read_only: "唯讀：%{why}"
+  ro_expression: 有欄位是運算式，不是資料表的欄位。
+  ro_joined: 結果來自多個資料表。
+  ro_no_pk: "資料表 %{table} 沒有主鍵。"
+  ro_pk_missing: "結果沒有包含主鍵欄位 %{column}。"
+  ro_no_catalog: 這個連線無法提供資料表的主鍵資訊。
+  ro_oracle: 尚未支援編輯 Oracle 結果（唯讀）。
+  ro_catalog_error: "無法讀取資料表的主鍵（%{msg}）。"
+  editable_hint: "可編輯：雙擊或按 F2 編輯儲存格，按右鍵有更多選項。"
+  pending: "%{n} 項待套用的變更"
+  preview: 預覽 SQL
+  preview_title: 套用時會執行的陳述式
+  preview_note: 在同一個交易中執行。值以繫結參數傳送（列在每個陳述式後面），不會直接貼進 SQL。
+  apply: 套用
+  applying: 套用中…
+  discard: 捨棄
+  err_statement: "第 %{n} 個陳述式失敗：%{msg}"
+  err_rows: "第 %{n} 個陳述式會影響 %{rows} 列，而不是剛好一列。"
+  err_cancelled: 陳述式已被取消。
+  rolled_back: 已復原，沒有任何變更；編輯內容仍保留待套用。
+editor:
+  plain_mode: 檔案過大，已關閉語法醒目提示
+error:
+  connect: 無法連線到伺服器
+  auth: 伺服器拒絕了使用者名稱或密碼
+  tls: 無法建立加密（TLS）連線
+  query: 伺服器無法執行這個陳述式
+  timeout: 查詢執行過久，已被停止
+  internal: Locus 內部發生錯誤
+  no_connection: 請先為這個分頁選擇連線。
+  driver_gone: 資料庫驅動程式在查詢完成前就停止了。
+  credential: "Windows 認證管理員發生錯誤：%{msg}"
+  save: "無法儲存連線清單：%{msg}"
+conn:
+  add_title: 新增連線
+  edit_title: 編輯連線
+  name: 名稱
+  host: 主機
+  port: 連接埠
+  user: 使用者名稱
+  password: 密碼
+  password_note: 密碼只存放在 Windows 認證管理員，不會寫入檔案。
+  password_note_keep: 已儲存的密碼保留在 Windows 認證管理員；欄位留空即沿用。
+  database: 預設資料庫（選填）
+  kind: 資料庫類型
+  service: 服務名稱（Service name，例如 ORCLPDB1）
+  tls: 加密（TLS）
+  tls_required: 必須加密（驗證伺服器憑證）
+  tls_unverified: 加密但不驗證憑證
+  tls_unverified_warning: "連線會加密，但不會檢查伺服器的憑證。只適合在你信任的網路上連到使用自簽憑證的伺服器：能攔截連線的人可以冒充伺服器。"
+  tls_disabled: 停用（明文）
+  tls_warning: "TLS 已停用。使用者名稱、密碼和讀取的每一筆資料都會以明文在網路上傳輸，路徑上的任何人都能讀取。"
+  test: 測試連線
+  engine: 資料庫
+  url_placeholder: 貼上連線 URL（mysql://、postgresql://、oracle://）即可自動填入
+  url_filled: 已從 URL 填入。請確認欄位，再測試或儲存。
+  url_invalid: 這不是可辨識的連線 URL。
+  page_general: 一般
+  page_tls: 加密
+  page_appearance: 外觀
+  database_pg: 資料庫（選填；預設為使用者同名資料庫）
+  tls_oracle_note: Oracle 連線透過內附的 sidecar；網路加密請在伺服器端設定。
+  color: 強調色
+  custom_color: 自訂
+  icon: 圖示
+  icon_search: 搜尋圖示
+  icon_initials: 縮寫
+  preview: 預覽
+  preview_name: 新連線
+  testing: 連線中…
+  test_ok: "連線成功：伺服器 %{version}，%{time}。"
+  delete: 刪除
+  delete_confirm: 刪除這個連線和已儲存的密碼
+  delete_menu: 刪除連線…
+  delete_title: "刪除「%{name}」？"
+  delete_body: 連線和已儲存的密碼會從所有空間移除。使用它的分頁會保留 SQL，但不再有連線。
+  err_name: 請輸入名稱。
+  err_host: 請輸入主機。
+  err_port: 請輸入 1 到 65535 之間的連接埠。
+  err_user: 請輸入使用者名稱。
+lang:
+  label: 語言
+  en: English
+  zh-TW: 繁體中文
+  zh-CN: 简体中文
+views:
+  tabs: 連線與分頁
+  objects: 資料庫物件
+  history: 查詢紀錄
+objects:
+  title: 資料庫物件
+  refresh: 重新載入物件樹
+  loading: 載入中…
+  error: "無法載入：%{msg}"
+  not_connected: 尚未連線。在這個連線上執行一次查詢後即可瀏覽。
+  not_available: 這個連線不支援瀏覽物件。
+  no_connections: 這個空間還沒有連線。
+  open_hint: 雙擊即可在新分頁開啟資料
+  none: （無）
+  view_ddl: 檢視 DDL（唯讀）
+  ddl_title: "DDL · %{name}"
+  ddl_error: "無法讀取 DDL：%{msg}"
+  principals: 使用者與角色
+  server_info: 伺服器資訊與儲存
+  kinds:
+    tables: 資料表
+    views: 檢視表
+    materialized_views: 具體化檢視表
+    indexes: 索引
+    sequences: 序列
+    procedures: 預存程序
+    functions: 函式
+    packages: 套件
+    triggers: 觸發程序
+    events: 事件
+    synonyms: 同義字
+actions:
+  run: 執行陳述式
+  run_script: 執行整個指令碼
+  cancel: 取消執行中的查詢
+  new_tab: 新增分頁
+  close_tab: 關閉分頁
+  next_tab: 下一個分頁
+  prev_tab: 上一個分頁
+  open: 開啟 .sql 檔案…
+  save: 儲存
+  save_as: 另存新檔…
+  export: 匯出結果…
+  next_space: 下一個空間
+  prev_space: 上一個空間
+  split_right: 向右分割
+  split_down: 向下分割
+  split_left: 向左分割
+  split_up: 向上分割
+  close_pane: 關閉窗格
+  next_pane: 下一個窗格
+  prev_pane: 上一個窗格
+  toggle_sidebar: 顯示或隱藏側邊欄
+  icon_sidebar: 側邊欄只顯示圖示
+  view_tabs: "側邊欄：連線與分頁"
+  view_objects: "側邊欄：資料庫物件"
+  view_history: "側邊欄：查詢紀錄"
+  settings: 設定…
+palette:
+  title: 命令選擇區
+  placeholder: 輸入文字篩選動作，按 Enter 執行第一項
+settings:
+  title: 設定
+  theme: 佈景主題
+  theme_system: 跟隨 Windows
+  theme_light: 淺色
+  theme_dark: 深色
+  row_limit: 新分頁的列數上限
+  row_limit_note: 既有分頁保留各自的上限（在分頁的工具列設定）。
+  font_size: 字型大小
+  rows_cap: 每個結果最多保留在記憶體的列數
+  no_cap: 不限制
+  page_idle: 暫停中的分頁查詢在多久後釋放
+  minutes: "%{n} 分鐘"
+  motion: 動畫
+  motion_on: 開啟
+  motion_off: 減少動態效果
+  count: 在背景計算分頁查詢的總列數
+  count_on: 開啟
+  count_off: 關閉
+  auto_plan: 執行 SELECT 後自動產生查詢計畫
+  material: 視窗背景
+  mat_opaque: 不透明
+  mat_blur: 模糊（壓克力）
+  mat_mica: 雲母
+  mat_mica_alt: 雲母（替代）
+  translucency: 側邊欄透明度（搭配材質時）
+file:
+  close_title: "要儲存「%{name}」的變更嗎？"
+  close_body: 這個分頁有尚未存成檔案的變更，不儲存就關閉會遺失這些變更。
+  dont_save: 不儲存直接關閉
+  save: 儲存
+  read_error: "無法開啟 %{path}：%{msg}"
+  write_error: "無法儲存 %{path}：%{msg}"
+history:
+  title: 查詢紀錄
+  title_conn: "紀錄 · %{name}"
+  search: 搜尋紀錄
+  empty: 在這個連線上執行的查詢會列在這裡。按一下插入，雙擊在新分頁開啟。
+export:
+  button: 匯出
+  tooltip: 將這個結果匯出成 CSV 或 JSON（Ctrl+Shift+E）
+  title: 匯出結果
+  body: "匯出目前結果的每一列，依目前的排序。NULL 在 CSV 中寫成空欄位，在 JSON 中寫成 null。"
+  csv: CSV
+  csv_excel: Excel 用 CSV（含 BOM 的 UTF-8）
+  json: JSON
+  progress: "正在匯出第 %{done} 列，共 %{total} 列"
+  cancel: 取消
+  cancelled: 已取消匯出，並刪除未完成的檔案。
+  done: "已將 %{n} 匯出到 %{path}"
+  failed: "匯出失敗：%{msg}"
+  nothing: 沒有可以匯出的結果。
+diagram:
+  title: "關聯圖 · %{schema}"
+  open: 這個結構描述的關聯圖
+  empty: 這個結構描述沒有資料表。
+  fit: 符合視窗大小
+  reset_zoom: 100 %
+  relayout: 重新排列
+  loading: 正在讀取資料表與外部索引鍵…
+  relations: 顯示關聯（這個資料表，以及它參照或參照它的資料表）
+  relations_button: 關聯
+  relations_title: "關聯 · %{table}"
+  core: "中心：%{tables}"
+  expand: 展開選取的資料表
+  expand_hint: 再顯示選取卡片的相鄰資料表（多一層）
+  connecting: 連線中…
+pager:
+  first: 第一頁
+  prev: 上一頁
+  next: 下一頁（需要時會再取資料）
+  rows: "第 %{a}–%{b} 列，已取得 %{n} 列"
+  range: "%{a}–%{b}，共 %{total} 列"
+  many: 很多
+  loaded: "，已載入 %{n} 列"
+  paused: 查詢在伺服器上暫停中；按「下一頁」會繼續取資料。
+  expired: 其餘資料已無法取得（暫停中的查詢已釋放）。重新執行才能看到更多。
+  load_all: 全部載入
+  load_all_hint: "取回剩下的所有資料（最多保留 %{cap} 列）"
+welcome:
+  title: 連線到資料庫
+  subtitle: "「%{space}」還沒有連線。貼上 URL 或選擇資料庫類型。"
+shell:
+  search: 搜尋…
+  search_tip: 搜尋與指令（Ctrl+K）
+  toggle_sidebar: 顯示 / 收合側欄（Ctrl+B）
+  no_conns: 此 Space 沒有連線 — 新增…
+  new_query: 新增查詢
+  new_query_here: 在此連線新增查詢
+  conn_options: 連線選項
+  use_in_tab: 用於目前分頁
+  conn_idle: 閒置 — 點擊連線
+  conn_retry: 連線失敗 — 點擊重試
+  filter_tabs: 篩選分頁
+  filter_placeholder: 篩選分頁或連線名稱…
+  split_group: "分割 · %{n} 格"
+  unsaved: 未儲存
+  state_ok: 已連線
+  state_ok_ms: "已連線 · %{ms} ms"
+  state_slow: "延遲偏高 · %{ms} ms"
+  state_failed: 連線失敗
+  state_idle: 未連線
+  stop: 停止
+  run_options: 執行選項
+  run_current: 執行目前語句 / 選取
+  run_all: 執行全部
+  save: 儲存查詢（Ctrl+S）
+  right_panel: 右側面板（Ctrl+J）
+  rail_schema: Schema（Ctrl+J）
+  rail_history: 查詢紀錄
+  settings: 設定（Ctrl+,）
+  panel_schema: Schema
+  panel_history: 查詢紀錄
+  schema_search: 搜尋已載入的資料表、欄位、函式
+  no_match: 已載入的項目中沒有符合的
+  ln_col: "第 %{ln} 行，第 %{col} 欄"
+  ran_in: "執行 %{t}"
+  space_unsaved: "%{space} · %{n} 個未儲存"
+  act_schema: 顯示 / 隱藏 Schema 面板
+  act_history: 顯示 / 隱藏查詢紀錄
+  space_tint: Space 色調
+  space_tint_note: Space 顏色染在視窗背景上的強度。
+
+prod:
+  env: 環境
+  env_local: 本機
+  env_dev: 開發
+  env_staging: 測試
+  env_team: 團隊
+  env_prod: 正式
+  env_note: "正式環境連線預設唯讀；寫入與 DDL 需先解鎖（輸入連線名稱），並寫入稽核紀錄。"
+  chip_ro: Production · 唯讀
+  chip_rw_min: "Production · 可寫入 %{n} 分鐘"
+  chip_rw_next: Production · 可寫入 · 僅下一次執行
+  chip_rw: Production · 可寫入
+  chip_plain: 讀 / 寫
+  chip_tip_locked: 點擊解除鎖定
+  chip_tip_unlocked: 點擊立即重新鎖定
+  bar_name: Production
+  bar_locked: 已鎖定為唯讀。寫入與 DDL 需先解除鎖定，並輸入連線名稱二次確認。
+  bar_unlocked: 寫入已解鎖。每個寫入語句仍需逐次確認並記錄稽核。
+  bar_unlock: 解除鎖定…
+  bar_lock: 立即鎖回
+  unlock_title: 解除 Production 寫入鎖定
+  unlock_warn: "你即將允許對 %{name}（%{engine} · %{host}）執行寫入、DDL 與刪除。解鎖期間，每個寫入語句仍需逐次確認。"
+  unlock_for: 解鎖時效
+  dur_minute: 1 分鐘
+  dur_minutes: "%{n} 分鐘"
+  dur_seconds: "%{n} 秒"
+  dur_next: 僅下一次執行
+  dur_disc: 直到中斷連線
+  reason: 原因（寫入稽核紀錄）
+  reason_ph: 例如 JIRA-4412 修正資料
+  type_name: "請輸入連線名稱以確認：%{name}"
+  unlock_btn: 解除鎖定
+  blocked_title: 已阻擋：Production 為唯讀
+  blocked_body: "這個 %{kw} 會修改 %{name}。目前連線為唯讀，語句沒有被送出。"
+  unlock_more: 解除鎖定…
+  run_elsewhere: 改在非 Production 連線執行
+  confirm_title: "確認執行 %{kw}"
+  confirm_target: 目標
+  confirm_no_where: "沒有 WHERE 條件 — 會影響整張資料表。"
+  confirm_multi: "%{n} 個寫入語句：%{kws}"
+  confirm_type: "輸入 %{kw} 以啟用按鈕"
+  confirm_btn: "執行 %{kw}"
+  lock_all: 鎖定所有 Production 連線
+  setting_confirm: 在非 Production 連線寫入前先確認
+  on: 開
+  off: 關
+  setting_note: Production 連線不論此設定一律會確認。
+  relock_expired: Production 連線已自動鎖回（時間到）
+
+# --- results-tools: editor tools and the result area -----------------------------
+tools:
+  format: 格式化 SQL
+  find: 在編輯器中尋找
+  replace: 在編輯器中取代
+  explain: Explain（查詢計畫）
+  explain_analyze: Explain Analyze（會執行語句）
+rt:
+  data: 資料
+  plan: 查詢計畫
+  messages: 訊息
+  stats: 統計
+  no_result_title: 這個語句沒有結果集
+  no_result_body: DDL 與寫入語句不會回傳資料列。執行結果與影響列數顯示在「訊息」。
+  view_messages: 查看訊息
+  messages_footer: "%{n} 則訊息"
+filter:
+  placeholder: "篩選列，例如 status = 'paid'"
+  range: "第 %{a}–%{b} 列 / 共 %{total} 列（已篩選，原 %{all}）"
+  scanning: " · 篩選中…"
+copy:
+  button: 複製為
+  tooltip: "以所選格式複製選取範圍，未選取時複製全部已載入的列（最多 %{cap} 列）"
+  csv: 複製為 CSV
+  json: 複製為 JSON
+  insert: 複製為 INSERT 語句
+  markdown: 複製為 Markdown 表格
+  done: "已複製 %{rows}（%{fmt}）"
+  done_capped: "已複製前 %{n} 列（共 %{total} 列，%{fmt}；複製上限為 %{cap} 列）"
+  nothing: 沒有可複製的內容
+plan:
+  idle_title: 尚無查詢計畫
+  idle_body: "按 Explain（Ctrl+E）查看游標所在語句的計畫；從「執行」選單選 Explain Analyze 可看實測時間（會實際執行該語句）。"
+  running: 正在讀取計畫…
+  running_analyze: 正在執行語句並量測…
+  failed: 無法讀取查詢計畫
+  basis_cost: 長條 = 預估成本的佔比
+  basis_time: 長條 = 實測時間的佔比
+  basis_rows: 長條 = 預估列數的佔比（伺服器沒有提供成本）
+  basis_none: 沒有成本數字
+  cost: "預估成本 %{v}"
+  actual: "實際執行 %{v} ms"
+  actual_run: 已執行
+  planning: "規劃 %{v} ms"
+  took: "讀取耗時 %{v}"
+stats:
+  never: 這個分頁還沒有執行過。
+  status: 狀態
+  kind: 語句類型
+  statements: 語句數
+  rows: 回傳列數
+  affected: 影響列數
+  elapsed: 總耗時
+  first_row: 首個結果出現時間
+  fetch: 取回時間（首個結果之後）
+  row_limit: 列數上限
+  truncated: 已在記憶體上限停止
+  footer: "%{phase} · %{elapsed}"
+explain:
+  button: Explain
+  tooltip: "顯示游標所在語句的查詢計畫（Ctrl+E）"
+  menu: Explain
+  menu_analyze: Explain Analyze
+  unsupported_engine: Oracle 目前不支援 Explain。
+  unsupported_statement: Explain 只適用於 SELECT、INSERT、UPDATE、DELETE 語句。
+  no_statement: 沒有可以 Explain 的語句。
+format:
+  tooltip: "格式化 SQL（Shift+Alt+F）"
+  done: 已格式化 SQL
+  done_selection: 已格式化選取範圍
+  unchanged: "沒有變更：SQL 已是格式化後的樣子，或格式化器無法確定地讀懂它（字串未結束、括號不成對、預存程序本體、DELIMITER…）。"
+  upper: 大寫
+  as_typed: 保持原樣
+  setting_keywords: "格式化 SQL：關鍵字"
+  setting_indent: "格式化 SQL：縮排（空格數）"
+find:
+  tooltip: "尋找 / 取代（編輯器內 Ctrl+F、Ctrl+H）"
+# ---- er-app: diagram tabs v3 ----
+erv3:
+  arrange: 自動排列
+  centre_tag: 中心
+  conn_open: 這個結構描述的關聯圖
+  act_open: "關聯圖：目前連線與結構描述"
+  scope_all: 整個結構描述
+  scope_centre: "以 %{table} 為中心"
+  scope_tables: 此查詢使用的資料表
+  scope_n: "%{scope} · %{n} 張表"
+  query_title: "關聯圖 · 此查詢"
+  depth_hint: 從中心資料表起算的外部索引鍵層數
+  depth_1: 往外 1 層
+  depth_n: "往外 %{n} 層"
+  depth_all: 全部相連
+  show_whole: 顯示整個結構描述
+  show_hidden: 顯示已隱藏的資料表
+  zoom_out: 縮小（Ctrl+滾輪）
+  zoom_in: 放大
+  export: 匯出
+  copy_mermaid: 複製為 Mermaid
+  copy_ddl: 複製這些資料表的 DDL
+  copied_mermaid: 已複製 Mermaid
+  copied_ddl: "已複製 %{n} 張表的 CREATE TABLE"
+  counts: "%{n} 張表 · %{fk} 個外部索引鍵"
+  hint: 拖曳表頭移動 · 雙擊開啟查詢 · 點連線插入 JOIN · Ctrl+滾輪縮放
+  m_centre: 以此表為中心
+  m_query: 開啟查詢
+  m_schema: 在結構描述面板顯示
+  m_hide: 從圖中隱藏
+  no_schema: 這個連線還沒有已知的結構描述。請先在結構描述面板展開連線。
+  palette_schema: "關聯圖：%{schema}（%{conn}）"
+  palette_centre: "關聯圖：以 %{table} 為中心（%{conn}）"
+  join_inserted: "已插入 JOIN 到「%{tab}」"
+  join_copied: "圖旁沒有查詢窗格，已複製：%{sql}"
+  relations_query: 這次查詢用到的資料表之間的關聯
+# ---- History, Settings and palette (task: history-settings) ----
+hp:
+  tab_title: 查詢紀錄
+  subtitle: 所有連線的執行紀錄 · 每個連線保留 1,000 筆
+  search: 搜尋 SQL
+  f_all: 全部
+  f_ok: 成功
+  f_err: 失敗
+  f_cancel: 已取消
+  all_conns: 所有連線
+  count: "%{n} 筆"
+  empty: 執行過的查詢會列在這裡。
+  no_match: 沒有符合條件的紀錄。
+  today: 今天
+  yesterday: 昨天
+  wd0: 週日
+  wd1: 週一
+  wd2: 週二
+  wd3: 週三
+  wd4: 週四
+  wd5: 週五
+  wd6: 週六
+  error: 錯誤
+  cancelled: 已取消
+  copy: 複製 SQL
+  open: 開啟為新查詢
+  rerun: 重新執行
+  unknown_conn: 連線已刪除
+sp:
+  subtitle: 變更會立即套用
+  search: 搜尋設定
+  cat_general: 一般
+  cat_appearance: 外觀
+  cat_queries: 查詢與結果
+  cat_editor: 編輯器
+  d_fmt_case: 格式化 SQL（Shift+Alt+F）時關鍵字的大小寫。
+  d_fmt_indent: 格式化 SQL 時每層縮排的空格數。
+  cat_production: Production
+  cat_shortcuts: 快捷鍵
+  cat_about: 關於
+  about_name: Locus
+  about_tagline: 快速的桌面 SQL 用戶端。
+  about_version: 版本
+  about_license: 授權
+  d_language: 整個介面的語言。
+  d_theme: 淺色、深色，或跟隨 Windows。
+  d_font: 介面與編輯器文字的大小。
+  d_motion: 動畫讓你分心時可以關閉。
+  d_material: 視窗背景透出的材質。
+  d_translucency: 選了材質時，視窗底色的透明程度。
+  d_cap: 結果達到這個列數時，查詢會中止並附上說明。
+  d_idle: 分頁查詢會佔著伺服器游標，閒置這麼久後釋放。
+  d_auto_plan: 單句 SELECT 執行完後，在背景跑一般 EXPLAIN（不會用 ANALYZE），計畫分頁就會有內容。僅限 MySQL 與 PostgreSQL。
+  d_count: 在背景計算分頁 SELECT 的總列數，顯示「共 N 列」。
+  no_match: "沒有符合「%{q}」的設定"
+  k_space: 切換 Space
+  k_copy: 複製選取的儲存格
+  k_palette: 命令面板
+pal:
+  act_history: 開啟查詢紀錄
+  placeholder: "搜尋…   > 指令   @ 分頁   # 資料表   ! 歷史   $ 連線"
+  s_all: 全部
+  s_commands: 指令
+  s_tabs: 分頁
+  s_objects: 資料表
+  s_history: 歷史
+  s_connections: 連線
+  g_recent: 最近使用
+  g_commands: 指令
+  g_tabs: 已開啟分頁
+  g_tables: 資料表
+  g_views: 檢視表
+  g_schemas: Schema
+  g_history: 查詢歷史
+  g_connections: 連線
+  no_catalog: 這個 Space 的連線用過之後，資料表會列在這裡（在編輯器輸入，或開啟 Schema 面板）。
+  empty_scope: 這裡還沒有東西。
+  no_match: "找不到「%{q}」"
+  h_select: 選取
+  h_open: 開啟
+  h_scope: 切換範圍
+  h_all_spaces: 搜尋所有 Space · 模糊比對
+export_filter:
+  note: "只會匯出篩選後顯示的 %{n} 列（共 %{total} 列）。"
+  done: "已將 %{n} / %{total} 列（已篩選）匯出到 %{path}"
+
+
+split2:
+  act_zoom: 暫時放大目前格子 / 還原
+  act_new: "分割：在右側開新查詢"
+  act_unsplit: "分割：解除目前分割（保留分頁）"
+  zoom_tip: 暫時放大這一格（Ctrl+Shift+M）
+  restore_tip: 還原分割（Ctrl+Shift+M、Esc）
+  row_tip: 點擊切換焦點；把分頁拖到這裡可加為一格
+  expand: 展開各格
+  collapse: 收合
+  menu_zoom: 暫時放大目前格子
+  dissolve: 解除分割（保留分頁）
+  close_group: 關閉整組分頁
+  remove: 移出分割
+  drag_out: 拖出此列即可移出分割
+  full_title: "已達 %{n} 格上限"
+  full_body: "一組分割最多 %{n} 格，再多每格的編輯器與結果都會太小，也容易在錯的格子按下執行。"
+  full_ask: "「%{name}」要怎麼放？"
+  replace: 取代目前這一格
+  new_group: 開成新的分割組
+
+t0:
+  translucency: "側邊欄與標題列透明度"
+  d_translucency: "選了視窗材質時，側邊欄與標題列比預設更透明多少（編輯器、結果與頁面維持不透明）。數字越大，透出的背景越多。"
+  tr_default: "預設"
+  mat_mica: "Mica（預設）"
+
+t3:
+  pal_placeholder: "搜尋…"
+  d_translucency: "只有側邊欄與標題列會在選用視窗材質時變得更透明；編輯器、結果與頁面維持不透明。第一項為預設，越往右越能看到視窗後方。"
+
+t2:
+  editor_placeholder: "輸入 SQL…"
+  run_hint: "按 Ctrl+Enter 執行"
+  diagram_fit: "符合視窗"
+  diagram_fit_tip: "將整張圖縮放到視窗大小"
+
+t4:
+  env_help: "告訴程式這個資料庫要多小心對待，並在側邊欄的連線上顯示標章。只有「正式」會改變你能做的事。"
+  env_desc_local: "你自己的電腦或可隨意丟棄的資料庫。變更會立即執行。"
+  env_desc_dev: "多人共用的開發資料庫。變更會立即執行；也可以在設定中改成執行前先確認。"
+  env_desc_staging: "上線前用來測試的副本。變更會立即執行，寫入前請先確認連線。"
+  env_desc_team: "同事也在使用的資料庫。變更會立即執行並影響所有人，請小心。"
+  env_desc_prod: "正式資料。預設唯讀：要寫入或修改資料表必須先解鎖（輸入連線名稱），每次變更都會記錄。"
+  menu_move_space: "移到空間"
+  menu_new_here: "在此新增查詢"
+  menu_edit: "編輯連線…"
+  menu_delete: "刪除連線"
+  menu_split: "分割"
+  existing: "使用既有連線"
+  find_placeholder: "尋找"
+  replace_placeholder: "取代為"
+  find_case: "區分大小寫"
+  find_prev: "上一個"
+  find_next: "下一個（Enter）"
+  find_replace_toggle: "取代（Ctrl+H）"
+  find_close: "關閉（Esc）"
+  replace_one: "取代此項"
+  replace_all: "全部取代"
+
+routines:
+  kind_types: 型別
+  edit_source: "編輯原始碼"
+  compile: 編譯
+  save: "儲存到資料庫"
+  reload: 重新載入
+  overwrite: 覆寫
+  spec: 規格
+  body: 本體
+  valid: VALID
+  invalid: INVALID
+  open_error: "無法讀取原始碼：%{msg}"
+  empty: "沒有可儲存的內容：編輯器是空的。"
+  no_errors: "沒有編譯錯誤。編譯會把整段文字當成一個 CREATE OR REPLACE 送出。"
+  save_hint: "儲存到資料庫會把整段文字當成一個陳述式送出。"
+  errors_title: "%{n} 則編譯訊息（點一下跳到該行）"
+  compiled_ok: "已編譯：VALID"
+  compiled_errors: "編譯有錯誤：INVALID"
+  saved_ok: "已儲存到資料庫"
+  save_failed: "未儲存：%{msg}"
+  conflict_title: "伺服器上已被修改"
+  conflict_body: "自從你開啟後，有人在伺服器上修改了這個物件。重新載入會失去你的修改；覆寫會用你的版本取代對方的版本。"
+  drop_create_title: "以 DROP + CREATE 儲存？"
+  drop_create_body: "MySQL 無法直接取代常式：會先刪除舊的，再建立你的版本。這不是原子操作：若 CREATE 失敗，物件就會消失（你的文字仍留在編輯器中）。"
+
+# Grid selection statistics and foreign-key navigation
+selstats:
+  count: "已選 %{count} 格"
+  numeric: "已選 %{count} 格 · 總和 %{sum} · 平均 %{avg} · 最小 %{min} · 最大 %{max}"
+  tip: "點擊複製。NULL 不計入（%{nulls} 個 NULL）；數字統計只算 %{numeric} 個數值格。"
+fk:
+  open_ref: "開啟參照的資料列 · %{table}（%{cols}）"
+  show_ref: "顯示參照此列的資料 · %{table}（%{cols}）"
+  open_hint: "開啟參照的資料列（Ctrl+點擊）"
+
+runview:
+  status_idle: 就緒
+  status_connecting: 連線中…
+  status_running: 執行中…
+  status_streaming: "取回中… %{n} 列"
+  status_cancelling: 停止中…
+  status_paused: 已達上限 · 還有更多
+  status_done: 完成
+  status_cancelled: 已取消
+  status_failed: 失敗
+  status_released: 完成 · 其餘已釋放
+  status_capped: 已在記憶體上限停止
+  footer_streaming: "目前 %{n} 列…"
+  footer_paused_limit: "已顯示 %{n} 列（上限）· 還有更多"
+  footer_paused_total: "已顯示 %{n} / %{total} 列 · 還有更多"
+  footer_paused: "已顯示 %{n} 列 · 還有更多"
+  footer_done: "已載入全部 %{n} 列"
+  footer_cancelled: "已取消 · 保留 %{n} 列"
+  footer_failed: "失敗 · 已收到 %{n} 列"
+  footer_released: "已顯示 %{n} 列 · 其餘已釋放，重新執行才能看到更多"
+  footer_capped: "保留 %{n} 列 · 已在記憶體上限停止"
+  load_more: 載入更多
+  load_more_hint: 取回下一批資料
+  load_all: 全部載入
+  load_all_hint: "取回剩下的所有資料（到記憶體上限為止）"
+  release: 釋放
+  release_hint: 釋放伺服器游標，保留已顯示的資料
+  limit_hint: "列數上限：查詢取回 %{n} 列後暫停，並在伺服器保留游標。「載入更多」取下一批，「全部載入」取回其餘，「釋放」放掉游標。"
+  limit_hint_unlimited: "不限列數：取回所有資料，最多到設定中的記憶體上限。"
+
+sqlite:
+  engine: SQLite
+  file: 資料庫檔案
+  file_placeholder: C:\path\to\file.db
+  browse: 瀏覽…
+  browse_prompt: 選擇 SQLite 資料庫檔案
+  new_file: 新增檔案…
+  new_file_prompt: 建立 SQLite 資料庫檔案
+  read_only: 以唯讀方式開啟
+  read_only_note: 唯讀連線無論執行什麼都不會修改檔案。
+  err_file: 請選擇資料庫檔案。
+  err_create: "無法建立檔案：%{msg}"
+  note: "SQLite 連線就是本機上的一個檔案：不會儲存主機、使用者或密碼。"
+  explain_no_analyze: SQLite 沒有 Explain Analyze；請用 Explain 查看查詢計畫。
+  ro_no_pk_rowid: "資料表 %{table} 沒有主鍵。選取 rowid 即可編輯資料列：SELECT rowid, * FROM %{table}。"
+
+ssh:
+  page: SSH
+  enable: 透過 SSH 通道連線
+  note: "許多伺服器只能經由跳板機連到。此時上方的資料庫主機與連接埠是從跳板機那一側解析。"
+  host: SSH 主機
+  user: SSH 使用者
+  auth: 驗證方式
+  auth_password: 密碼
+  auth_key: 私密金鑰檔
+  auth_agent: SSH agent
+  key_file: 私密金鑰檔
+  password: SSH 密碼
+  passphrase: 金鑰密語（若有）
+  secret_store: 儲存在 Windows 認證管理員，不會寫進 connections.json。
+  secret_keep: 已儲存密碼。留空即保留。
+  agent_note: 使用 Windows OpenSSH agent 或 Pageant。
+  err_host: 請輸入 SSH 主機。
+  err_port: SSH 連接埠必須是 1 到 65535 的數字。
+  err_user: 請輸入 SSH 使用者。
+  err_key: 請選擇私密金鑰檔。
+  trust: "信任 %{host} 並重新測試"
+
+structure:
+  open: 結構
+  button: 結構
+  button_hint: 開啟這張資料表的結構（欄位、索引、鍵、DDL）
+  palette: "結構：%{table}（%{conn}）"
+  refresh: 重新整理
+  read_only: 唯讀結構
+  loading: 正在讀取結構…
+  failed: "無法讀取結構：%{msg}"
+  columns: 欄位
+  indexes: 索引
+  foreign_keys: 外鍵
+  triggers: 觸發器
+  checks: 檢查
+  ddl: DDL
+  col_name: 名稱
+  col_type: 型別
+  col_nullable: 可為空
+  col_default: 預設值
+  col_pk: 主鍵
+  col_auto: 自動遞增
+  col_comment: 註解
+  col_columns: 欄位
+  col_unique: 唯一
+  col_references: 參照
+  col_from: 來源
+  col_on_delete: 刪除時
+  col_on_update: 更新時
+  col_event: 時機與事件
+  col_expression: 運算式
+  empty_columns: 沒有欄位。
+  empty_indexes: 沒有索引。
+  empty_fks: 沒有外鍵，也沒有其他資料表參照這裡。
+  empty_triggers: 這張資料表沒有觸發器。點選觸發器可開啟其原始碼。
+  empty_checks: 沒有檢查條件。
+  fk_outgoing: "參照其他資料表（%{n}）"
+  fk_incoming: "被參照（%{n}）"
+  ddl_failed: "沒有 DDL：%{msg}"
+  copy_ddl: 複製
+  copied: 已複製 DDL。
+txn:
+  mode_auto: 自動認可
+  mode_manual: 手動
+  mode_tip: "此分頁的交易模式（Ctrl+Alt+T）。自動認可：每個陳述式各自認可。手動：第一個變更會在此分頁自己的連線上開始交易，以認可或復原結束。"
+  pill_open: "交易進行中 · %{n} 個陳述式 · %{conn}"
+  pill_aborted: "交易失敗 · %{n} 個陳述式 · %{conn} · 只能復原"
+  commit: 認可
+  rollback: 復原
+  cancel: 取消
+  commit_tip: 認可進行中的交易（Ctrl+Alt+Enter）
+  rollback_tip: 復原進行中的交易（Ctrl+Alt+Z）
+  act_commit: 認可交易
+  act_rollback: 復原交易
+  act_mode: "交易模式：自動認可 / 手動"
+  statements: "%{n} 個陳述式"
+  prompt_title: 有進行中的交易
+  prompt_body: "這些分頁有尚未認可的交易。請先認可或復原；取消則維持原狀。"
+  end_failed: "交易未能結束：%{msg}"
+  busy: 此分頁仍有陳述式在執行，請先停止或等待。
+  note_lost: 連線中斷，伺服器已復原進行中的交易。
+  note_server_rollback: 伺服器已復原整個交易（死結，或 SQLite 中斷的變更）。
+  note_aborted: "PostgreSQL：有陳述式失敗，交易已中止，只能復原。"
+  note_statement_undone: 伺服器只撤銷了該陳述式，交易仍在進行中。
+  note_ddl: DDL 已認可交易，下一個變更會開始新的交易。
+  note_typed: 交易已由指令碼中的 COMMIT / ROLLBACK 結束。
+  note_committed: 已認可。
+  note_rolled_back: 已復原。
+  apply_undone: 已撤銷這些編輯（復原到此次套用之前），交易仍在進行中。
+  idle_warning: "「%{name}」的交易已閒置 %{n} 分鐘，在認可或復原前會持有鎖定。"
+  idle_never: 永不
+  setting_prod_manual: Production 分頁以手動模式開始
+  setting_prod_manual_note: Production 連線的查詢分頁會在交易中執行，由你自行認可或復原。
+  setting_idle: 閒置交易警告
+  setting_idle_note: 手動交易在這段時間內沒有陳述式時發出警告。
+redis:
+  db_index: DB 編號 (0-15)
+  err_db: DB 編號必須是 0 到 15 的數字。
+  err_connect: 無法連線
+  err_command: 已連線，但伺服器拒絕了檢查指令
+  pattern: "樣式（例如 user:*），按 Enter 搜尋"
+  type_all: 全部
+  keys_count: "此 DB 共 %{n} 個 key · 已載入 %{loaded}"
+  keys_loaded: "已載入 %{loaded} 個 key"
+  refresh: 重新整理
+  loading: 載入中...
+  no_keys: 沒有 key
+  load_more: 載入更多
+  capped: "已在 %{n} 個 key 停止，請縮小樣式範圍。"
+  all_loaded: 符合的 key 已全部載入。
+  tab_browser: "Key · %{name}"
+  tab_console: "主控台 · %{name}"
+  tab_info: "伺服器 · %{name}"
+  conn_missing: 這個連線已不存在。
+  bad_tab: 無法還原這個 Redis 分頁。
+  use_browser: "Redis 沒有資料表，請從連線選單開啟「瀏覽 key」。"
+  menu_browse: 瀏覽 key
+  menu_console: Redis 主控台
+  menu_info: 伺服器資訊
+  blocked_prod: 這個正式環境連線已鎖定，解鎖後才能送出寫入指令。
+  unsupported_select: "此處不支援 SELECT，請使用 key 瀏覽器的 DB 切換。"
+  unsupported_stream: 這個指令會持續串流回應，主控台不支援。
+  unsupported_session: 這個指令會改變連線工作階段，主控台不支援。
+  unsupported_blocking: 主控台不支援阻塞型指令。
+  danger_title: 要執行這個指令嗎？
+  run_anyway: 執行
+  danger_flushall: FLUSHALL 會刪除所有資料庫中的所有 key。
+  danger_flushdb: FLUSHDB 會刪除這個資料庫中的所有 key。
+  danger_shutdown: SHUTDOWN 會停止伺服器。
+  danger_debug: DEBUG 可能使伺服器當機或停滯。
+  danger_config_set: CONFIG SET 會修改執行中的伺服器設定。
+  danger_keys: KEYS 會走訪整個鍵空間，在大型資料庫上會卡住伺服器。請改用 key 瀏覽器 (SCAN)。
+  danger_admin: 這個指令會改變伺服器、使用者或腳本。
+  console_hint: 輸入指令，例如 GET user:1（Enter 或 Ctrl+Enter 送出，上下鍵翻歷史）
+  console_empty: 回應會以樹狀顯示在這裡。
+  run: 執行
+  show_all: 全部欄位
+  binary_readonly: 這個值是二進位內容，僅供唯讀檢視。
+  too_big_edit: 這個值比已載入的內容大，無法在此編輯。
+  edit_value: 編輯值
+  save: 儲存
+  ttl_invalid: "請輸入秒數或 30s、10m、2h、1d；留空或 0 表示移除到期時間。"
+  ttl_title: 存活時間
+  ttl_hint: "到期時間（秒，或 10m / 2h / 1d），留空 = 永不過期"
+  rename_title: 重新命名 key
+  new_name: 新名稱
+  rename: 重新命名
+  delete_title: 刪除 key
+  delete_body: "要刪除 %{key} 嗎？此動作無法復原。"
+  delete: 刪除
+  add_field: 新增欄位
+  field: 欄位
+  value: 值
+  push_tail: 從尾端加入
+  push_head: 從開頭加入
+  add_member: 新增成員
+  member: 成員
+  score: 分數
+  edit_score: 編輯分數
+  score_invalid: 分數必須是數字。
+  add: 新增
+  bytes: "%{n} 位元組"
+  items: "%{n} 筆"
+  fmt_auto: 自動
+  fmt_raw: 原始
+  str_capped: "僅顯示前 %{n}"
+  key_missing: 這個 key 不存在（或已被刪除）。
+  type_unsupported: "此處不顯示 %{ty} 型別。"
+  json_invalid: 這不是有效的 JSON。
+  empty: 空
+  range: "%{from}-%{to}／共 %{total}"
+  shown: "已顯示 %{n}／共 %{total}"
+
+wavea:
+  wrong_part: "這段文字建立的是 package 的%{want}，但目前開啟的是%{active}。請先切換到%{want}分頁。"
+  part_spec: 規格（Spec）
+  part_body: 本體（Body）
+  first_of: "顯示前 %{n}／共 %{total}"
+  first_n: "顯示前 %{n}（伺服器上還有更多）"
+  load_more: 載入更多
+  sqlite_ro_blocked: "這個 SQLite 檔案以唯讀開啟，語句沒有送出。要寫入請編輯連線並取消勾選「以唯讀開啟」。"
+  chip_ro: 唯讀
+  shared_title: 編譯共用物件
+  shared_not_owner: "你以 %{user} 連線，但 %{name} 屬於 %{owner}。編譯會立刻取代伺服器上 %{owner}.%{name} 的程式碼，所有使用者都會執行新版本。"
+  shared_apps: "你以 APPS 連線，這是 Oracle E-Business Suite 的共用 schema。編譯 %{owner}.%{name} 會立刻更動伺服器上所有模組與使用者共用的物件。"
+  shared_type: "請輸入物件名稱 %{name} 以繼續。"
+imp:
+  title: 匯入資料
+  menu_into: 匯入資料…
+  menu_new: 匯入成新資料表…
+  palette: "從檔案匯入資料…"
+  s_file: 1 檔案
+  s_map: 2 欄位
+  s_opts: 3 選項
+  s_run: 4 匯入
+  choose: 選擇檔案…
+  no_file: 尚未選擇檔案（.csv .tsv .txt .xlsx .xls .ods）
+  new_table: 新資料表名稱
+  new_table_ph: 資料表名稱
+  target: 匯入至
+  sheet: 工作表
+  delimiter: 分隔字元
+  quote: 引號
+  header: 第一列為標題
+  encoding: 編碼
+  yes: 是
+  no: 否
+  preview: "預覽：前 %{n} 列"
+  skip: 略過
+  use: 使用
+  map_hint: "點選目標欄位可切換；設為「略過」的欄位不會匯入。"
+  new_hint: "新資料表的欄位名稱與 SQL 型別（推測不準時請自行修改）。"
+  empty_null: 空白值存成 NULL
+  trim: 去除前後空白
+  date_format: "日期格式（留空＝自動，例如 %d/%m/%Y）"
+  date_ph: "自動：2024-03-05"
+  on_error: 發生錯誤時
+  on_stop: 停止
+  on_skip: 略過該列並記錄
+  save_errors: 將失敗的列存成 CSV（放在原檔旁）
+  tx: 交易
+  tx_single: 整個檔案一個交易
+  tx_batch: 每批一個交易
+  batch: 每批筆數
+  clear: 匯入前先清空資料表
+  clear_confirm: "匯入前會刪除 %{table} 的所有資料。請再按一次按鈕確認。"
+  back: 上一步
+  next: 下一步
+  run: 匯入
+  run_confirm: 刪除資料並匯入
+  close: 關閉
+  err_table: 請輸入資料表名稱。
+  err_no_map: 沒有任何欄位對應。
+  err_cols: 欄位名稱與型別必須填寫且不可重複。
+  progress: "已讀 %{read} · 已寫入 %{ok} · 已略過 %{skipped} · %{rate} 列/秒"
+  done: "已匯入 %{n} 列，略過 %{skipped} 列，耗時 %{secs} 秒。"
+  failed: "匯入已停止：%{msg}"
+  rolled_back: 已全部復原。
+  cancelled_rolled: 已取消，所有變更已復原，資料表維持原樣。
+  cancelled_kept: "已取消，已完成批次的 %{n} 列保留在資料表中。"
+  errors_saved: "失敗的列已存到 %{path}"
+
+act:
+  menu: 伺服器活動
+  palette: "伺服器活動：%{name}"
+  tab_title: "活動 · %{name}"
+  conn_missing: 這個連線已不存在。
+  sessions: 連線階段
+  variables: 變數
+  status: 狀態
+  refresh: 重新整理
+  filter_ph: 篩選
+  auto: 自動重新整理
+  interval_off: 關閉
+  n_sessions: "%{n} 個階段"
+  n_rows: "%{n} 列"
+  col_id: 編號
+  col_user: 使用者
+  col_host: 主機
+  col_db: 資料庫
+  col_state: 狀態
+  col_time: 時間
+  col_sql: SQL
+  mine: （你）
+  loading: 載入中…
+  no_rows: 沒有可顯示的內容。
+  pick: 選一個階段，即可查看其 SQL 並終止它。
+  no_sql: 沒有語句。
+  copy_sql: 複製 SQL
+  open_in_tab: 在查詢分頁開啟
+  copy_kill: 複製終止語句
+  kill_query: 終止查詢
+  kill_session: 終止階段
+  kill_go: 終止
+  copy_all: 全部複製
+  click_copy: 點一下複製
+  copied: 已複製。
+  killed: 完成。
+  kill_failed: "終止失敗：%{msg}"
+  own_refused: 這是伺服器活動頁自己使用的階段，終止它會讓本頁斷線，所以已拒絕。
+  kill_unsupported: 這個伺服器沒有這項操作。
+  confirm_query: 終止執行中的查詢？
+  confirm_session: 終止這個階段？
+  confirm_body: "階段 %{id}（%{user} 於 %{host}）正在執行：%{sql}"
+  oracle_type: "請輸入 %{name} 以確認。階段會立刻在伺服器上結束。"
+qp:
+  title: 查詢參數
+  hint: "參數值以繫結參數送出，不會貼進 SQL 文字。按 Enter 執行。"
+  run: 執行
+  one_statement: 參數一次只能搭配一個陳述式。請選取單一陳述式後再執行。
+  type_tip: "點一下切換類型：文字、數字、日期、NULL"
+  not_number: 不是數字
+  t_text: 文字
+  t_number: 數字
+  t_date: 日期
+  t_null: NULL
+sq:
+  tab_title: 已儲存
+  subtitle: 已儲存的查詢與程式碼片段
+  act_save: 將查詢儲存到資料庫…
+  act_open: 已儲存的查詢與程式碼片段
+  s_saved: 已儲存
+  g_saved: 已儲存的查詢
+  search: 搜尋已儲存的查詢
+  queries: 查詢
+  snippets: 程式碼片段
+  import: 匯入…
+  export: 匯出…
+  imported: "已匯入 %{n} 個已儲存的查詢。"
+  import_failed: "無法匯入：%{msg}"
+  exported: 已匯出已儲存的查詢。
+  export_failed: "無法匯出：%{msg}"
+  unfiled: 未分資料夾
+  empty: "尚無已儲存的查詢。在命令面板使用「將查詢儲存到資料庫」即可加入目前的 SQL。"
+  no_match: 沒有符合的已儲存查詢。
+  pick: 請在左側選擇一個已儲存的查詢。
+  f_name: 名稱
+  f_folder: 資料夾
+  f_desc: 說明
+  f_conn: 連線
+  any_conn: 任何連線
+  save_changes: 儲存變更
+  delete: 刪除
+  open: 在新分頁開啟
+  run: 開啟並執行
+  name_required: 必須輸入名稱。
+  nothing_to_save: 沒有可儲存的 SQL。
+  save_title: 儲存查詢
+  saved_toast: 已儲存到資料庫。
+  s_prefix: 前綴
+  prefix_invalid: "前綴只能包含字母、數字與底線。"
+  builtin: 內建
+  new_snippet: 新增片段
+  snip_hint: "在編輯器輸入前綴，再從自動完成選取。${1:預設} 標示要填寫的位置；會插入預設文字。"
+  fk_on: 依外鍵產生的 JOIN 條件
+
+exp2:
+  title: 匯出
+  export_btn: 匯出…
+  cancel_btn: 取消
+  fmt_csv: CSV
+  fmt_csv_excel: CSV（Excel 用）
+  fmt_xlsx: Excel（.xlsx）
+  fmt_json: JSON
+  fmt_jsonl: JSON Lines
+  fmt_sql: SQL INSERT
+  fmt_tsv: TSV
+  fmt_md: Markdown 表格
+  fmt_html: HTML 表格
+  desc_csv: 逗號分隔的 UTF-8 文字，通用。
+  desc_csv_excel: 帶 UTF-8 BOM 的 CSV，Excel 開啟中文不會亂碼。
+  desc_xlsx: 活頁簿，標題列粗體並凍結，數字與日期為真正的儲存格；超過 1,048,576 列自動分頁。
+  desc_json: 單一物件陣列，數字保持為數字，NULL 為 null。
+  desc_jsonl: 每行一個 JSON 物件，方便串流與匯入。
+  desc_sql: 依本資料庫引號規則產生的 INSERT 語句，每句可含多列。
+  desc_tsv: 以 Tab 分隔的文字，Tab 與換行會被跳脫。
+  desc_md: 直線分隔的表格，可貼到文件與 issue。
+  desc_html: 含一個表格的網頁。
+  src_loaded: "網格中已載入的列（%{n}），套用目前的篩選與排序"
+  src_loaded_none: 網格中沒有已載入的列
+  src_full: 完整查詢結果（從伺服器取得）
+  full_note: 查詢會在另一條連線上重新執行，資料直接寫入檔案，因此任何大小都只佔用少量記憶體。網格的篩選與排序不會套用。取消時會在伺服器上停止查詢。
+  full_refused: "無法匯出完整結果：%{why}"
+  full_none: 沒有可重新執行的語句。
+  full_multi: 編輯器內有多個語句，請先單獨執行要匯出的那一個。
+  full_not_select: 只有讀取（SELECT）可以為匯出重新執行。
+  table_name: INSERT 語句中的資料表名稱
+  batch_rows: 每句的列數
+  header: 第一行寫入欄位名稱
+  open_folder: 完成後在資料夾中顯示檔案
+  xlsx_note: "數字與日期寫成儲存格，NULL 為空白儲存格，過長的文字會依 Excel 的 32,767 字元上限截斷。超過 1,048,576 列時會接續到下一個工作表。"
+  progress_full: "從伺服器匯出：%{rows} 列 · %{mb} MB · %{rate} 列/秒"
+  export_table: 匯出資料表…
+  copy_tsv: TSV
+  copy_jsonl: JSON Lines
+  copy_html: HTML 表格
+
+redis2:
+  deleted: "已刪除 %{n} 個 key"
+  key_name: Key 名稱
+  new_key: "新增 %{ty} key"
+  add_key: 新增 key
+  view_list: 以平面清單顯示
+  view_tree: 以樹狀顯示（依 ":" 分層）
+  delete_prefix: "刪除 %{prefix} 底下所有 key…"
+  delete_prefix_body: "刪除所有以 %{prefix} 開頭的 key？已載入 %{n} 個，其餘會向伺服器掃描。此動作無法復原。"
+  delete_selected: "刪除已選的 %{n} 個"
+  delete_many_body: "刪除已選的 %{n} 個 key？此動作無法復原。"
+  scanned: "已掃描 %{n} / %{total} 個 key"
+  copy_name: 複製 key 名稱
+  set_ttl: 設定 TTL…
+  click_rename: 點一下重新命名
+  click_ttl: 點一下修改到期時間
+  locked_tip: 這個 Production 連線已鎖定，點一下解鎖。
+  locked: 已鎖定
+  memory: 記憶體
+  pick_key: 選一個 key 來查看內容
+  db_keys: "DB %{db} · %{n} 個 key"
+  status_keys: "DB %{db} · %{n} 個 key"
+  slow_empty: 沒有記錄到慢指令。
+  menu_slow: 慢查詢紀錄
+  ago: "%{t} 前"
+viewer2:
+  text: 文字
+  image: 圖片
+  copy: 複製
+  save: 另存新檔…
+  saved: "已儲存到 %{path}"
+  save_failed: "無法儲存：%{err}"
+  wrap_on: 自動換行
+  wrap_off: 不換行
+  expand_all: 全部展開
+  collapse_all: 全部收合
+  copy_path: 複製路徑
+  copy_node: 複製值
+  no_selection: 選一個節點可看到它的路徑
+  bytes: "%{n} 位元組"
+  lines: "%{n} 行"
+  formatted: 已格式化
+  open: 檢視器
+hp2:
+  params: "參數"
+gate:
+  fn_note: SELECT 裡呼叫的函式不會檢查是否有副作用。
+dataerr:
+  datafile: "無法讀取 %{file}，已另存為 %{backup}。重新啟動前不會儲存對它的變更（下次啟動會從空白的 %{file} 開始）。"
+  settings_save: "無法儲存設定：%{msg}"
+  history_save: "無法儲存查詢歷史：%{msg}"
+  saved_save: "無法儲存常用查詢或片段：%{msg}"
+  spaces_save: "無法儲存工作區配置：%{msg}"
+  cred_delete: "連線已刪除，但無法從 Windows 認證管理員移除其密碼：%{msg}"
+
+keymap:
+  invalid: "keymap.json：有 %{n} 個項目無法使用，已略過（詳情請見記錄檔）。"

@@ -1,0 +1,223 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # Panics only need line numbers. Full debuginfo is most of the link time and the cache size.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+  # rust-lld links the test binaries much faster than link.exe.
+  CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER: rust-lld
+
+# Actions are pinned to commit SHAs (Dependabot bumps them with the version comment). Lint, unit
+# tests and the integration tests run as separate jobs so they finish in parallel. Caches are saved
+# on main only: PR caches can't be shared and would push main's out of the 10 GB limit.
+jobs:
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # A PR that only touches docs skips the Rust jobs (they show as skipped, which counts as passed).
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          docs='^((README|CONTRIBUTING|SECURITY|CHANGELOG)[^/]*\.md|LICENSE|THIRD_PARTY_LICENSES\.md|docs/.*|\.changeset/.*|\.github/assets/.*|\.github/ISSUE_TEMPLATE/.*)$'
+          if [ "$EVENT" != pull_request ] || git diff --name-only "$BASE...$HEAD" | grep -qvE "$docs"; then
+            echo code=true >> "$GITHUB_OUTPUT"
+          else
+            echo code=false >> "$GITHUB_OUTPUT"
+          fi
+
+  lint:
+    name: fmt · typos · shear · clippy
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: toolchain (rust-toolchain.toml)
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: lint
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
+        with:
+          tool: cargo-shear@1.14.1,typos@1.52.2
+      - name: fmt
+        run: cargo fmt --all --check
+      - name: typos
+        run: typos
+      - name: unused dependencies
+        run: cargo shear
+      - name: clippy
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
+
+  # Unit tests (lib and bin targets): no servers needed.
+  test:
+    name: test
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: toolchain (rust-toolchain.toml)
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: test
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
+        with:
+          tool: cargo-nextest@0.9.152
+      - name: test
+        run: cargo nextest run --locked --workspace --lib --bins --profile ci
+
+  # The tests in crates/*/tests against real servers: MariaDB, Redis and PostgreSQL started by
+  # scripts/ci/setup-*.ps1 (the same scripts run locally) and the Go sidecar. The Oracle tests
+  # (oracle_live, routines_live, structure_live) are #[ignore] and need a server we don't have:
+  # nextest skips ignored tests unless asked, and only db-redis is asked below.
+  integration:
+    name: integration (MariaDB · Redis · PostgreSQL · sidecar)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      # Optimized like the real build (the throughput and latency tests need it), but without LTO and
+      # with parallel codegen: tests don't need the last 10%, and the compile is far shorter.
+      CARGO_PROFILE_RELEASE_LTO: "off"
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
+      # Shared runners are slower and noisier than a developer machine: every timing limit in the
+      # tests is multiplied by this (see crates/*/tests/common/mod.rs and .config/nextest.toml).
+      LOCUS_TEST_SLACK: "4"
+      PG_TEST_TLS: disabled
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: toolchain (rust-toolchain.toml)
+        run: rustup toolchain install
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: sidecar/go.mod
+          cache-dependency-path: sidecar/go.sum
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: integration
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
+        with:
+          tool: cargo-nextest@0.9.152
+      # The pinned MariaDB (91 MB) and Redis zips; the scripts check their SHA-256 either way.
+      - id: dl
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ci-tools/downloads
+          key: ci-downloads-${{ hashFiles('scripts/ci/setup-mariadb.ps1', 'scripts/ci/setup-redis.ps1') }}
+      - name: build the Go sidecar
+        timeout-minutes: 5
+        run: ./sidecar/build.ps1
+      # Compile while nothing else is running; the servers start right before the tests.
+      - name: build the tests
+        timeout-minutes: 30
+        run: cargo nextest run --locked --release --workspace --no-run -E 'kind(test)'
+      - name: MariaDB
+        timeout-minutes: 20
+        run: ./scripts/ci/setup-mariadb.ps1
+      - name: Redis
+        timeout-minutes: 5
+        run: ./scripts/ci/setup-redis.ps1
+      # Saved right after the downloads (archive.mariadb.org is slow), not at the end of the job, so a
+      # later failure does not lose them.
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: ${{ steps.dl.outputs.cache-hit != 'true' }}
+        with:
+          path: .ci-tools/downloads
+          key: ci-downloads-${{ hashFiles('scripts/ci/setup-mariadb.ps1', 'scripts/ci/setup-redis.ps1') }}
+      - name: PostgreSQL
+        timeout-minutes: 5
+        run: ./scripts/ci/setup-postgres.ps1
+      # The servers must outlive their setup steps (they are started outside the step's process tree).
+      - name: servers are up
+        timeout-minutes: 2
+        run: ./scripts/ci/check-services.ps1
+      - name: integration tests
+        timeout-minutes: 25
+        env:
+          LOCUS_DATA_DIR: ${{ runner.temp }}\locus-data
+        run: cargo nextest run --locked --release --workspace --profile integration -E 'kind(test)'
+      # Ignored on purpose in the normal run: they need REDIS_URL and only touch wb_test:* keys.
+      - name: Redis tests (#[ignore])
+        timeout-minutes: 5
+        env:
+          LOCUS_DATA_DIR: ${{ runner.temp }}\locus-data
+        run: cargo nextest run --locked --release -p db-redis --profile integration --run-ignored ignored-only
+      - name: server logs
+        if: ${{ failure() }}
+        run: |
+          foreach ($f in Get-ChildItem .ci-tools -Recurse -Include mariadbd.log, redis.out, postgres.log) {
+            Write-Host "::group::$($f.Name)"; Get-Content $f -Tail 80; Write-Host '::endgroup::'
+          }
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: integration-junit
+          path: target/nextest/integration/junit.xml
+          if-no-files-found: ignore
+          retention-days: 7
+
+  sidecar:
+    name: sidecar (go vet · go test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sidecar
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: sidecar/go.mod
+          cache-dependency-path: sidecar/go.sum
+      - run: go vet ./...
+      - run: go test ./...
+
+  deny:
+    name: licenses · advisories · bans
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: toolchain (rust-toolchain.toml)
+        run: rustup toolchain install
+      - uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
+        with:
+          tool: cargo-deny@0.22.0
+      - run: cargo deny --locked check

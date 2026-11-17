@@ -1,0 +1,1224 @@
+app:
+  title: Locus
+  title_with_space: "%{space} — %{name}"
+  title_with_space_only: "%{space} — Locus"
+common:
+  save: Save
+  cancel: Cancel
+sidebar:
+  connections: Connections
+  tabs: Tabs
+  add: Add a connection to this Space
+  add_new: New connection…
+  add_existing: Add an existing connection
+  edit: Edit connection
+  empty: No connections in this Space yet. Use + to add one.
+  toggle: "Sidebar: full, icons, hidden (Ctrl+B hides, Ctrl+Shift+B icons)"
+  move_conn_to: "Move to Space “%{space}”"
+  remove_conn: Remove from this Space
+  tls_unverified_tip: "Encrypted, but the server certificate is not checked: someone who can intercept the connection could pose as the server."
+  tls_disabled_tip: "Not encrypted: the password and every row travel in plain text."
+space:
+  default: My Space
+  new: New Space
+  new_name: "Space %{n}"
+  menu: Space options
+  rename: Rename Space
+  color: Colour
+  name: Name
+  icon: Icon
+  icon_none: Colour dot
+  colors:
+    c0: Blue
+    c1: Green
+    c2: Orange
+    c3: Pink
+    c4: Purple
+    c5: Teal
+    c6: Yellow
+    c7: Red
+  bind_folder: Bind folder…
+  unbind_folder: Unbind folder
+  delete_menu: Delete Space…
+  delete_title: "Delete “%{name}”?"
+  delete_body: "Its tabs are closed and running queries in them are cancelled. The connections stay saved and can be added to another Space."
+  delete: Delete Space
+  switch_tip: "%{name} (Ctrl+PgUp / Ctrl+PgDn: previous / next Space)"
+tab:
+  new: New tab (Ctrl+T)
+  untitled: Untitled query
+  close: Close tab (Ctrl+W)
+  rename: Rename
+  pin: Pin to top
+  unpin: Unpin
+  move_to: "Move to Space “%{space}”"
+  unsaved: Unsaved changes
+pane:
+  split_right: Split right (Ctrl+\)
+  split_down: Split down (Ctrl+Shift+\)
+  split_left: Split left (Ctrl+Shift+K ←)
+  split_up: Split up (Ctrl+Shift+K ↑)
+  unsplit: Close this pane (un-split)
+  close: Close pane (Ctrl+Shift+W)
+toolbar:
+  run: Run
+  run_hint: Run the selection, or the statement at the cursor (Ctrl+Enter)
+  run_script_hint: Run the whole script (Ctrl+Shift+Enter)
+  cancel_hint: Stop the running query on the server (Esc or Shift+F5)
+  pick_connection: Choose a connection
+  pick_connection_hint: Connection this tab uses
+  no_space_connections: This Space has no connections yet
+limit:
+  rows: "Limit %{n}"
+  unlimited: No row limit
+  hint: "Results are held in memory: at the limit the query is stopped on the server"
+state:
+  idle: Idle
+  connecting: Connecting…
+  running: Running…
+  cancelling: Cancelling…
+  paused: Paused, more rows available
+  done: Done
+  cancelled: Cancelled
+  failed: Failed
+status:
+  session: "Session %{id}"
+  no_session: No session
+fmt:
+  group_separator: ","
+  row_one: 1 row
+  rows: "%{n} rows"
+  ms: "%{v} ms"
+  seconds: "%{v} s"
+  minutes: "%{m} min %{s} s"
+results:
+  result: Result
+  result_n: "Result %{n}"
+  messages: "Messages (%{n})"
+  waiting: Waiting for the first rows…
+  note_cancelled: "Cancelled: showing the %{n} rows that had arrived."
+  note_failed: "The statement failed: showing the %{n} rows that had arrived. See Messages."
+  note_truncated: "Stopped at the row limit: showing the first %{n} rows."
+  cancelled_empty: Cancelled before any row arrived.
+msg:
+  rows: "%{n} returned"
+  affected: "%{n} affected"
+  truncated: "Truncated at %{n} rows (row limit)"
+  cancelled: "Cancelled after %{n}"
+  rows_kept: "%{n} kept"
+grid:
+  "null": "NULL"
+  empty: Run a query to see its results here.
+  no_rows: The query returned no rows.
+  bytes: "%{n} bytes"
+  default: (default)
+  copy_selection: Copy selection
+  copy_cell: Copy cell
+  edit_failed: 'This cell could not be opened for editing. Details were written to %APPDATA%\Locus\crash.log.'
+  copy_column_name: Copy column name
+  copy_column_names: Copy all column names
+  copy_row: Copy row
+  copy_csv: Copy row as CSV
+  copy_insert: Copy row as INSERT
+  view_value: View value…
+  edit_cell: Edit cell
+  set_null: Set NULL
+  add_row: Add row
+  delete_row: Delete / restore row
+viewer:
+  empty: "(empty)"
+  title: "Value of %{column}"
+  chars: "%{n} characters"
+edit:
+  read_only: "Read-only: %{why}"
+  ro_expression: a column is an expression, not a table column.
+  ro_joined: the result combines several tables.
+  ro_no_pk: "table %{table} has no primary key."
+  ro_pk_missing: "the result does not include the key column %{column}."
+  ro_no_catalog: this connection cannot report table keys.
+  ro_oracle: editing Oracle results is not supported yet (read-only).
+  ro_catalog_error: "could not read the table's keys (%{msg})."
+  editable_hint: "Editable: double-click or F2 edits a cell, right-click for more."
+  pending: "%{n} pending changes"
+  preview: Preview SQL
+  preview_title: Statements Apply will run
+  preview_note: One transaction. Values are sent as bound parameters (shown after each statement), never pasted into the SQL.
+  apply: Apply
+  applying: Applying…
+  discard: Discard
+  err_statement: "Statement %{n} failed: %{msg}"
+  err_rows: "Statement %{n} would change %{rows} rows instead of exactly one."
+  err_cancelled: The statement was cancelled.
+  rolled_back: Nothing was changed (rolled back); the edits are still staged.
+editor:
+  plain_mode: Large file – syntax highlighting off
+error:
+  connect: Could not connect to the server
+  auth: The server rejected the user name or password
+  tls: Could not set up an encrypted (TLS) connection
+  query: The server could not run the statement
+  timeout: The query took too long and was stopped
+  internal: Something went wrong inside Locus
+  no_connection: Choose a connection for this tab first.
+  driver_gone: The database driver stopped without finishing the query.
+  credential: "Windows Credential Manager failed: %{msg}"
+  save: "Could not save the connection list: %{msg}"
+conn:
+  add_title: New connection
+  edit_title: Edit connection
+  name: Name
+  host: Host
+  port: Port
+  user: User name
+  password: Password
+  password_note: The password is stored in Windows Credential Manager, never in a file.
+  password_note_keep: The saved password stays in Windows Credential Manager. Leave the field empty to keep it.
+  database: Default database (optional)
+  kind: Database type
+  service: Service name (e.g. ORCLPDB1)
+  tls: Encryption (TLS)
+  tls_required: Required (verify the server certificate)
+  tls_unverified: Encrypt without verifying the certificate
+  tls_unverified_warning: "The connection is encrypted, but the server's certificate is not checked. Use this only for servers with a self-signed certificate on a network you trust: someone who can intercept the connection could pose as the server."
+  tls_disabled: Disabled (plain text)
+  tls_warning: "TLS is off. The user name, the password and every row you read travel over the network in plain text, readable by anyone on the path."
+  test: Test connection
+  engine: Database
+  url_placeholder: Paste a connection URL (mysql://, postgresql://, oracle://) to fill the fields
+  url_filled: Filled from the URL. Check the fields, then Test or Save.
+  url_invalid: Not a connection URL this app understands.
+  page_general: General
+  page_tls: Encryption
+  page_appearance: Appearance
+  database_pg: Database (optional; default = the user's database)
+  tls_oracle_note: Oracle connections go through the bundled sidecar; native network encryption is configured on the server.
+  color: Accent colour
+  custom_color: Custom
+  icon: Icon
+  icon_search: Search icons
+  icon_initials: Initials
+  preview: Preview
+  preview_name: New connection
+  testing: Connecting…
+  test_ok: "Connected: server %{version}, %{time}."
+  delete: Delete
+  delete_confirm: Delete this connection and its saved password
+  delete_menu: Delete connection…
+  delete_title: "Delete “%{name}”?"
+  delete_body: The connection and its saved password are removed from every Space. Tabs that used it keep their SQL and have no connection.
+  err_name: Enter a name.
+  err_host: Enter a host.
+  err_port: Enter a port between 1 and 65535.
+  err_user: Enter a user name.
+lang:
+  label: Language
+  en: English
+  zh-TW: 繁體中文
+  zh-CN: 简体中文
+views:
+  tabs: Connections and tabs
+  objects: Database objects
+  history: Query history
+objects:
+  title: Database objects
+  refresh: Reload the object tree
+  loading: Loading…
+  error: "Could not load: %{msg}"
+  not_connected: Not connected yet. Run a query on this connection to browse it.
+  not_available: Not available for this connection.
+  no_connections: This Space has no connections yet.
+  open_hint: Double-click to open its rows in a new tab
+  none: (none)
+  view_ddl: View DDL (read-only)
+  ddl_title: "DDL · %{name}"
+  ddl_error: "Could not read the DDL: %{msg}"
+  principals: Users and roles
+  server_info: Server info and storage
+  kinds:
+    tables: Tables
+    views: Views
+    materialized_views: Materialized views
+    indexes: Indexes
+    sequences: Sequences
+    procedures: Procedures
+    functions: Functions
+    packages: Packages
+    triggers: Triggers
+    events: Events
+    synonyms: Synonyms
+actions:
+  run: Run statement
+  run_script: Run whole script
+  cancel: Cancel the running query
+  new_tab: New tab
+  close_tab: Close tab
+  next_tab: Next tab
+  prev_tab: Previous tab
+  open: Open .sql file…
+  save: Save
+  save_as: Save as…
+  export: Export result…
+  next_space: Next Space
+  prev_space: Previous Space
+  split_right: Split right
+  split_down: Split down
+  split_left: Split left
+  split_up: Split up
+  close_pane: Close pane
+  next_pane: Next pane
+  prev_pane: Previous pane
+  toggle_sidebar: Show or hide the sidebar
+  icon_sidebar: Sidebar as icons
+  view_tabs: "Sidebar: connections and tabs"
+  view_objects: "Sidebar: database objects"
+  view_history: "Sidebar: query history"
+  settings: Settings…
+palette:
+  title: Command palette
+  placeholder: Type to filter actions, Enter runs the first
+settings:
+  title: Settings
+  theme: Theme
+  theme_system: Follow Windows
+  theme_light: Light
+  theme_dark: Dark
+  row_limit: Row limit of new tabs
+  row_limit_note: Existing tabs keep their own limit (toolbar of each tab).
+  font_size: Font size
+  rows_cap: Rows a result may keep in memory
+  no_cap: No cap
+  page_idle: A paused paged query is released after
+  minutes: "%{n} min"
+  motion: Animations
+  motion_on: "On"
+  motion_off: Reduce motion
+  count: Count the rows of a paged query in the background
+  count_on: "On"
+  count_off: "Off"
+  auto_plan: Produce the query plan automatically after a SELECT
+  material: Window background
+  mat_opaque: Opaque
+  mat_blur: Blur (acrylic)
+  mat_mica: Mica
+  mat_mica_alt: Mica Alt
+  translucency: Sidebar translucency (with a material)
+file:
+  close_title: "Save changes to “%{name}”?"
+  close_body: The tab has changes that are not saved to a file. They are lost if you close it without saving.
+  dont_save: Close without saving
+  save: Save
+  read_error: "Could not open %{path}: %{msg}"
+  write_error: "Could not save %{path}: %{msg}"
+history:
+  title: Query history
+  title_conn: "History · %{name}"
+  search: Search history
+  empty: Queries run on this connection appear here. Click inserts one, double-click opens it in a new tab.
+export:
+  button: Export
+  tooltip: Export this result to CSV or JSON (Ctrl+Shift+E)
+  title: Export result
+  body: "Every row of the result in front, in the current sort order. NULL is written as an empty field (CSV) or null (JSON)."
+  csv: CSV
+  csv_excel: CSV for Excel (UTF-8 with BOM)
+  json: JSON
+  progress: "Exporting %{done} of %{total} rows"
+  cancel: Cancel
+  cancelled: Export cancelled; the partial file was removed.
+  done: "Exported %{n} to %{path}"
+  failed: "Export failed: %{msg}"
+  nothing: There is no result to export.
+diagram:
+  title: "Diagram · %{schema}"
+  open: Relationship diagram of this schema
+  empty: This schema has no tables.
+  fit: Fit to window
+  reset_zoom: 100 %
+  relayout: Arrange again
+  loading: Reading tables and foreign keys…
+  relations: Show relations (this table and the tables it references or that reference it)
+  relations_button: Relations
+  relations_title: "Relations · %{table}"
+  core: "Around: %{tables}"
+  expand: Expand selected
+  expand_hint: Also show the neighbours of the selected cards (one more hop)
+  connecting: Connecting…
+pager:
+  first: First page
+  prev: Previous page
+  next: Next page (fetches more when needed)
+  rows: "Rows %{a}–%{b} of %{n} fetched"
+  range: "%{a}–%{b} of %{total}"
+  many: many
+  loaded: " · %{n} loaded"
+  paused: The query is paused on the server; Next fetches more.
+  expired: The rest is no longer available (the paused query was released). Run again to see more.
+  load_all: Load all
+  load_all_hint: "Fetch every remaining row (stops at %{cap} rows kept)"
+welcome:
+  title: Connect a database
+  subtitle: "“%{space}” has no connections yet. Paste a URL or pick an engine."
+shell:
+  search: Search…
+  search_tip: Search and commands (Ctrl+K)
+  toggle_sidebar: Show / hide the sidebar (Ctrl+B)
+  no_conns: No connections in this Space — add one…
+  new_query: New query
+  new_query_here: New query on this connection
+  conn_options: Connection options
+  use_in_tab: Use in the current tab
+  conn_idle: Not connected — click to connect
+  conn_retry: Connection failed — click to retry
+  filter_tabs: Filter tabs
+  filter_placeholder: Filter by tab or connection name…
+  split_group: "Split · %{n} panes"
+  unsaved: Unsaved
+  state_ok: Connected
+  state_ok_ms: "Connected · %{ms} ms"
+  state_slow: "Slow · %{ms} ms"
+  state_failed: Connection failed
+  state_idle: Not connected
+  stop: Stop
+  run_options: Run options
+  run_current: Run current statement / selection
+  run_all: Run all
+  save: Save query (Ctrl+S)
+  right_panel: Right panel (Ctrl+J)
+  rail_schema: Schema (Ctrl+J)
+  rail_history: History
+  settings: Settings (Ctrl+,)
+  panel_schema: Schema
+  panel_history: History
+  schema_search: Search loaded tables, columns, routines
+  no_match: Nothing loaded matches
+  ln_col: "Ln %{ln}, Col %{col}"
+  ran_in: "Ran %{t}"
+  space_unsaved: "%{space} · %{n} unsaved"
+  act_schema: Show / hide the Schema panel
+  act_history: Show / hide query history
+  space_tint: Space tint
+  space_tint_note: How strongly the Space colour tints the window background.
+
+prod:
+  env: Environment
+  env_local: Local
+  env_dev: Development
+  env_staging: Staging
+  env_team: Team
+  env_prod: Production
+  env_note: "Production connections start read-only. Writes and DDL need an unlock (type the connection name) and are written to the audit log."
+  chip_ro: Production · read-only
+  chip_rw_min: "Production · writable %{n} min"
+  chip_rw_next: Production · writable · next run
+  chip_rw: Production · writable
+  chip_plain: Read / Write
+  chip_tip_locked: Click to unlock
+  chip_tip_unlocked: Click to lock now
+  bar_name: Production
+  bar_locked: Locked as read-only. Writes and DDL need an unlock first, confirmed by typing the connection name.
+  bar_unlocked: Writes are unlocked. Every writing statement still needs a confirmation and is logged.
+  bar_unlock: Unlock…
+  bar_lock: Lock now
+  unlock_title: Unlock Production for writes
+  unlock_warn: "You are about to allow writes, DDL and deletes on %{name} (%{engine} · %{host}). Every writing statement still needs its own confirmation."
+  unlock_for: Unlock for
+  dur_minute: 1 minute
+  dur_minutes: "%{n} minutes"
+  dur_seconds: "%{n} seconds"
+  dur_next: Next run only
+  dur_disc: Until disconnect
+  reason: Reason (goes to the audit log)
+  reason_ph: e.g. JIRA-4412 fix data
+  type_name: "Type the connection name to confirm: %{name}"
+  unlock_btn: Unlock
+  blocked_title: "Blocked: Production is read-only"
+  blocked_body: "This %{kw} would change %{name}. The connection is read-only, so nothing was sent."
+  unlock_more: Unlock…
+  run_elsewhere: Run on a non-Production connection
+  confirm_title: "Confirm %{kw}"
+  confirm_target: Target
+  confirm_no_where: "No WHERE clause: this affects every row of the table."
+  confirm_multi: "%{n} writing statements: %{kws}"
+  confirm_type: "Type %{kw} to enable the button"
+  confirm_btn: "Run %{kw}"
+  lock_all: Lock all Production connections
+  setting_confirm: Confirm writes on non-Production connections
+  on: "On"
+  off: "Off"
+  setting_note: Production connections always ask, whatever this says.
+  relock_expired: Production connection locked again (time is up)
+
+# --- results-tools: editor tools and the result area -----------------------------
+tools:
+  format: Format SQL
+  find: Find in editor
+  replace: Replace in editor
+  explain: Explain
+  explain_analyze: Explain Analyze (runs the statement)
+rt:
+  data: Data
+  plan: Query Plan
+  messages: Messages
+  stats: Statistics
+  no_result_title: This statement returned no result set
+  no_result_body: DDL and write statements return no rows. Their outcome and the affected rows are in Messages.
+  view_messages: View Messages
+  messages_footer: "%{n} messages"
+filter:
+  placeholder: "Filter rows, e.g. status = 'paid'"
+  range: "%{a}–%{b} of %{total} (filtered from %{all})"
+  scanning: " · filtering…"
+copy:
+  button: Copy as
+  tooltip: "Copy the selection, or every loaded row (at most %{cap}), in the format you pick"
+  csv: Copy as CSV
+  json: Copy as JSON
+  insert: Copy as INSERT statements
+  markdown: Copy as Markdown table
+  done: "Copied %{rows} as %{fmt}"
+  done_capped: "Copied the first %{n} of %{total} rows as %{fmt} (copy is capped at %{cap} rows)"
+  nothing: Nothing to copy
+plan:
+  idle_title: No plan yet
+  idle_body: "Run Explain (Ctrl+E) to see the plan of the statement at the cursor, or Explain Analyze from the Run menu to see measured times (it runs the statement)."
+  running: Reading the plan…
+  running_analyze: Running the statement and measuring…
+  failed: The plan could not be read
+  basis_cost: bar = share of the estimated cost
+  basis_time: bar = share of measured time
+  basis_rows: bar = share of estimated rows (the server gave no cost)
+  basis_none: no cost figures
+  cost: "estimated cost %{v}"
+  actual: "executed in %{v} ms"
+  actual_run: executed
+  planning: "planning %{v} ms"
+  took: "read in %{v}"
+stats:
+  never: Nothing has run in this tab yet.
+  status: State
+  kind: Statement kind
+  statements: Statements
+  rows: Rows returned
+  affected: Rows affected
+  elapsed: Elapsed
+  first_row: Time to first result
+  fetch: Fetch time (after the first result)
+  row_limit: Row limit
+  truncated: Stopped at the memory cap
+  footer: "%{phase} · %{elapsed}"
+explain:
+  button: Explain
+  tooltip: "Show the query plan of the statement at the cursor (Ctrl+E)"
+  menu: Explain
+  menu_analyze: Explain Analyze
+  unsupported_engine: Explain is not available for Oracle yet.
+  unsupported_statement: Explain works on SELECT, INSERT, UPDATE and DELETE statements.
+  no_statement: There is no statement to explain.
+format:
+  tooltip: "Format SQL (Shift+Alt+F)"
+  done: SQL formatted
+  done_selection: Selection formatted
+  unchanged: "Nothing changed: the SQL is already formatted, or the formatter could not read it with confidence (unterminated string, unbalanced brackets, procedure body, DELIMITER…)."
+  upper: Upper case
+  as_typed: As typed
+  setting_keywords: "Format SQL: keywords"
+  setting_indent: "Format SQL: indent (spaces)"
+find:
+  tooltip: "Find / Replace (Ctrl+F, Ctrl+H in the editor)"
+# ---- er-app: diagram tabs v3 ----
+erv3:
+  arrange: Auto arrange
+  centre_tag: centre
+  conn_open: Diagram of this schema
+  act_open: "Diagram: current connection and schema"
+  scope_all: whole schema
+  scope_centre: "centred on %{table}"
+  scope_tables: tables of this query
+  scope_n: "%{scope} · %{n} tables"
+  query_title: "Diagram · this query"
+  depth_hint: How many foreign-key hops from the centre table
+  depth_1: 1 level
+  depth_n: "%{n} levels"
+  depth_all: All connected
+  show_whole: Show whole schema
+  show_hidden: Show hidden tables
+  zoom_out: Zoom out (Ctrl+wheel)
+  zoom_in: Zoom in
+  export: Export
+  copy_mermaid: Copy as Mermaid
+  copy_ddl: Copy DDL of these tables
+  copied_mermaid: Mermaid copied
+  copied_ddl: "CREATE TABLE of %{n} tables copied"
+  counts: "%{n} tables · %{fk} foreign keys"
+  hint: Drag a header to move · double-click opens a query · click a line to insert a JOIN · Ctrl+wheel zooms
+  m_centre: Centre on this table
+  m_query: Open query
+  m_schema: Show in Schema panel
+  m_hide: Hide from diagram
+  no_schema: No schema known for this connection yet. Open the Schema panel and expand the connection first.
+  palette_schema: "Diagram: %{schema} (%{conn})"
+  palette_centre: "Diagram centred on %{table} (%{conn})"
+  join_inserted: "JOIN added to “%{tab}”"
+  join_copied: "No query pane next to the diagram; copied: %{sql}"
+  relations_query: Relations between the tables this query uses
+# ---- History, Settings and palette (task: history-settings) ----
+hp:
+  tab_title: Query History
+  subtitle: Every run on every connection · 1,000 per connection
+  search: Search SQL
+  f_all: All
+  f_ok: Succeeded
+  f_err: Failed
+  f_cancel: Cancelled
+  all_conns: All connections
+  count: "%{n} entries"
+  empty: Queries you run appear here.
+  no_match: No entries match.
+  today: Today
+  yesterday: Yesterday
+  wd0: Sun
+  wd1: Mon
+  wd2: Tue
+  wd3: Wed
+  wd4: Thu
+  wd5: Fri
+  wd6: Sat
+  error: Error
+  cancelled: Cancelled
+  copy: Copy SQL
+  open: Open as new query
+  rerun: Re-run
+  unknown_conn: Connection removed
+sp:
+  subtitle: Changes apply at once
+  search: Search settings
+  cat_general: General
+  cat_appearance: Appearance
+  cat_queries: Queries and results
+  cat_editor: Editor
+  d_fmt_case: Keyword case used by Format SQL (Shift+Alt+F).
+  d_fmt_indent: Spaces per indent level used by Format SQL.
+  cat_production: Production
+  cat_shortcuts: Shortcuts
+  cat_about: About
+  about_name: Locus
+  about_tagline: A fast desktop SQL client.
+  about_version: Version
+  about_license: License
+  d_language: Language of the whole interface.
+  d_theme: Light, dark, or follow Windows.
+  d_font: Size of the interface and editor text.
+  d_motion: Turn animations off if they distract you.
+  d_material: What shows through the window background.
+  d_translucency: How see-through the window tint is when a material is chosen.
+  d_cap: A query is stopped with a note when its result reaches this many rows.
+  d_idle: A paged query holds a server cursor; it is released after this long unused.
+  d_auto_plan: Runs a plain EXPLAIN (never ANALYZE) in the background after a single SELECT, so the Plan tab is ready. MySQL and PostgreSQL only.
+  d_count: Counts the rows of a paged SELECT in the background to show "of N".
+  no_match: "No settings match “%{q}”"
+  k_space: Switch Space
+  k_copy: Copy the selected cells
+  k_palette: Command palette
+pal:
+  act_history: Open query history
+  placeholder: "Search…   > commands   @ tabs   # tables   ! history   $ connections"
+  s_all: All
+  s_commands: Commands
+  s_tabs: Tabs
+  s_objects: Tables
+  s_history: History
+  s_connections: Connections
+  g_recent: Recent
+  g_commands: Commands
+  g_tabs: Open tabs
+  g_tables: Tables
+  g_views: Views
+  g_schemas: Schemas
+  g_history: Query history
+  g_connections: Connections
+  no_catalog: Tables appear here once a connection of this Space has been used (type in an editor or open the schema panel).
+  empty_scope: Nothing here yet.
+  no_match: "Nothing matches “%{q}”"
+  h_select: select
+  h_open: open
+  h_scope: scope
+  h_all_spaces: Searches all Spaces · fuzzy match
+export_filter:
+  note: "Filter active: %{n} of %{total} rows will be exported."
+  done: "Exported %{n} of %{total} rows (filtered) to %{path}"
+
+split2:
+  act_zoom: Maximise the focused pane for now / restore
+  act_new: "Split: new query on the right"
+  act_unsplit: "Split: dissolve this split (keeps the tabs)"
+  zoom_tip: Maximise this pane for now (Ctrl+Shift+M)
+  restore_tip: Restore the split (Ctrl+Shift+M, Esc)
+  row_tip: Click to focus; drop a tab here to add it as a pane
+  expand: Show each pane
+  collapse: Collapse
+  menu_zoom: Maximise the focused pane for now
+  dissolve: Dissolve split (keep tabs)
+  close_group: Close all tabs of the group
+  remove: Remove from split
+  drag_out: Drag this row out to leave the split
+  full_title: "Limit of %{n} panes reached"
+  full_body: "A split group holds at most %{n} panes; any more and each editor and result gets too small, and it is easy to run in the wrong pane."
+  full_ask: "What should happen with “%{name}”?"
+  replace: Replace the focused pane
+  new_group: Open on its own
+
+t0:
+  translucency: "Sidebar and title bar translucency"
+  d_translucency: "How much more see-through the sidebar and title bar are with a window material (the editor, results and pages stay opaque). Each step shows more of what is behind the window."
+  tr_default: "Default"
+  mat_mica: "Mica (default)"
+
+t3:
+  pal_placeholder: "Search…"
+  d_translucency: "Only the sidebar and title bar get more see-through with a window material; the editor, results and pages stay opaque. Default is the first step; each step to the right shows more of what is behind the window."
+
+t2:
+  editor_placeholder: "Type SQL…"
+  run_hint: "Ctrl+Enter to run"
+  diagram_fit: "Fit"
+  diagram_fit_tip: "Fit the whole diagram in the window"
+
+t4:
+  env_help: "Tells the app how careful to be with this database. It also puts a badge on the connection in the sidebar. Only Production changes what you can do."
+  env_desc_local: "Your own machine or a throwaway database. Changes run right away."
+  env_desc_dev: "A shared development database. Changes run right away; you can ask for a confirmation first in Settings."
+  env_desc_staging: "A copy used for testing before release. Changes run right away, so check the connection before you write."
+  env_desc_team: "A database your colleagues use too. Changes run right away and affect everyone, so be careful."
+  env_desc_prod: "Live data. Read-only by default: to write or change tables you unlock it first (type the connection name), and every change is logged."
+  menu_move_space: "Move to Space"
+  menu_new_here: "New query here"
+  menu_edit: "Edit connection…"
+  menu_delete: "Delete connection"
+  menu_split: "Split"
+  existing: "Use an existing connection"
+  find_placeholder: "Find"
+  replace_placeholder: "Replace with"
+  find_case: "Match case"
+  find_prev: "Previous match"
+  find_next: "Next match (Enter)"
+  find_replace_toggle: "Replace (Ctrl+H)"
+  find_close: "Close (Esc)"
+  replace_one: "Replace this match"
+  replace_all: "Replace all"
+
+routines:
+  kind_types: Types
+  edit_source: "Edit source"
+  compile: Compile
+  save: "Save to database"
+  reload: Reload
+  overwrite: Overwrite
+  spec: Spec
+  body: Body
+  valid: VALID
+  invalid: INVALID
+  open_error: "Could not read the source: %{msg}"
+  empty: "Nothing to save: the editor is empty."
+  no_errors: "No compile errors. Compile sends the whole text as one CREATE OR REPLACE."
+  save_hint: "Save to database sends the whole text as one statement."
+  errors_title: "%{n} compile messages (click one to go to its line)"
+  compiled_ok: "Compiled: VALID"
+  compiled_errors: "Compiled with errors: INVALID"
+  saved_ok: "Saved to the database"
+  save_failed: "Not saved: %{msg}"
+  conflict_title: "Changed on the server"
+  conflict_body: "Someone changed this object on the server since you opened it. Reload loses your edits; Overwrite replaces their version with yours."
+  drop_create_title: "Save with DROP + CREATE?"
+  drop_create_body: "MySQL cannot replace a routine in place: the old one is dropped, then yours is created. This is not atomic: if the CREATE fails, the object is gone (your text stays in the editor)."
+
+# Grid selection statistics and foreign-key navigation
+selstats:
+  count: "%{count} selected"
+  numeric: "%{count} selected · Sum %{sum} · Avg %{avg} · Min %{min} · Max %{max}"
+  tip: "Click to copy. NULL cells are not counted (%{nulls} NULL); numbers use the %{numeric} numeric cells only."
+fk:
+  open_ref: "Open referenced row · %{table} (%{cols})"
+  show_ref: "Show referencing rows · %{table} (%{cols})"
+  open_hint: "Open the referenced row (Ctrl+click)"
+
+runview:
+  status_idle: Ready
+  status_connecting: Connecting…
+  status_running: Running…
+  status_streaming: "Fetching… %{n} rows"
+  status_cancelling: Stopping…
+  status_paused: Limit reached · more available
+  status_done: Done
+  status_cancelled: Cancelled
+  status_failed: Failed
+  status_released: Done · rest released
+  status_capped: Stopped at the memory cap
+  footer_streaming: "%{n} rows so far…"
+  footer_paused_limit: "%{n} rows shown (limit) · more available"
+  footer_paused_total: "%{n} of %{total} rows shown · more available"
+  footer_paused: "%{n} rows shown · more available"
+  footer_done: "All %{n} rows loaded"
+  footer_cancelled: "Cancelled · %{n} rows kept"
+  footer_failed: "Failed · %{n} rows had arrived"
+  footer_released: "%{n} rows shown · the rest was released. Run again to see more"
+  footer_capped: "%{n} rows kept · stopped at the memory cap"
+  load_more: Load more
+  load_more_hint: Fetch the next batch of rows
+  load_all: Load all
+  load_all_hint: "Fetch every remaining row (stops at the memory cap)"
+  release: Release
+  release_hint: Free the server cursor and keep the rows shown
+  limit_hint: "Row limit: the query pauses after %{n} rows and holds a cursor on the server. Load more fetches the next batch, Load all fetches the rest, Release frees the cursor."
+  limit_hint_unlimited: "No row limit: every row is fetched, up to the memory cap in Settings."
+
+sqlite:
+  engine: SQLite
+  file: Database file
+  file_placeholder: C:\path\to\file.db
+  browse: Browse…
+  browse_prompt: Choose a SQLite database file
+  new_file: New file…
+  new_file_prompt: Create a SQLite database file
+  read_only: Open read-only
+  read_only_note: A read-only connection cannot change the file, whatever you run.
+  err_file: Choose a database file.
+  err_create: "Could not create the file: %{msg}"
+  note: "A SQLite connection is a file on this computer: no host, user or password is saved."
+  explain_no_analyze: SQLite has no Explain Analyze; use Explain for the query plan.
+  ro_no_pk_rowid: "table %{table} has no primary key. Select its rowid to edit rows: SELECT rowid, * FROM %{table}."
+
+ssh:
+  page: SSH
+  enable: Connect through an SSH tunnel
+  note: "Many servers are only reachable through a jump host. The database host and port above are then read from the jump host's side."
+  host: SSH host
+  user: SSH user
+  auth: Authentication
+  auth_password: Password
+  auth_key: Private key file
+  auth_agent: SSH agent
+  key_file: Private key file
+  password: SSH password
+  passphrase: Key passphrase (if any)
+  secret_store: Stored in Windows Credential Manager, never in connections.json.
+  secret_keep: A secret is stored. Leave empty to keep it.
+  agent_note: Uses the Windows OpenSSH agent or Pageant.
+  err_host: Enter the SSH host.
+  err_port: The SSH port must be a number between 1 and 65535.
+  err_user: Enter the SSH user.
+  err_key: Choose a private key file.
+  trust: "Trust %{host} and test again"
+
+structure:
+  open: Structure
+  button: Structure
+  button_hint: Open the structure of this table (columns, indexes, keys, DDL)
+  palette: "Structure: %{table} (%{conn})"
+  refresh: Refresh
+  read_only: Read-only structure
+  loading: Reading the structure...
+  failed: "Could not read the structure: %{msg}"
+  columns: Columns
+  indexes: Indexes
+  foreign_keys: Foreign keys
+  triggers: Triggers
+  checks: Checks
+  ddl: DDL
+  col_name: Name
+  col_type: Type
+  col_nullable: Nullable
+  col_default: Default
+  col_pk: PK
+  col_auto: Auto-increment
+  col_comment: Comment
+  col_columns: Columns
+  col_unique: Unique
+  col_references: References
+  col_from: From
+  col_on_delete: On delete
+  col_on_update: On update
+  col_event: Timing and event
+  col_expression: Expression
+  empty_columns: No columns.
+  empty_indexes: No indexes.
+  empty_fks: No foreign keys, and no other table points here.
+  empty_triggers: No triggers on this table. Click one to open its source.
+  empty_checks: No check constraints.
+  fk_outgoing: "References other tables (%{n})"
+  fk_incoming: "Referenced by (%{n})"
+  ddl_failed: "No DDL: %{msg}"
+  copy_ddl: Copy
+  copied: DDL copied.
+txn:
+  mode_auto: Auto-commit
+  mode_manual: Manual
+  mode_tip: "Transaction mode of this tab (Ctrl+Alt+T). Auto-commit: every statement commits. Manual: the first change starts a transaction on the tab's own connection; end it with Commit or Rollback."
+  pill_open: "Transaction open · %{n} statements · %{conn}"
+  pill_aborted: "Transaction failed · %{n} statements · %{conn} · only Rollback works"
+  commit: Commit
+  rollback: Rollback
+  cancel: Cancel
+  commit_tip: Commit the open transaction (Ctrl+Alt+Enter)
+  rollback_tip: Roll back the open transaction (Ctrl+Alt+Z)
+  act_commit: Commit transaction
+  act_rollback: Roll back transaction
+  act_mode: "Transaction mode: Auto-commit / Manual"
+  statements: "%{n} statements"
+  prompt_title: Open transaction
+  prompt_body: "These tabs have a transaction that is not committed. Commit or roll it back first; Cancel keeps everything as it is."
+  end_failed: "The transaction did not end: %{msg}"
+  busy: A statement is still running in this tab; stop it or wait first.
+  note_lost: The connection was lost. The server rolled the open transaction back.
+  note_server_rollback: The server rolled the whole transaction back (deadlock, or SQLite after an interrupted change).
+  note_aborted: "PostgreSQL: a statement failed, so the transaction is aborted. Only Rollback works."
+  note_statement_undone: The server undid only that statement; the transaction is still open.
+  note_ddl: DDL committed the transaction. The next change starts a new one.
+  note_typed: The transaction was ended by a COMMIT / ROLLBACK in the script.
+  note_committed: Committed.
+  note_rolled_back: Rolled back.
+  apply_undone: The edits were undone (rolled back to before this Apply); the transaction stays open.
+  idle_warning: "“%{name}” has an open transaction idle for %{n} minutes. It holds locks until you Commit or Roll back."
+  idle_never: Never
+  setting_prod_manual: Production tabs start in Manual mode
+  setting_prod_manual_note: Query tabs on a Production connection run in a transaction you commit or roll back yourself.
+  setting_idle: Idle transaction warning
+  setting_idle_note: Warn when a Manual transaction has had no statement for this long.
+redis:
+  db_index: DB index (0-15)
+  err_db: The DB index must be a number from 0 to 15.
+  err_connect: Could not connect
+  err_command: Connected, but the server rejected the check
+  pattern: "Pattern (e.g. user:*), Enter to search"
+  type_all: All
+  keys_count: "%{n} keys in DB · %{loaded} loaded"
+  keys_loaded: "%{loaded} keys loaded"
+  refresh: Refresh
+  loading: Loading...
+  no_keys: No keys
+  load_more: Load more
+  capped: "Stopped at %{n} keys. Narrow the pattern to see the rest."
+  all_loaded: All matching keys are loaded.
+  tab_browser: "Keys · %{name}"
+  tab_console: "Console · %{name}"
+  tab_info: "Server · %{name}"
+  conn_missing: This connection no longer exists.
+  bad_tab: This Redis tab could not be restored.
+  use_browser: "Redis has no tables. Open Browse keys from the connection menu."
+  menu_browse: Browse keys
+  menu_console: Redis console
+  menu_info: Server info
+  blocked_prod: This Production connection is locked. Unlock it to send write commands.
+  unsupported_select: "SELECT is not available here: use the DB switch of the key browser."
+  unsupported_stream: This command streams replies and is not supported in the console.
+  unsupported_session: This command changes the connection session and is not supported in the console.
+  unsupported_blocking: Blocking commands are not supported in the console.
+  danger_title: Run this command?
+  run_anyway: Run
+  danger_flushall: FLUSHALL deletes every key in every database.
+  danger_flushdb: FLUSHDB deletes every key in this database.
+  danger_shutdown: SHUTDOWN stops the server.
+  danger_debug: DEBUG can crash or stall the server.
+  danger_config_set: CONFIG SET changes the running server configuration.
+  danger_keys: KEYS walks the whole keyspace and blocks the server on a large database. Use the key browser (SCAN) instead.
+  danger_admin: This command changes servers, users or scripts.
+  console_hint: Type a command, e.g. GET user:1 (Enter or Ctrl+Enter to send, Up / Down for history)
+  console_empty: Replies appear here as a tree.
+  run: Run
+  show_all: All fields
+  binary_readonly: This value is binary; it is shown read-only.
+  too_big_edit: This value is larger than what is loaded; it cannot be edited here.
+  edit_value: Edit value
+  save: Save
+  ttl_invalid: "Use seconds or 30s, 10m, 2h, 1d. Empty or 0 removes the expiry."
+  ttl_title: Time to live
+  ttl_hint: "Expires in (seconds, or 10m / 2h / 1d). Empty = never"
+  rename_title: Rename key
+  new_name: New name
+  rename: Rename
+  delete_title: Delete key
+  delete_body: "Delete %{key}? This cannot be undone."
+  delete: Delete
+  add_field: Add field
+  field: Field
+  value: Value
+  push_tail: Push to tail
+  push_head: Push to head
+  add_member: Add member
+  member: Member
+  score: Score
+  edit_score: Edit score
+  score_invalid: The score must be a number.
+  add: Add
+  bytes: "%{n} bytes"
+  items: "%{n} items"
+  fmt_auto: Auto
+  fmt_raw: Raw
+  str_capped: "Showing the first %{n}"
+  key_missing: This key does not exist (any more).
+  type_unsupported: "Type %{ty} is not shown here."
+  json_invalid: This is not valid JSON.
+  empty: Empty
+  range: "%{from}-%{to} of %{total}"
+  shown: "%{n} of %{total} shown"
+
+wavea:
+  wrong_part: "This text creates the package %{want}, but the %{active} part is open. Switch to the %{want} tab first."
+  part_spec: specification
+  part_body: body
+  first_of: "First %{n} of %{total}"
+  first_n: "First %{n} (more on the server)"
+  load_more: Load more
+  sqlite_ro_blocked: "This SQLite file is open read-only: the statement was not sent. Edit the connection and untick \"Open read-only\" to write."
+  chip_ro: Read-only
+  shared_title: Compile a shared object
+  shared_not_owner: "You are connected as %{user}, but %{name} belongs to %{owner}. Compiling it replaces the code every user of %{owner}.%{name} runs, on the server, right now."
+  shared_apps: "You are connected as APPS, the shared Oracle E-Business Suite schema. Compiling %{owner}.%{name} changes a shared object that every module and user runs, on the server, right now."
+  shared_type: "Type the object name %{name} to continue."
+imp:
+  title: Import data
+  menu_into: Import data…
+  menu_new: Import into new table…
+  palette: "Import data from a file…"
+  s_file: 1 File
+  s_map: 2 Columns
+  s_opts: 3 Options
+  s_run: 4 Import
+  choose: Choose file…
+  no_file: No file chosen (.csv .tsv .txt .xlsx .xls .ods)
+  new_table: New table name
+  new_table_ph: Table name
+  target: Into table
+  sheet: Sheet
+  delimiter: Delimiter
+  quote: Quote
+  header: First row is header
+  encoding: Encoding
+  yes: Yes
+  no: "No"
+  preview: "Preview: first %{n} rows"
+  skip: Skip
+  use: Use
+  map_hint: "Click a target to change it. Columns set to Skip are not imported."
+  new_hint: "Column names and SQL types of the new table (edit them if the guess is wrong)."
+  empty_null: Empty value as NULL
+  trim: Trim spaces
+  date_format: "Date format (empty = auto, e.g. %d/%m/%Y)"
+  date_ph: "auto: 2024-03-05"
+  on_error: On error
+  on_stop: Stop
+  on_skip: Skip row and log
+  save_errors: Save failed rows as CSV next to the file
+  tx: Transaction
+  tx_single: One transaction
+  tx_batch: One per batch
+  batch: Batch size (rows)
+  clear: Empty the table first
+  clear_confirm: "All rows of %{table} will be deleted before the import. Press the button again to confirm."
+  back: Back
+  next: Next
+  run: Import
+  run_confirm: Delete rows and import
+  close: Close
+  err_table: Enter a table name.
+  err_no_map: No column is mapped.
+  err_cols: Column names and types must be filled in and unique.
+  progress: "Read %{read} · inserted %{ok} · skipped %{skipped} · %{rate} rows/s"
+  done: "Imported %{n} rows, %{skipped} skipped, in %{secs} s."
+  failed: "Import stopped: %{msg}"
+  rolled_back: Everything was rolled back.
+  cancelled_rolled: Cancelled. Everything was rolled back, the table is unchanged.
+  cancelled_kept: "Cancelled. %{n} rows of finished batches stay in the table."
+  errors_saved: "Failed rows saved to %{path}"
+
+act:
+  menu: Server activity
+  palette: "Server activity: %{name}"
+  tab_title: "Activity · %{name}"
+  conn_missing: This connection no longer exists.
+  sessions: Sessions
+  variables: Variables
+  status: Status
+  refresh: Refresh
+  filter_ph: Filter
+  auto: Auto-refresh
+  interval_off: Off
+  n_sessions: "%{n} sessions"
+  n_rows: "%{n} rows"
+  col_id: Id
+  col_user: User
+  col_host: Host
+  col_db: Database
+  col_state: State
+  col_time: Time
+  col_sql: SQL
+  mine: (you)
+  loading: Loading…
+  no_rows: Nothing to show.
+  pick: Select a session to see its SQL and kill it.
+  no_sql: No statement.
+  copy_sql: Copy SQL
+  open_in_tab: Open in query tab
+  copy_kill: Copy kill statement
+  kill_query: Kill query
+  kill_session: Kill session
+  kill_go: Kill
+  copy_all: Copy all
+  click_copy: Click to copy
+  copied: Copied.
+  killed: Done.
+  kill_failed: "Kill failed: %{msg}"
+  own_refused: This is the session the Server activity page itself uses. Killing it would cut this page off, so it is refused.
+  kill_unsupported: This server has no such action.
+  confirm_query: Kill the running query?
+  confirm_session: Kill the session?
+  confirm_body: "Session %{id} (%{user} at %{host}) running: %{sql}"
+  oracle_type: "Type %{name} to confirm. The session ends on the server at once."
+qp:
+  title: Query parameters
+  hint: "Values are sent as bound parameters, never pasted into the SQL. Enter runs."
+  run: Run
+  one_statement: Parameters work with one statement at a time. Select a single statement and run again.
+  type_tip: "Click to change the type: text, number, date, NULL"
+  not_number: Not a number
+  t_text: Text
+  t_number: Number
+  t_date: Date
+  t_null: NULL
+sq:
+  tab_title: Saved
+  subtitle: Saved queries and snippets
+  act_save: Save query to library…
+  act_open: Saved queries and snippets
+  s_saved: Saved
+  g_saved: Saved queries
+  search: Search saved queries
+  queries: Queries
+  snippets: Snippets
+  import: Import…
+  export: Export…
+  imported: "Imported %{n} saved queries."
+  import_failed: "Could not import: %{msg}"
+  exported: Saved queries exported.
+  export_failed: "Could not export: %{msg}"
+  unfiled: No folder
+  empty: "No saved queries yet. Use “Save query to library” in the command palette to add the current SQL."
+  no_match: No saved query matches.
+  pick: Pick a saved query on the left.
+  f_name: Name
+  f_folder: Folder
+  f_desc: Description
+  f_conn: Connection
+  any_conn: Any connection
+  save_changes: Save changes
+  delete: Delete
+  open: Open in new tab
+  run: Open and run
+  name_required: A name is required.
+  nothing_to_save: There is no SQL to save.
+  save_title: Save query
+  saved_toast: Saved to the library.
+  s_prefix: Prefix
+  prefix_invalid: "The prefix may only contain letters, digits and _."
+  builtin: built-in
+  new_snippet: New snippet
+  snip_hint: "Type the prefix in the editor and pick it from autocomplete. ${1:default} marks a place to fill; the default text is inserted."
+  fk_on: Join condition from foreign key
+
+exp2:
+  title: Export
+  export_btn: Export…
+  cancel_btn: Cancel
+  fmt_csv: CSV
+  fmt_csv_excel: CSV for Excel
+  fmt_xlsx: Excel (.xlsx)
+  fmt_json: JSON
+  fmt_jsonl: JSON Lines
+  fmt_sql: SQL INSERT
+  fmt_tsv: TSV
+  fmt_md: Markdown table
+  fmt_html: HTML table
+  desc_csv: Comma-separated text, UTF-8. Opens anywhere.
+  desc_csv_excel: CSV with a UTF-8 BOM so Excel reads Chinese text correctly.
+  desc_xlsx: Workbook with bold frozen header, numbers and dates as real cells; splits at 1,048,576 rows.
+  desc_json: One array of objects. Numbers stay numbers, NULL is null.
+  desc_jsonl: One JSON object per line; easy to stream and load.
+  desc_sql: INSERT statements for this database's quoting, several rows per statement.
+  desc_tsv: Tab-separated text; tab and line breaks are escaped.
+  desc_md: Pipe table to paste into documents and issues.
+  desc_html: A web page with one table.
+  src_loaded: "Rows loaded in the grid (%{n}), with the current filter and sort"
+  src_loaded_none: No rows loaded in the grid
+  src_full: The full query result, from the server
+  full_note: The query runs again on a separate connection and the rows go straight to the file, so memory stays small for any size. The grid's filter and sort are not applied. Cancel stops the query on the server.
+  full_refused: "The full result is not available: %{why}"
+  full_none: there is no statement to run again.
+  full_multi: the editor holds several statements; run the one you want alone first.
+  full_not_select: only a read (SELECT) can be run again for an export.
+  table_name: Table name in the INSERT statements
+  batch_rows: Rows per statement
+  header: Write the column names as the first line
+  open_folder: Show the file in its folder when done
+  xlsx_note: "Numbers and dates are written as cells, NULL as an empty cell, long text is cut at Excel's 32,767 character limit. Past 1,048,576 rows the next sheet continues."
+  progress_full: "Exporting from the server: %{rows} rows · %{mb} MB · %{rate} rows/s"
+  export_table: Export table…
+  copy_tsv: TSV
+  copy_jsonl: JSON Lines
+  copy_html: HTML table
+
+redis2:
+  deleted: "Deleted %{n} keys"
+  key_name: Key name
+  new_key: "New %{ty} key"
+  add_key: New key
+  view_list: Show as a flat list
+  view_tree: Show as a tree (split by ":")
+  delete_prefix: "Delete all keys under %{prefix}…"
+  delete_prefix_body: "Delete every key that starts with %{prefix}? %{n} are loaded; the server is scanned for the rest. This cannot be undone."
+  delete_selected: "Delete %{n} selected"
+  delete_many_body: "Delete %{n} selected keys? This cannot be undone."
+  scanned: "%{n} of %{total} keys scanned"
+  copy_name: Copy key name
+  set_ttl: Set TTL…
+  click_rename: Click to rename
+  click_ttl: Click to change the expiry
+  locked_tip: This Production connection is locked. Click to unlock.
+  locked: Locked
+  memory: Memory
+  pick_key: Select a key to see its value
+  db_keys: "DB %{db} · %{n} keys"
+  status_keys: "DB %{db} · %{n} keys"
+  slow_empty: No slow commands recorded.
+  menu_slow: Slow log
+  ago: "%{t} ago"
+viewer2:
+  text: Text
+  image: Image
+  copy: Copy
+  save: Save to file…
+  saved: "Saved to %{path}"
+  save_failed: "Could not save: %{err}"
+  wrap_on: Word wrap
+  wrap_off: No wrap
+  expand_all: Expand all
+  collapse_all: Collapse all
+  copy_path: Copy path
+  copy_node: Copy value
+  no_selection: Select a node to see its path
+  bytes: "%{n} bytes"
+  lines: "%{n} lines"
+  formatted: formatted
+  open: Viewer
+hp2:
+  params: "Parameters"
+gate:
+  fn_note: Functions called by a SELECT are not checked for side effects.
+dataerr:
+  datafile: "%{file} could not be read, so it was kept as %{backup}. Changes to it are not saved until you restart (the next start begins with an empty %{file})."
+  settings_save: "Could not save the settings: %{msg}"
+  history_save: "Could not save the query history: %{msg}"
+  saved_save: "Could not save saved queries or snippets: %{msg}"
+  spaces_save: "Could not save the workspace layout: %{msg}"
+  cred_delete: "The connection was deleted, but its password could not be removed from Credential Manager: %{msg}"
+
+keymap:
+  invalid: "keymap.json: %{n} entries could not be used and were skipped (details in the log)."
