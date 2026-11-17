@@ -1,0 +1,30 @@
+[package]
+name = "er-diagram"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "er-demo"
+path = "src/bin/er-demo.rs"
+
+[features]
+# `er-demo live` needs the MySQL driver's Catalog; off by default so the view
+# crate builds without it.
+live = ["dep:db-mysql", "dep:tokio"]
+
+[dependencies]
+windows-sys = { workspace = true, features = ["Win32_System_Console"] }
+db-core.workspace = true
+gpui-kit.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+db-mysql = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,41 @@
+name: Bug report
+description: Something is broken or behaves wrongly
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Locus version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: db
+    attributes:
+      label: Database
+      options:
+        - MySQL / MariaDB
+        - PostgreSQL
+        - SQLite
+        - Redis
+        - Oracle (sidecar)
+        - Not database related
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs. actual
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Windows version, screen refresh rate, logs
+      description: Do not paste passwords or connection strings.

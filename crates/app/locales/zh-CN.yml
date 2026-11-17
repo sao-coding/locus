@@ -1,0 +1,1225 @@
+app:
+  title: Locus
+  title_with_space: "%{space} — %{name}"
+  title_with_space_only: "%{space} — Locus"
+common:
+  save: 保存
+  cancel: 取消
+sidebar:
+  connections: 连接
+  tabs: 标签页
+  add: 在这个空间添加连接
+  add_new: 新建连接…
+  add_existing: 添加已保存的连接
+  edit: 编辑连接
+  empty: 这个空间还没有连接，点击 + 添加。
+  toggle: "侧边栏：完整、仅图标、隐藏（Ctrl+B 隐藏，Ctrl+Shift+B 图标）"
+  move_conn_to: "移到空间“%{space}”"
+  remove_conn: 从这个空间移除
+  tls_unverified_tip: "连接已加密，但不校验服务器证书：能拦截连接的人可以冒充服务器。"
+  tls_disabled_tip: "未加密：密码和每一条数据都以明文传输。"
+space:
+  default: 我的空间
+  new: 新建空间
+  new_name: "空间 %{n}"
+  menu: 空间选项
+  rename: 重命名空间
+  color: 颜色
+  name: 名称
+  icon: 图标
+  icon_none: 颜色圆点
+  colors:
+    c0: 蓝
+    c1: 绿
+    c2: 橙
+    c3: 粉红
+    c4: 紫
+    c5: 青
+    c6: 黄
+    c7: 红
+  bind_folder: 绑定文件夹…
+  unbind_folder: 解除文件夹绑定
+  delete_menu: 删除空间…
+  delete_title: "删除“%{name}”？"
+  delete_body: "空间里的标签页会关闭，正在执行的查询会取消。连接仍会保留，可以添加到其他空间。"
+  delete: 删除空间
+  switch_tip: "%{name}（Ctrl+PgUp／Ctrl+PgDn：上一个／下一个空间）"
+tab:
+  new: 新建标签页（Ctrl+T）
+  untitled: 未命名查询
+  close: 关闭标签页（Ctrl+W）
+  rename: 重命名
+  pin: 固定到顶部
+  unpin: 取消固定
+  move_to: "移到空间“%{space}”"
+  unsaved: 有未保存的更改
+pane:
+  split_right: 向右拆分（Ctrl+\）
+  split_down: 向下拆分（Ctrl+Shift+\）
+  split_left: 向左拆分（Ctrl+Shift+K ←）
+  split_up: 向上拆分（Ctrl+Shift+K ↑）
+  unsplit: 关闭这个窗格（取消拆分）
+  close: 关闭窗格（Ctrl+Shift+W）
+toolbar:
+  run: 执行
+  run_hint: 执行选中的文本，没有选中时执行光标所在的语句（Ctrl+Enter）
+  run_script_hint: 执行整个脚本（Ctrl+Shift+Enter）
+  cancel_hint: 在服务器上终止正在执行的查询（Esc 或 Shift+F5）
+  pick_connection: 选择连接
+  pick_connection_hint: 这个标签页使用的连接
+  no_space_connections: 这个空间还没有连接
+limit:
+  rows: "上限 %{n} 行"
+  unlimited: 不限行数
+  hint: "结果保存在内存中：达到上限时会在服务器上终止查询"
+state:
+  idle: 空闲
+  connecting: 连接中…
+  running: 执行中…
+  cancelling: 取消中…
+  paused: 已暂停，还有更多数据
+  done: 完成
+  cancelled: 已取消
+  failed: 失败
+status:
+  session: "会话 %{id}"
+  no_session: 没有会话
+fmt:
+  group_separator: ","
+  row_one: 1 行
+  rows: "%{n} 行"
+  ms: "%{v} 毫秒"
+  seconds: "%{v} 秒"
+  minutes: "%{m} 分 %{s} 秒"
+results:
+  result: 结果
+  result_n: "结果 %{n}"
+  messages: "消息（%{n}）"
+  waiting: 等待第一批数据…
+  note_cancelled: "已取消：显示取消前收到的 %{n} 行。"
+  note_failed: "语句失败：显示失败前收到的 %{n} 行，详情见“消息”。"
+  note_truncated: "已达行数上限而停止：只显示前 %{n} 行。"
+  cancelled_empty: 在收到任何数据前就已取消。
+msg:
+  rows: "返回 %{n}"
+  affected: "影响 %{n}"
+  truncated: "达到行数上限，截断于 %{n} 行"
+  cancelled: "在 %{n} 后取消"
+  rows_kept: "保留 %{n}"
+grid:
+  "null": "NULL"
+  empty: 执行查询后，结果会显示在这里。
+  no_rows: 查询没有返回任何数据。
+  bytes: "%{n} 字节"
+  default: （默认值）
+  copy_selection: 复制选中区域
+  copy_cell: 复制单元格
+  edit_failed: '无法编辑这个单元格，详细信息已写入 %APPDATA%\Locus\crash.log。'
+  copy_column_name: 复制列名
+  copy_column_names: 复制所有列名
+  copy_row: 复制整行
+  copy_csv: 以 CSV 复制整行
+  copy_insert: 以 INSERT 复制整行
+  view_value: 查看完整内容…
+  edit_cell: 编辑单元格
+  set_null: 设为 NULL
+  add_row: 新增一行
+  delete_row: 删除／还原这一行
+viewer:
+  empty: "（空）"
+  title: "%{column} 的内容"
+  chars: "%{n} 个字符"
+edit:
+  read_only: "只读：%{why}"
+  ro_expression: 有列是表达式，不是表的列。
+  ro_joined: 结果来自多个表。
+  ro_no_pk: "表 %{table} 没有主键。"
+  ro_pk_missing: "结果没有包含主键列 %{column}。"
+  ro_no_catalog: 这个连接无法提供表的主键信息。
+  ro_oracle: 暂不支持编辑 Oracle 结果（只读）。
+  ro_catalog_error: "无法读取表的主键（%{msg}）。"
+  editable_hint: "可编辑：双击或按 F2 编辑单元格，右键有更多选项。"
+  pending: "%{n} 项待应用的更改"
+  preview: 预览 SQL
+  preview_title: 应用时会执行的语句
+  preview_note: 在同一个事务中执行。值以绑定参数传递（列在每条语句后面），不会直接拼进 SQL。
+  apply: 应用
+  applying: 应用中…
+  discard: 放弃
+  err_statement: "第 %{n} 条语句失败：%{msg}"
+  err_rows: "第 %{n} 条语句会影响 %{rows} 行，而不是恰好一行。"
+  err_cancelled: 语句已被取消。
+  rolled_back: 已回滚，没有任何更改；编辑内容仍保留待应用。
+editor:
+  plain_mode: 文件过大，已关闭语法高亮
+error:
+  connect: 无法连接到服务器
+  auth: 服务器拒绝了用户名或密码
+  tls: 无法建立加密（TLS）连接
+  query: 服务器无法执行这条语句
+  timeout: 查询执行过久，已被终止
+  internal: Locus 内部发生错误
+  no_connection: 请先为这个标签页选择连接。
+  driver_gone: 数据库驱动在查询完成前就停止了。
+  credential: "Windows 凭据管理器出错：%{msg}"
+  save: "无法保存连接列表：%{msg}"
+conn:
+  add_title: 新建连接
+  edit_title: 编辑连接
+  name: 名称
+  host: 主机
+  port: 端口
+  user: 用户名
+  password: 密码
+  password_note: 密码只存放在 Windows 凭据管理器，不会写入文件。
+  password_note_keep: 已保存的密码保留在 Windows 凭据管理器；留空即沿用。
+  database: 默认数据库（选填）
+  kind: 数据库类型
+  service: 服务名（Service name，例如 ORCLPDB1）
+  tls: 加密（TLS）
+  tls_required: 必须加密（校验服务器证书）
+  tls_unverified: 加密但不校验证书
+  tls_unverified_warning: "连接会加密，但不会校验服务器的证书。只适合在你信任的网络上连接使用自签名证书的服务器：能拦截连接的人可以冒充服务器。"
+  tls_disabled: 禁用（明文）
+  tls_warning: "TLS 已禁用。用户名、密码和读取的每一条数据都会以明文在网络上传输，路径上的任何人都能读取。"
+  test: 测试连接
+  engine: 数据库
+  url_placeholder: 粘贴连接 URL（mysql://、postgresql://、oracle://）即可自动填入
+  url_filled: 已从 URL 填入。请确认各字段，再测试或保存。
+  url_invalid: 这不是可识别的连接 URL。
+  page_general: 常规
+  page_tls: 加密
+  page_appearance: 外观
+  database_pg: 数据库（选填；默认为与用户名同名的数据库）
+  tls_oracle_note: Oracle 连接通过内置的 sidecar；网络加密请在服务器端配置。
+  color: 强调色
+  custom_color: 自定义
+  icon: 图标
+  icon_search: 搜索图标
+  icon_initials: 缩写
+  preview: 预览
+  preview_name: 新连接
+  testing: 连接中…
+  test_ok: "连接成功：服务器 %{version}，%{time}。"
+  delete: 删除
+  delete_confirm: 删除这个连接和已保存的密码
+  delete_menu: 删除连接…
+  delete_title: "删除“%{name}”？"
+  delete_body: 连接和已保存的密码会从所有空间移除。使用它的标签页会保留 SQL，但不再有连接。
+  err_name: 请输入名称。
+  err_host: 请输入主机。
+  err_port: 请输入 1 到 65535 之间的端口。
+  err_user: 请输入用户名。
+lang:
+  label: 语言
+  en: English
+  zh-TW: 繁體中文
+  zh-CN: 简体中文
+views:
+  tabs: 连接与标签页
+  objects: 数据库对象
+  history: 查询历史
+objects:
+  title: 数据库对象
+  refresh: 重新加载对象树
+  loading: 加载中…
+  error: "无法加载：%{msg}"
+  not_connected: 尚未连接。在这个连接上执行一次查询后即可浏览。
+  not_available: 这个连接不支持浏览对象。
+  no_connections: 这个空间还没有连接。
+  open_hint: 双击即可在新标签页打开数据
+  none: （无）
+  view_ddl: 查看 DDL（只读）
+  ddl_title: "DDL · %{name}"
+  ddl_error: "无法读取 DDL：%{msg}"
+  principals: 用户与角色
+  server_info: 服务器信息与存储
+  kinds:
+    tables: 表
+    views: 视图
+    materialized_views: 物化视图
+    indexes: 索引
+    sequences: 序列
+    procedures: 存储过程
+    functions: 函数
+    packages: 包
+    triggers: 触发器
+    events: 事件
+    synonyms: 同义词
+actions:
+  run: 执行语句
+  run_script: 执行整个脚本
+  cancel: 终止正在执行的查询
+  new_tab: 新建标签页
+  close_tab: 关闭标签页
+  next_tab: 下一个标签页
+  prev_tab: 上一个标签页
+  open: 打开 .sql 文件…
+  save: 保存
+  save_as: 另存为…
+  export: 导出结果…
+  next_space: 下一个空间
+  prev_space: 上一个空间
+  split_right: 向右拆分
+  split_down: 向下拆分
+  split_left: 向左拆分
+  split_up: 向上拆分
+  close_pane: 关闭窗格
+  next_pane: 下一个窗格
+  prev_pane: 上一个窗格
+  toggle_sidebar: 显示或隐藏侧边栏
+  icon_sidebar: 侧边栏仅显示图标
+  view_tabs: "侧边栏：连接与标签页"
+  view_objects: "侧边栏：数据库对象"
+  view_history: "侧边栏：查询历史"
+  settings: 设置…
+palette:
+  title: 命令面板
+  placeholder: 输入文字筛选操作，按 Enter 执行第一项
+settings:
+  title: 设置
+  theme: 主题
+  theme_system: 跟随 Windows
+  theme_light: 浅色
+  theme_dark: 深色
+  row_limit: 新标签页的行数上限
+  row_limit_note: 已有标签页保留各自的上限（在标签页的工具栏设置）。
+  font_size: 字体大小
+  rows_cap: 每个结果最多保留在内存的行数
+  no_cap: 不限制
+  page_idle: 暂停中的分页查询在多久后释放
+  minutes: "%{n} 分钟"
+  motion: 动画
+  motion_on: 开启
+  motion_off: 减少动态效果
+  count: 在后台统计分页查询的总行数
+  count_on: 开启
+  count_off: 关闭
+  auto_plan: 执行 SELECT 后自动生成执行计划
+  material: 窗口背景
+  mat_opaque: 不透明
+  mat_blur: 模糊（亚克力）
+  mat_mica: 云母
+  mat_mica_alt: 云母（替代）
+  translucency: 侧边栏透明度（配合材质时）
+file:
+  close_title: "要保存“%{name}”的更改吗？"
+  close_body: 这个标签页有尚未保存到文件的更改，不保存就关闭会丢失这些更改。
+  dont_save: 不保存直接关闭
+  save: 保存
+  read_error: "无法打开 %{path}：%{msg}"
+  write_error: "无法保存 %{path}：%{msg}"
+history:
+  title: 查询历史
+  title_conn: "历史 · %{name}"
+  search: 搜索历史
+  empty: 在这个连接上执行的查询会列在这里。单击插入，双击在新标签页打开。
+export:
+  button: 导出
+  tooltip: 将这个结果导出为 CSV 或 JSON（Ctrl+Shift+E）
+  title: 导出结果
+  body: "导出当前结果的每一行，按当前的排序。NULL 在 CSV 中写成空字段，在 JSON 中写成 null。"
+  csv: CSV
+  csv_excel: Excel 用 CSV（带 BOM 的 UTF-8）
+  json: JSON
+  progress: "正在导出第 %{done} 行，共 %{total} 行"
+  cancel: 取消
+  cancelled: 已取消导出，并删除未完成的文件。
+  done: "已将 %{n} 导出到 %{path}"
+  failed: "导出失败：%{msg}"
+  nothing: 没有可以导出的结果。
+diagram:
+  title: "关系图 · %{schema}"
+  open: 这个模式的关系图
+  empty: 这个模式没有表。
+  fit: 适应窗口大小
+  reset_zoom: 100 %
+  relayout: 重新排列
+  loading: 正在读取表与外键…
+  relations: 显示关系（这个表，以及它引用或引用它的表）
+  relations_button: 关系
+  relations_title: "关系 · %{table}"
+  core: "核心：%{tables}"
+  expand: 展开选中的表
+  expand_hint: 再显示选中卡片的相邻表（多一层）
+  connecting: 连接中…
+pager:
+  first: 第一页
+  prev: 上一页
+  next: 下一页（需要时会再取数据）
+  rows: "第 %{a}–%{b} 行，已获取 %{n} 行"
+  range: "%{a}–%{b}，共 %{total} 行"
+  many: 很多
+  loaded: "，已加载 %{n} 行"
+  paused: 查询在服务器上暂停中；点击“下一页”会继续取数据。
+  expired: 其余数据已无法获取（暂停中的查询已释放）。重新执行才能看到更多。
+  load_all: 全部加载
+  load_all_hint: "取回剩下的所有数据（最多保留 %{cap} 行）"
+welcome:
+  title: 连接到数据库
+  subtitle: "“%{space}”还没有连接。粘贴 URL 或选择数据库类型。"
+shell:
+  search: 搜索…
+  search_tip: 搜索与命令（Ctrl+K）
+  toggle_sidebar: 显示 / 收起侧边栏（Ctrl+B）
+  no_conns: 此空间没有连接 — 新建…
+  new_query: 新建查询
+  new_query_here: 在此连接新建查询
+  conn_options: 连接选项
+  use_in_tab: 用于当前标签页
+  conn_idle: 空闲 — 点击连接
+  conn_retry: 连接失败 — 点击重试
+  filter_tabs: 筛选标签页
+  filter_placeholder: 筛选标签页或连接名称…
+  split_group: "拆分 · %{n} 格"
+  unsaved: 未保存
+  state_ok: 已连接
+  state_ok_ms: "已连接 · %{ms} ms"
+  state_slow: "延迟偏高 · %{ms} ms"
+  state_failed: 连接失败
+  state_idle: 未连接
+  stop: 停止
+  run_options: 执行选项
+  run_current: 执行当前语句 / 选中内容
+  run_all: 执行全部
+  save: 保存查询（Ctrl+S）
+  right_panel: 右侧面板（Ctrl+J）
+  rail_schema: Schema（Ctrl+J）
+  rail_history: 查询历史
+  settings: 设置（Ctrl+,）
+  panel_schema: Schema
+  panel_history: 查询历史
+  schema_search: 搜索已加载的表、列、函数
+  no_match: 已加载的项目中没有匹配的
+  ln_col: "第 %{ln} 行，第 %{col} 列"
+  ran_in: "执行 %{t}"
+  space_unsaved: "%{space} · %{n} 个未保存"
+  act_schema: 显示 / 隐藏 Schema 面板
+  act_history: 显示 / 隐藏查询历史
+  space_tint: 空间色调
+  space_tint_note: 空间颜色染在窗口背景上的强度。
+
+prod:
+  env: 环境
+  env_local: 本机
+  env_dev: 开发
+  env_staging: 测试
+  env_team: 团队
+  env_prod: 生产
+  env_note: "生产环境连接默认只读；写入与 DDL 需先解锁（输入连接名称），并写入审计日志。"
+  chip_ro: Production · 只读
+  chip_rw_min: "Production · 可写入 %{n} 分钟"
+  chip_rw_next: Production · 可写入 · 仅下一次执行
+  chip_rw: Production · 可写入
+  chip_plain: 读 / 写
+  chip_tip_locked: 点击解除锁定
+  chip_tip_unlocked: 点击立即重新锁定
+  bar_name: Production
+  bar_locked: 已锁定为只读。写入与 DDL 需先解除锁定，并输入连接名称二次确认。
+  bar_unlocked: 写入已解锁。每条写入语句仍需逐次确认并记录审计。
+  bar_unlock: 解除锁定…
+  bar_lock: 立即锁回
+  unlock_title: 解除 Production 写入锁定
+  unlock_warn: "你即将允许对 %{name}（%{engine} · %{host}）执行写入、DDL 与删除。解锁期间，每条写入语句仍需逐次确认。"
+  unlock_for: 解锁时效
+  dur_minute: 1 分钟
+  dur_minutes: "%{n} 分钟"
+  dur_seconds: "%{n} 秒"
+  dur_next: 仅下一次执行
+  dur_disc: 直到断开连接
+  reason: 原因（写入审计日志）
+  reason_ph: 例如 JIRA-4412 修正数据
+  type_name: "请输入连接名称以确认：%{name}"
+  unlock_btn: 解除锁定
+  blocked_title: 已拦截：Production 为只读
+  blocked_body: "这条 %{kw} 会修改 %{name}。当前连接为只读，语句没有被发送。"
+  unlock_more: 解除锁定…
+  run_elsewhere: 改在非 Production 连接执行
+  confirm_title: "确认执行 %{kw}"
+  confirm_target: 目标
+  confirm_no_where: "没有 WHERE 条件 — 会影响整张表。"
+  confirm_multi: "%{n} 条写入语句：%{kws}"
+  confirm_type: "输入 %{kw} 以启用按钮"
+  confirm_btn: "执行 %{kw}"
+  lock_all: 锁定所有 Production 连接
+  setting_confirm: 在非 Production 连接写入前先确认
+  on: 开
+  off: 关
+  setting_note: Production 连接不论此设置一律会确认。
+  relock_expired: Production 连接已自动锁回（时间到）
+
+# --- results-tools: editor tools and the result area -----------------------------
+tools:
+  format: 格式化 SQL
+  find: 在编辑器中查找
+  replace: 在编辑器中替换
+  explain: Explain（执行计划）
+  explain_analyze: Explain Analyze（会执行语句）
+rt:
+  data: 数据
+  plan: 执行计划
+  messages: 消息
+  stats: 统计
+  no_result_title: 这条语句没有结果集
+  no_result_body: DDL 与写入语句不会返回数据行。执行结果与影响行数显示在“消息”。
+  view_messages: 查看消息
+  messages_footer: "%{n} 条消息"
+filter:
+  placeholder: "筛选行，例如 status = 'paid'"
+  range: "第 %{a}–%{b} 行 / 共 %{total} 行（已筛选，原 %{all}）"
+  scanning: " · 筛选中…"
+copy:
+  button: 复制为
+  tooltip: "以所选格式复制选中区域，未选中时复制全部已加载的行（最多 %{cap} 行）"
+  csv: 复制为 CSV
+  json: 复制为 JSON
+  insert: 复制为 INSERT 语句
+  markdown: 复制为 Markdown 表格
+  done: "已复制 %{rows}（%{fmt}）"
+  done_capped: "已复制前 %{n} 行（共 %{total} 行，%{fmt}；复制上限为 %{cap} 行）"
+  nothing: 没有可复制的内容
+plan:
+  idle_title: 暂无执行计划
+  idle_body: "按 Explain（Ctrl+E）查看光标所在语句的计划；从“执行”菜单选 Explain Analyze 可看实测耗时（会实际执行该语句）。"
+  running: 正在读取计划…
+  running_analyze: 正在执行语句并测量…
+  failed: 无法读取执行计划
+  basis_cost: 长条 = 预估成本的占比
+  basis_time: 长条 = 实测耗时的占比
+  basis_rows: 长条 = 预估行数的占比（服务器没有提供成本）
+  basis_none: 没有成本数字
+  cost: "预估成本 %{v}"
+  actual: "实际执行 %{v} ms"
+  actual_run: 已执行
+  planning: "规划 %{v} ms"
+  took: "读取耗时 %{v}"
+stats:
+  never: 这个标签页还没有执行过。
+  status: 状态
+  kind: 语句类型
+  statements: 语句数
+  rows: 返回行数
+  affected: 影响行数
+  elapsed: 总耗时
+  first_row: 首个结果出现时间
+  fetch: 取回时间（首个结果之后）
+  row_limit: 行数上限
+  truncated: 已在内存上限停止
+  footer: "%{phase} · %{elapsed}"
+explain:
+  button: Explain
+  tooltip: "显示光标所在语句的执行计划（Ctrl+E）"
+  menu: Explain
+  menu_analyze: Explain Analyze
+  unsupported_engine: Oracle 目前不支持 Explain。
+  unsupported_statement: Explain 只适用于 SELECT、INSERT、UPDATE、DELETE 语句。
+  no_statement: 没有可以 Explain 的语句。
+format:
+  tooltip: "格式化 SQL（Shift+Alt+F）"
+  done: 已格式化 SQL
+  done_selection: 已格式化选中内容
+  unchanged: "没有更改：SQL 已是格式化后的样子，或格式化器无法确定地读懂它（字符串未结束、括号不成对、存储过程体、DELIMITER…）。"
+  upper: 大写
+  as_typed: 保持原样
+  setting_keywords: "格式化 SQL：关键字"
+  setting_indent: "格式化 SQL：缩进（空格数）"
+find:
+  tooltip: "查找 / 替换（编辑器内 Ctrl+F、Ctrl+H）"
+# ---- er-app: diagram tabs v3 ----
+erv3:
+  arrange: 自动排列
+  centre_tag: 核心
+  conn_open: 这个模式的关系图
+  act_open: "关系图：当前连接与模式"
+  scope_all: 整个模式
+  scope_centre: "以 %{table} 为核心"
+  scope_tables: 此查询使用的表
+  scope_n: "%{scope} · %{n} 张表"
+  query_title: "关系图 · 此查询"
+  depth_hint: 从核心表起算的外键层数
+  depth_1: 向外 1 层
+  depth_n: "向外 %{n} 层"
+  depth_all: 全部相连
+  show_whole: 显示整个模式
+  show_hidden: 显示已隐藏的表
+  zoom_out: 缩小（Ctrl+滚轮）
+  zoom_in: 放大
+  export: 导出
+  copy_mermaid: 复制为 Mermaid
+  copy_ddl: 复制这些表的 DDL
+  copied_mermaid: 已复制 Mermaid
+  copied_ddl: "已复制 %{n} 张表的 CREATE TABLE"
+  counts: "%{n} 张表 · %{fk} 个外键"
+  hint: 拖动表头移动 · 双击打开查询 · 点连线插入 JOIN · Ctrl+滚轮缩放
+  m_centre: 以此表为核心
+  m_query: 打开查询
+  m_schema: 在模式面板显示
+  m_hide: 从图中隐藏
+  no_schema: 这个连接还没有已知的模式。请先在模式面板展开连接。
+  palette_schema: "关系图：%{schema}（%{conn}）"
+  palette_centre: "关系图：以 %{table} 为核心（%{conn}）"
+  join_inserted: "已将 JOIN 插入“%{tab}”"
+  join_copied: "图旁没有查询窗格，已复制：%{sql}"
+  relations_query: 这次查询用到的表之间的关系
+# ---- History, Settings and palette (task: history-settings) ----
+hp:
+  tab_title: 查询历史
+  subtitle: 所有连接的执行记录 · 每个连接保留 1,000 条
+  search: 搜索 SQL
+  f_all: 全部
+  f_ok: 成功
+  f_err: 失败
+  f_cancel: 已取消
+  all_conns: 所有连接
+  count: "%{n} 条"
+  empty: 执行过的查询会列在这里。
+  no_match: 没有符合条件的记录。
+  today: 今天
+  yesterday: 昨天
+  wd0: 周日
+  wd1: 周一
+  wd2: 周二
+  wd3: 周三
+  wd4: 周四
+  wd5: 周五
+  wd6: 周六
+  error: 错误
+  cancelled: 已取消
+  copy: 复制 SQL
+  open: 在新查询中打开
+  rerun: 重新执行
+  unknown_conn: 连接已删除
+sp:
+  subtitle: 更改会立即生效
+  search: 搜索设置
+  cat_general: 常规
+  cat_appearance: 外观
+  cat_queries: 查询与结果
+  cat_editor: 编辑器
+  d_fmt_case: 格式化 SQL（Shift+Alt+F）时关键字的大小写。
+  d_fmt_indent: 格式化 SQL 时每层缩进的空格数。
+  cat_production: Production
+  cat_shortcuts: 快捷键
+  cat_about: 关于
+  about_name: Locus
+  about_tagline: 快速的桌面 SQL 客户端。
+  about_version: 版本
+  about_license: 许可证
+  d_language: 整个界面的语言。
+  d_theme: 浅色、深色，或跟随 Windows。
+  d_font: 界面与编辑器文字的大小。
+  d_motion: 动画让你分心时可以关闭。
+  d_material: 窗口背景透出的材质。
+  d_translucency: 选了材质时，窗口底色的透明程度。
+  d_cap: 结果达到这个行数时，查询会中止并附上说明。
+  d_idle: 分页查询会占用服务器游标，空闲这么久后释放。
+  d_auto_plan: 单条 SELECT 执行完后，在后台跑普通 EXPLAIN（不会用 ANALYZE），执行计划标签页就会有内容。仅限 MySQL 与 PostgreSQL。
+  d_count: 在后台统计分页 SELECT 的总行数，显示“共 N 行”。
+  no_match: "没有匹配“%{q}”的设置"
+  k_space: 切换空间
+  k_copy: 复制选中的单元格
+  k_palette: 命令面板
+pal:
+  act_history: 打开查询历史
+  placeholder: "搜索…   > 命令   @ 标签页   # 表   ! 历史   $ 连接"
+  s_all: 全部
+  s_commands: 命令
+  s_tabs: 标签页
+  s_objects: 表
+  s_history: 历史
+  s_connections: 连接
+  g_recent: 最近使用
+  g_commands: 命令
+  g_tabs: 已打开的标签页
+  g_tables: 表
+  g_views: 视图
+  g_schemas: Schema
+  g_history: 查询历史
+  g_connections: 连接
+  no_catalog: 这个空间的连接用过之后，表会列在这里（在编辑器输入，或打开 Schema 面板）。
+  empty_scope: 这里还没有内容。
+  no_match: "找不到“%{q}”"
+  h_select: 选择
+  h_open: 打开
+  h_scope: 切换范围
+  h_all_spaces: 搜索所有空间 · 模糊匹配
+export_filter:
+  note: "只会导出筛选后显示的 %{n} 行（共 %{total} 行）。"
+  done: "已将 %{n} / %{total} 行（已筛选）导出到 %{path}"
+
+
+split2:
+  act_zoom: 临时放大当前格子 / 还原
+  act_new: "拆分：在右侧新建查询"
+  act_unsplit: "拆分：取消当前拆分（保留标签页）"
+  zoom_tip: 临时放大这一格（Ctrl+Shift+M）
+  restore_tip: 还原拆分（Ctrl+Shift+M、Esc）
+  row_tip: 点击切换焦点；把标签页拖到这里可加为一格
+  expand: 展开各格
+  collapse: 收起
+  menu_zoom: 临时放大当前格子
+  dissolve: 取消拆分（保留标签页）
+  close_group: 关闭整组标签页
+  remove: 移出拆分
+  drag_out: 拖出此行即可移出拆分
+  full_title: "已达 %{n} 格上限"
+  full_body: "一组拆分最多 %{n} 格，再多每格的编辑器和结果都会太小，也容易在错的格子按下执行。"
+  full_ask: "“%{name}”要怎么放？"
+  replace: 替换当前这一格
+  new_group: 打开为新的拆分组
+
+t0:
+  translucency: "侧边栏与标题栏透明度"
+  d_translucency: "选了窗口材质时，侧边栏与标题栏比默认更透明多少（编辑器、结果和页面保持不透明）。数字越大，透出的背景越多。"
+  tr_default: "默认"
+  mat_mica: "Mica（默认）"
+
+t3:
+  pal_placeholder: "搜索…"
+  d_translucency: "只有侧边栏与标题栏会在选用窗口材质时变得更透明；编辑器、结果和页面保持不透明。第一项为默认，越往右越能看到窗口后方。"
+
+t2:
+  editor_placeholder: "输入 SQL…"
+  run_hint: "按 Ctrl+Enter 执行"
+  diagram_fit: "适应窗口"
+  diagram_fit_tip: "将整张图缩放到窗口大小"
+
+t4:
+  env_help: "告诉程序这个数据库要多小心对待，并在侧边栏的连接上显示标记。只有“生产”会改变你能做的事。"
+  env_desc_local: "你自己的电脑或可随意丢弃的数据库。更改会立即执行。"
+  env_desc_dev: "多人共用的开发数据库。更改会立即执行；也可以在设置中改成执行前先确认。"
+  env_desc_staging: "上线前用来测试的副本。更改会立即执行，写入前请先确认连接。"
+  env_desc_team: "同事也在使用的数据库。更改会立即执行并影响所有人，请小心。"
+  env_desc_prod: "生产数据。默认只读：要写入或修改表必须先解锁（输入连接名称），每次更改都会记录。"
+  menu_move_space: "移到空间"
+  menu_new_here: "在此新建查询"
+  menu_edit: "编辑连接…"
+  menu_delete: "删除连接"
+  menu_split: "拆分"
+  existing: "使用已有连接"
+  find_placeholder: "查找"
+  replace_placeholder: "替换为"
+  find_case: "区分大小写"
+  find_prev: "上一个"
+  find_next: "下一个（Enter）"
+  find_replace_toggle: "替换（Ctrl+H）"
+  find_close: "关闭（Esc）"
+  replace_one: "替换此项"
+  replace_all: "全部替换"
+
+routines:
+  kind_types: 类型
+  edit_source: "编辑源码"
+  compile: 编译
+  save: "保存到数据库"
+  reload: 重新加载
+  overwrite: 覆盖
+  spec: 规范
+  body: 主体
+  valid: VALID
+  invalid: INVALID
+  open_error: "无法读取源码：%{msg}"
+  empty: "没有可保存的内容：编辑器是空的。"
+  no_errors: "没有编译错误。编译会把整段文字当作一条 CREATE OR REPLACE 发送。"
+  save_hint: "保存到数据库会把整段文字当作一条语句发送。"
+  errors_title: "%{n} 条编译消息（点一下跳到该行）"
+  compiled_ok: "已编译：VALID"
+  compiled_errors: "编译有错误：INVALID"
+  saved_ok: "已保存到数据库"
+  save_failed: "未保存：%{msg}"
+  conflict_title: "服务器上已被修改"
+  conflict_body: "自从你打开后，有人在服务器上修改了这个对象。重新加载会丢失你的修改；覆盖会用你的版本替换对方的版本。"
+  drop_create_title: "以 DROP + CREATE 保存？"
+  drop_create_body: "MySQL 无法直接替换例程：会先删除旧的，再创建你的版本。这不是原子操作：若 CREATE 失败，对象就会消失（你的文字仍留在编辑器中）。"
+
+# Grid selection statistics and foreign-key navigation
+selstats:
+  count: "已选 %{count} 格"
+  numeric: "已选 %{count} 格 · 总和 %{sum} · 平均 %{avg} · 最小 %{min} · 最大 %{max}"
+  tip: "点击复制。NULL 不计入（%{nulls} 个 NULL）；数字统计只算 %{numeric} 个数值格。"
+fk:
+  open_ref: "打开被引用的数据行 · %{table}（%{cols}）"
+  show_ref: "显示引用此行的数据 · %{table}（%{cols}）"
+  open_hint: "打开被引用的数据行（Ctrl+点击）"
+
+runview:
+  status_idle: 就绪
+  status_connecting: 连接中…
+  status_running: 执行中…
+  status_streaming: "取回中… %{n} 行"
+  status_cancelling: 停止中…
+  status_paused: 已达上限 · 还有更多
+  status_done: 完成
+  status_cancelled: 已取消
+  status_failed: 失败
+  status_released: 完成 · 其余已释放
+  status_capped: 已在内存上限停止
+  footer_streaming: "当前 %{n} 行…"
+  footer_paused_limit: "已显示 %{n} 行（上限）· 还有更多"
+  footer_paused_total: "已显示 %{n} / %{total} 行 · 还有更多"
+  footer_paused: "已显示 %{n} 行 · 还有更多"
+  footer_done: "已加载全部 %{n} 行"
+  footer_cancelled: "已取消 · 保留 %{n} 行"
+  footer_failed: "失败 · 已收到 %{n} 行"
+  footer_released: "已显示 %{n} 行 · 其余已释放，重新执行才能看到更多"
+  footer_capped: "保留 %{n} 行 · 已在内存上限停止"
+  load_more: 加载更多
+  load_more_hint: 取回下一批数据
+  load_all: 全部加载
+  load_all_hint: "取回剩下的所有数据（到内存上限为止）"
+  release: 释放
+  release_hint: 释放服务器游标，保留已显示的数据
+  limit_hint: "行数上限：查询取回 %{n} 行后暂停，并在服务器保留游标。“加载更多”取下一批，“全部加载”取回其余，“释放”放掉游标。"
+  limit_hint_unlimited: "不限行数：取回所有数据，最多到设置中的内存上限。"
+
+sqlite:
+  engine: SQLite
+  file: 数据库文件
+  file_placeholder: C:\path\to\file.db
+  browse: 浏览…
+  browse_prompt: 选择 SQLite 数据库文件
+  new_file: 新建文件…
+  new_file_prompt: 创建 SQLite 数据库文件
+  read_only: 以只读方式打开
+  read_only_note: 只读连接无论执行什么都不会修改文件。
+  err_file: 请选择数据库文件。
+  err_create: "无法创建文件：%{msg}"
+  note: "SQLite 连接就是本机上的一个文件：不会保存主机、用户或密码。"
+  explain_no_analyze: SQLite 没有 Explain Analyze；请用 Explain 查看执行计划。
+  ro_no_pk_rowid: "表 %{table} 没有主键。选中 rowid 即可编辑数据行：SELECT rowid, * FROM %{table}。"
+
+ssh:
+  page: SSH
+  enable: 通过 SSH 隧道连接
+  note: "许多服务器只能通过跳板机访问。此时上方的数据库主机与端口是从跳板机那一侧解析的。"
+  host: SSH 主机
+  user: SSH 用户
+  auth: 认证方式
+  auth_password: 密码
+  auth_key: 私钥文件
+  auth_agent: SSH agent
+  key_file: 私钥文件
+  password: SSH 密码
+  passphrase: 密钥口令（若有）
+  secret_store: 保存在 Windows 凭据管理器，不会写进 connections.json。
+  secret_keep: 已保存密码。留空即保留。
+  agent_note: 使用 Windows OpenSSH agent 或 Pageant。
+  err_host: 请输入 SSH 主机。
+  err_port: SSH 端口必须是 1 到 65535 的数字。
+  err_user: 请输入 SSH 用户。
+  err_key: 请选择私钥文件。
+  trust: "信任 %{host} 并重新测试"
+
+structure:
+  open: 结构
+  button: 结构
+  button_hint: 打开这张表的结构（列、索引、键、DDL）
+  palette: "结构：%{table}（%{conn}）"
+  refresh: 刷新
+  read_only: 只读结构
+  loading: 正在读取结构…
+  failed: "无法读取结构：%{msg}"
+  columns: 列
+  indexes: 索引
+  foreign_keys: 外键
+  triggers: 触发器
+  checks: 检查约束
+  ddl: DDL
+  col_name: 名称
+  col_type: 类型
+  col_nullable: 可为空
+  col_default: 默认值
+  col_pk: 主键
+  col_auto: 自增
+  col_comment: 注释
+  col_columns: 列
+  col_unique: 唯一
+  col_references: 引用
+  col_from: 来源
+  col_on_delete: 删除时
+  col_on_update: 更新时
+  col_event: 时机与事件
+  col_expression: 表达式
+  empty_columns: 没有列。
+  empty_indexes: 没有索引。
+  empty_fks: 没有外键，也没有其他表引用这里。
+  empty_triggers: 这张表没有触发器。点击触发器可打开其源码。
+  empty_checks: 没有检查约束。
+  fk_outgoing: "引用其他表（%{n}）"
+  fk_incoming: "被引用（%{n}）"
+  ddl_failed: "没有 DDL：%{msg}"
+  copy_ddl: 复制
+  copied: 已复制 DDL。
+txn:
+  mode_auto: 自动提交
+  mode_manual: 手动
+  mode_tip: "此标签页的事务模式（Ctrl+Alt+T）。自动提交：每条语句各自提交。手动：第一个更改会在此标签页自己的连接上开始事务，以提交或回滚结束。"
+  pill_open: "事务进行中 · %{n} 条语句 · %{conn}"
+  pill_aborted: "事务失败 · %{n} 条语句 · %{conn} · 只能回滚"
+  commit: 提交
+  rollback: 回滚
+  cancel: 取消
+  commit_tip: 提交进行中的事务（Ctrl+Alt+Enter）
+  rollback_tip: 回滚进行中的事务（Ctrl+Alt+Z）
+  act_commit: 提交事务
+  act_rollback: 回滚事务
+  act_mode: "事务模式：自动提交 / 手动"
+  statements: "%{n} 条语句"
+  prompt_title: 有进行中的事务
+  prompt_body: "这些标签页有尚未提交的事务。请先提交或回滚；取消则维持原状。"
+  end_failed: "事务未能结束：%{msg}"
+  busy: 此标签页仍有语句在执行，请先终止或等待。
+  note_lost: 连接中断，服务器已回滚进行中的事务。
+  note_server_rollback: 服务器已回滚整个事务（死锁，或 SQLite 中断的更改）。
+  note_aborted: "PostgreSQL：有语句失败，事务已中止，只能回滚。"
+  note_statement_undone: 服务器只撤销了该语句，事务仍在进行中。
+  note_ddl: DDL 已提交事务，下一个更改会开始新的事务。
+  note_typed: 事务已由脚本中的 COMMIT / ROLLBACK 结束。
+  note_committed: 已提交。
+  note_rolled_back: 已回滚。
+  apply_undone: 已撤销这些编辑（回滚到此次应用之前），事务仍在进行中。
+  idle_warning: "“%{name}”的事务已空闲 %{n} 分钟，在提交或回滚前会持有锁。"
+  idle_never: 永不
+  setting_prod_manual: Production 标签页以手动模式开始
+  setting_prod_manual_note: Production 连接的查询标签页会在事务中执行，由你自行提交或回滚。
+  setting_idle: 空闲事务警告
+  setting_idle_note: 手动事务在这段时间内没有语句时发出警告。
+redis:
+  db_index: DB 编号 (0-15)
+  err_db: DB 编号必须是 0 到 15 的数字。
+  err_connect: 无法连接
+  err_command: 已连接，但服务器拒绝了检查命令
+  pattern: "匹配模式（例如 user:*），按 Enter 搜索"
+  type_all: 全部
+  keys_count: "此 DB 共 %{n} 个键 · 已加载 %{loaded}"
+  keys_loaded: "已加载 %{loaded} 个键"
+  refresh: 刷新
+  loading: 加载中...
+  no_keys: 没有键
+  load_more: 加载更多
+  capped: "已在 %{n} 个键停止，请缩小匹配范围。"
+  all_loaded: 匹配的键已全部加载。
+  tab_browser: "键 · %{name}"
+  tab_console: "控制台 · %{name}"
+  tab_info: "服务器 · %{name}"
+  conn_missing: 这个连接已不存在。
+  bad_tab: 无法还原这个 Redis 标签页。
+  use_browser: "Redis 没有表，请从连接菜单打开“浏览键”。"
+  menu_browse: 浏览键
+  menu_console: Redis 控制台
+  menu_info: 服务器信息
+  blocked_prod: 这个生产环境连接已锁定，解锁后才能发送写入命令。
+  unsupported_select: "此处不支持 SELECT，请使用键浏览器的 DB 切换。"
+  unsupported_stream: 这个命令会持续流式返回响应，控制台不支持。
+  unsupported_session: 这个命令会改变连接会话，控制台不支持。
+  unsupported_blocking: 控制台不支持阻塞型命令。
+  danger_title: 要执行这个命令吗？
+  run_anyway: 执行
+  danger_flushall: FLUSHALL 会删除所有数据库中的所有键。
+  danger_flushdb: FLUSHDB 会删除这个数据库中的所有键。
+  danger_shutdown: SHUTDOWN 会停止服务器。
+  danger_debug: DEBUG 可能使服务器崩溃或停滞。
+  danger_config_set: CONFIG SET 会修改运行中的服务器配置。
+  danger_keys: KEYS 会遍历整个键空间，在大型数据库上会卡住服务器。请改用键浏览器 (SCAN)。
+  danger_admin: 这个命令会改变服务器、用户或脚本。
+  console_hint: 输入命令，例如 GET user:1（Enter 或 Ctrl+Enter 发送，上下键翻历史）
+  console_empty: 响应会以树形显示在这里。
+  run: 执行
+  show_all: 全部字段
+  binary_readonly: 这个值是二进制内容，仅供只读查看。
+  too_big_edit: 这个值比已加载的内容大，无法在此编辑。
+  edit_value: 编辑值
+  save: 保存
+  ttl_invalid: "请输入秒数或 30s、10m、2h、1d；留空或 0 表示移除过期时间。"
+  ttl_title: 存活时间
+  ttl_hint: "过期时间（秒，或 10m / 2h / 1d），留空 = 永不过期"
+  rename_title: 重命名键
+  new_name: 新名称
+  rename: 重命名
+  delete_title: 删除键
+  delete_body: "要删除 %{key} 吗？此操作无法撤销。"
+  delete: 删除
+  add_field: 新增字段
+  field: 字段
+  value: 值
+  push_tail: 从尾部添加
+  push_head: 从头部添加
+  add_member: 新增成员
+  member: 成员
+  score: 分数
+  edit_score: 编辑分数
+  score_invalid: 分数必须是数字。
+  add: 新增
+  bytes: "%{n} 字节"
+  items: "%{n} 项"
+  fmt_auto: 自动
+  fmt_raw: 原始
+  str_capped: "仅显示前 %{n}"
+  key_missing: 这个键不存在（或已被删除）。
+  type_unsupported: "此处不显示 %{ty} 类型。"
+  json_invalid: 这不是有效的 JSON。
+  empty: 空
+  range: "%{from}-%{to}／共 %{total}"
+  shown: "已显示 %{n}／共 %{total}"
+
+wavea:
+  wrong_part: "这段文字创建的是 package 的%{want}，但当前打开的是%{active}。请先切换到%{want}标签页。"
+  part_spec: 规范（Spec）
+  part_body: 主体（Body）
+  first_of: "显示前 %{n}／共 %{total}"
+  first_n: "显示前 %{n}（服务器上还有更多）"
+  load_more: 加载更多
+  sqlite_ro_blocked: "这个 SQLite 文件以只读方式打开，语句没有发送。要写入请编辑连接并取消勾选“以只读方式打开”。"
+  chip_ro: 只读
+  shared_title: 编译共享对象
+  shared_not_owner: "你以 %{user} 连接，但 %{name} 属于 %{owner}。编译会立刻替换服务器上 %{owner}.%{name} 的代码，所有用户都会执行新版本。"
+  shared_apps: "你以 APPS 连接，这是 Oracle E-Business Suite 的共享 schema。编译 %{owner}.%{name} 会立刻改动服务器上所有模块与用户共用的对象。"
+  shared_type: "请输入对象名称 %{name} 以继续。"
+imp:
+  title: 导入数据
+  menu_into: 导入数据…
+  menu_new: 导入为新表…
+  palette: "从文件导入数据…"
+  s_file: 1 文件
+  s_map: 2 列映射
+  s_opts: 3 选项
+  s_run: 4 导入
+  choose: 选择文件…
+  no_file: 尚未选择文件（.csv .tsv .txt .xlsx .xls .ods）
+  new_table: 新表名称
+  new_table_ph: 表名称
+  target: 导入到
+  sheet: 工作表
+  delimiter: 分隔符
+  quote: 引号
+  header: 第一行为标题
+  encoding: 编码
+  yes: 是
+  no: 否
+  preview: "预览：前 %{n} 行"
+  skip: 跳过
+  use: 使用
+  map_hint: "点击目标列可切换；设为“跳过”的列不会导入。"
+  new_hint: "新表的列名与 SQL 类型（推测不准时请自行修改）。"
+  empty_null: 空值存为 NULL
+  trim: 去除首尾空格
+  date_format: "日期格式（留空＝自动，例如 %d/%m/%Y）"
+  date_ph: "自动：2024-03-05"
+  on_error: 发生错误时
+  on_stop: 停止
+  on_skip: 跳过该行并记录
+  save_errors: 将失败的行存为 CSV（放在原文件旁）
+  tx: 事务
+  tx_single: 整个文件一个事务
+  tx_batch: 每批一个事务
+  batch: 每批行数
+  clear: 导入前先清空表
+  clear_confirm: "导入前会删除 %{table} 的所有数据。请再点一次按钮确认。"
+  back: 上一步
+  next: 下一步
+  run: 导入
+  run_confirm: 删除数据并导入
+  close: 关闭
+  err_table: 请输入表名称。
+  err_no_map: 没有任何列映射。
+  err_cols: 列名与类型必须填写且不可重复。
+  progress: "已读 %{read} · 已写入 %{ok} · 已跳过 %{skipped} · %{rate} 行/秒"
+  done: "已导入 %{n} 行，跳过 %{skipped} 行，耗时 %{secs} 秒。"
+  failed: "导入已停止：%{msg}"
+  rolled_back: 已全部回滚。
+  cancelled_rolled: 已取消，所有更改已回滚，表保持原样。
+  cancelled_kept: "已取消，已完成批次的 %{n} 行保留在表中。"
+  errors_saved: "失败的行已存到 %{path}"
+
+act:
+  menu: 服务器活动
+  palette: "服务器活动：%{name}"
+  tab_title: "活动 · %{name}"
+  conn_missing: 这个连接已不存在。
+  sessions: 会话
+  variables: 变量
+  status: 状态
+  refresh: 刷新
+  filter_ph: 筛选
+  auto: 自动刷新
+  interval_off: 关闭
+  n_sessions: "%{n} 个会话"
+  n_rows: "%{n} 行"
+  col_id: 编号
+  col_user: 用户
+  col_host: 主机
+  col_db: 数据库
+  col_state: 状态
+  col_time: 时间
+  col_sql: SQL
+  mine: （你）
+  loading: 加载中…
+  no_rows: 没有可显示的内容。
+  pick: 选一个会话，即可查看其 SQL 并终止它。
+  no_sql: 没有语句。
+  copy_sql: 复制 SQL
+  open_in_tab: 在查询标签页打开
+  copy_kill: 复制终止语句
+  kill_query: 终止查询
+  kill_session: 终止会话
+  kill_go: 终止
+  copy_all: 全部复制
+  click_copy: 点击复制
+  copied: 已复制。
+  killed: 完成。
+  kill_failed: "终止失败：%{msg}"
+  own_refused: 这是服务器活动页自己使用的会话，终止它会让本页断开连接，所以已拒绝。
+  kill_unsupported: 这个服务器没有这项操作。
+  confirm_query: 终止正在执行的查询？
+  confirm_session: 终止这个会话？
+  confirm_body: "会话 %{id}（%{user} 于 %{host}）正在执行：%{sql}"
+  oracle_type: "请输入 %{name} 以确认。会话会立刻在服务器上结束。"
+qp:
+  title: 查询参数
+  hint: "参数值以绑定参数发送，不会拼进 SQL 文本。按 Enter 执行。"
+  run: 执行
+  one_statement: 参数一次只能搭配一条语句。请选中单条语句后再执行。
+  type_tip: "点击切换类型：文本、数字、日期、NULL"
+  not_number: 不是数字
+  t_text: 文本
+  t_number: 数字
+  t_date: 日期
+  t_null: NULL
+sq:
+  tab_title: 已保存
+  subtitle: 已保存的查询与代码片段
+  act_save: 将查询保存到库中…
+  act_open: 已保存的查询与代码片段
+  s_saved: 已保存
+  g_saved: 已保存的查询
+  search: 搜索已保存的查询
+  queries: 查询
+  snippets: 代码片段
+  import: 导入…
+  export: 导出…
+  imported: "已导入 %{n} 个已保存的查询。"
+  import_failed: "无法导入：%{msg}"
+  exported: 已导出已保存的查询。
+  export_failed: "无法导出：%{msg}"
+  unfiled: 未归入文件夹
+  empty: "尚无已保存的查询。在命令面板使用“将查询保存到库中”即可添加当前的 SQL。"
+  no_match: 没有匹配的已保存查询。
+  pick: 请在左侧选择一个已保存的查询。
+  f_name: 名称
+  f_folder: 文件夹
+  f_desc: 说明
+  f_conn: 连接
+  any_conn: 任意连接
+  save_changes: 保存更改
+  delete: 删除
+  open: 在新标签页打开
+  run: 打开并执行
+  name_required: 必须输入名称。
+  nothing_to_save: 没有可保存的 SQL。
+  save_title: 保存查询
+  saved_toast: 已保存到库中。
+  s_prefix: 前缀
+  prefix_invalid: "前缀只能包含字母、数字和下划线。"
+  builtin: 内置
+  new_snippet: 新建片段
+  snip_hint: "在编辑器输入前缀，再从自动补全中选择。${1:默认} 标出要填写的位置；会插入默认文本。"
+  fk_on: 按外键生成的 JOIN 条件
+
+exp2:
+  title: 导出
+  export_btn: 导出…
+  cancel_btn: 取消
+  fmt_csv: CSV
+  fmt_csv_excel: CSV（Excel 用）
+  fmt_xlsx: Excel（.xlsx）
+  fmt_json: JSON
+  fmt_jsonl: JSON Lines
+  fmt_sql: SQL INSERT
+  fmt_tsv: TSV
+  fmt_md: Markdown 表格
+  fmt_html: HTML 表格
+  desc_csv: 逗号分隔的 UTF-8 文本，通用。
+  desc_csv_excel: 带 UTF-8 BOM 的 CSV，Excel 打开中文不会乱码。
+  desc_xlsx: 工作簿，标题行加粗并冻结，数字与日期为真正的单元格；超过 1,048,576 行自动分页。
+  desc_json: 单个对象数组，数字保持为数字，NULL 为 null。
+  desc_jsonl: 每行一个 JSON 对象，方便流式处理与导入。
+  desc_sql: 按本数据库引号规则生成的 INSERT 语句，每条可含多行。
+  desc_tsv: 以 Tab 分隔的文本，Tab 与换行会被转义。
+  desc_md: 竖线分隔的表格，可粘贴到文档与 issue。
+  desc_html: 含一个表格的网页。
+  src_loaded: "表格中已加载的行（%{n}），应用当前的筛选与排序"
+  src_loaded_none: 表格中没有已加载的行
+  src_full: 完整查询结果（从服务器获取）
+  full_note: 查询会在另一条连接上重新执行，数据直接写入文件，因此任何大小都只占用少量内存。表格的筛选与排序不会应用。取消时会在服务器上终止查询。
+  full_refused: "无法导出完整结果：%{why}"
+  full_none: 没有可重新执行的语句。
+  full_multi: 编辑器内有多条语句，请先单独执行要导出的那一条。
+  full_not_select: 只有读取（SELECT）可以为导出重新执行。
+  table_name: INSERT 语句中的表名称
+  batch_rows: 每条的行数
+  header: 第一行写入列名
+  open_folder: 完成后在文件夹中显示文件
+  xlsx_note: "数字与日期写成单元格，NULL 为空白单元格，过长的文本会按 Excel 的 32,767 字符上限截断。超过 1,048,576 行时会接续到下一个工作表。"
+  progress_full: "从服务器导出：%{rows} 行 · %{mb} MB · %{rate} 行/秒"
+  export_table: 导出表…
+  copy_tsv: TSV
+  copy_jsonl: JSON Lines
+  copy_html: HTML 表格
+
+redis2:
+  deleted: "已删除 %{n} 个键"
+  key_name: 键名
+  new_key: "新增 %{ty} 键"
+  add_key: 新增键
+  view_list: 以平铺列表显示
+  view_tree: 以树形显示（按 ":" 分层）
+  delete_prefix: "删除 %{prefix} 下所有键…"
+  delete_prefix_body: "删除所有以 %{prefix} 开头的键？已加载 %{n} 个，其余会向服务器扫描。此操作无法撤销。"
+  delete_selected: "删除已选的 %{n} 个"
+  delete_many_body: "删除已选的 %{n} 个键？此操作无法撤销。"
+  scanned: "已扫描 %{n} / %{total} 个键"
+  copy_name: 复制键名
+  set_ttl: 设置 TTL…
+  click_rename: 点击重命名
+  click_ttl: 点击修改过期时间
+  locked_tip: 这个 Production 连接已锁定，点击解锁。
+  locked: 已锁定
+  memory: 内存
+  pick_key: 选一个键来查看内容
+  db_keys: "DB %{db} · %{n} 个键"
+  status_keys: "DB %{db} · %{n} 个键"
+  slow_empty: 没有记录到慢命令。
+  menu_slow: 慢查询日志
+  ago: "%{t}前"
+viewer2:
+  text: 文本
+  image: 图片
+  copy: 复制
+  save: 另存为…
+  saved: "已保存到 %{path}"
+  save_failed: "无法保存：%{err}"
+  wrap_on: 自动换行
+  wrap_off: 不换行
+  expand_all: 全部展开
+  collapse_all: 全部折叠
+  copy_path: 复制路径
+  copy_node: 复制值
+  no_selection: 选一个节点可看到它的路径
+  bytes: "%{n} 字节"
+  lines: "%{n} 行"
+  formatted: 已格式化
+  open: 查看器
+hp2:
+  params: "参数"
+gate:
+  fn_note: SELECT 中调用的函数不会检查是否有副作用。
+dataerr:
+  datafile: "无法读取 %{file}，已另存为 %{backup}。重新启动前不会保存对它的更改（下次启动会从空白的 %{file} 开始）。"
+  settings_save: "无法保存设置：%{msg}"
+  history_save: "无法保存查询历史：%{msg}"
+  saved_save: "无法保存常用查询或片段：%{msg}"
+  spaces_save: "无法保存工作区布局：%{msg}"
+  cred_delete: "连接已删除，但无法从 Windows 凭据管理器移除其密码：%{msg}"
+
+keymap:
+  invalid: "keymap.json：有 %{n} 个条目无法使用，已跳过（详情见日志）。"

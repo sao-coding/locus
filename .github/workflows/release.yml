@@ -1,0 +1,55 @@
+# Push a tag like v0.2.0. Publishes locus-<version>-x64.zip (locus.exe + sidecar.exe),
+# its .sha256, and a build provenance attestation.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag matches Cargo.toml
+        shell: pwsh
+        run: |
+          $v = (Select-String -Path Cargo.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -ne "v$v" -and $tag -notlike "v$v-*") { throw "tag $tag != Cargo.toml $v" }
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: sidecar/go.mod
+      - run: cargo test --workspace --lib --bins
+      - run: cargo build --release -p app
+      - run: ./sidecar/build.ps1
+        shell: pwsh
+      - name: Package
+        shell: pwsh
+        run: |
+          $name = "locus-$($env:GITHUB_REF_NAME.TrimStart('v'))-x64"
+          New-Item -ItemType Directory dist/$name | Out-Null
+          Copy-Item target/release/locus.exe, sidecar/bin/sidecar.exe, LICENSE, README.md dist/$name
+          Compress-Archive dist/$name/* dist/$name.zip
+          $h = (Get-FileHash dist/$name.zip -Algorithm SHA256).Hash.ToLower()
+          "$h  $name.zip" | Out-File dist/$name.zip.sha256 -Encoding ascii
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*.zip
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $args = @($env:GITHUB_REF_NAME) + (Get-ChildItem dist/*.zip, dist/*.sha256 | ForEach-Object FullName) + '--generate-notes'
+          if ($env:GITHUB_REF_NAME -match '-') { $args += '--prerelease' }
+          gh release create @args

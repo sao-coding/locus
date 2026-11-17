@@ -1,0 +1,74 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/app",
+    "crates/locus-core",
+    "crates/db-core",
+    "crates/db-mysql",
+    "crates/db-postgres",
+    "crates/db-sqlite",
+    "crates/db-redis",
+    "crates/db-sidecar-client",
+    "crates/er-diagram",
+]
+default-members = ["crates/app"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+repository = "https://github.com/sao-coding/locus"
+
+# Versions are pinned on purpose (gpui-fast / gpui-pre are snapshots).
+# Cargo.lock started from archive/poc/rust-gpui-fast/Cargo.lock: regenerating it from
+# scratch brings back the taffy / unicode-properties conflict.
+[workspace.dependencies]
+db-core = { path = "crates/db-core" }
+db-mysql = { path = "crates/db-mysql" }
+db-postgres = { path = "crates/db-postgres" }
+db-sqlite = { path = "crates/db-sqlite" }
+db-redis = { path = "crates/db-redis" }
+db-sidecar-client = { path = "crates/db-sidecar-client" }
+er-diagram = { path = "crates/er-diagram" }
+locus-core = { path = "crates/locus-core" }
+gpui-kit = { version = "=0.9.1", features = ["tree-sitter-sql", "gpui-fast"] }
+tokio-postgres = { version = "=0.7.18", default-features = false }
+postgres-native-tls = "=0.5.3"
+native-tls = "=0.2.18"
+futures-util = { version = "=0.3.34", default-features = false }
+mysql_async = { version = "=0.37.1", default-features = false, features = ["minimal", "native-tls-tls"] }
+rusqlite = { version = "=0.43.0", features = ["bundled", "column_decltype", "column_metadata"] }
+redis = { version = "=1.8.2", default-features = false, features = ["tokio-comp", "tokio-native-tls-comp"] }
+tokio = { version = "=1.54.1", features = ["rt-multi-thread", "macros", "time", "sync", "process", "io-util", "net"] }
+rust-i18n = "=4.2.4"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+log = "=0.4.35"
+simplelog = { version = "=0.12.2", default-features = false }
+sys-locale = "=0.3.2"
+windows-sys = "=0.59.0"
+embed-resource = "=3.0.12"
+bigdecimal = { version = "=0.4.8", default-features = false }
+russh = { version = "=0.65.2", default-features = false, features = ["ring", "flate2", "rsa"] }
+csv = "=1.4.0"
+encoding_rs = "=0.8.44"
+imagesize = "=0.13.0"
+encoding_rs_io = "=0.1.8"
+chardetng = "=1.0.0"
+calamine = { version = "=0.38.0", default-features = false }
+rust_xlsxwriter = { version = "=0.103.0", features = ["constant_memory"] }
+jiff = "=1.0.1"
+parking_lot = "=0.12.5"
+uuid = { version = "=1.29.2", features = ["v7"] }
+hex = "=0.4.3"
+futures = { version = "=0.3.34", default-features = false, features = ["executor", "std"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+
+[workspace.lints.clippy]
+type_complexity = "allow"
+too_many_arguments = "allow"
+large_enum_variant = "allow"
