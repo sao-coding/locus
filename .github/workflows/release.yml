@@ -42,7 +42,7 @@ jobs:
           Compress-Archive dist/$name/* dist/$name.zip
           $h = (Get-FileHash dist/$name.zip -Algorithm SHA256).Hash.ToLower()
           "$h  $name.zip" | Out-File dist/$name.zip.sha256 -Encoding ascii
-      - uses: actions/attest-build-provenance@v2
+      - uses: actions/attest-build-provenance@v4
         with:
           subject-path: dist/*.zip
       - name: Publish
