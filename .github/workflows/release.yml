@@ -26,7 +26,7 @@ jobs:
           if ($tag -ne "v$v" -and $tag -notlike "v$v-*") { throw "tag $tag != Cargo.toml $v" }
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: sidecar/go.mod
       - run: cargo test --workspace --lib --bins
