@@ -678,6 +678,14 @@ fn code_end(sql: &str, d: SqlDialect) -> Option<usize> {
 /// last-line `-- comment` cannot swallow it. The alias has no `AS` (Oracle
 /// rejects `AS` before a table alias; the others accept both).
 pub fn count_wrapper(sql: &str, dialect: SqlDialect) -> Option<String> {
+    let s = select_body(sql, dialect)?;
+    Some(format!("SELECT COUNT(*) FROM (\n{s}\n) wb_count"))
+}
+
+/// The single plain SELECT / WITH statement in `sql` without trailing `;` and
+/// comments (see [`count_wrapper`] for what is refused), ready to sit inside
+/// a derived table.
+pub fn select_body(sql: &str, dialect: SqlDialect) -> Option<String> {
     let stmts = split_statements(sql);
     let [r] = stmts.as_slice() else { return None };
     let mut s = &sql[r.clone()];
@@ -699,7 +707,22 @@ pub fn count_wrapper(sql: &str, dialect: SqlDialect) -> Option<String> {
     {
         return None;
     }
-    Some(format!("SELECT COUNT(*) FROM (\n{s}\n) wb_count"))
+    Some(s.to_string())
+}
+
+/// `SELECT * FROM (<body>) wb_view [WHERE ..] [ORDER BY ..]`: the query with
+/// filters and orders applied on the server. `body` comes from [`select_body`].
+pub fn view_wrapper(body: &str, where_sql: &str, order_sql: &str) -> String {
+    let mut out = format!("SELECT * FROM (\n{body}\n) wb_view");
+    if !where_sql.is_empty() {
+        out.push_str("\nWHERE ");
+        out.push_str(where_sql);
+    }
+    if !order_sql.is_empty() {
+        out.push_str("\nORDER BY ");
+        out.push_str(order_sql);
+    }
+    out
 }
 
 #[cfg(test)]
