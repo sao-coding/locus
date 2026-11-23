@@ -254,6 +254,22 @@ impl Locus {
         }
     }
 
+    /// Like `gate`, for an action the user already confirmed in its own dialog (the activity
+    /// page's kill): a lock still blocks it, but the second Production confirmation is
+    /// skipped. The send is audited as a confirmed one.
+    pub(crate) fn gate_confirmed(&mut self, g: Gated, window: &mut Window, cx: &mut Context<Self>) {
+        let confirm = crate::settings::get(cx).confirm_nonprod();
+        let locked = self.conn_locked(&g.conn);
+        if let Decision::Confirm { info, .. } =
+            guard::decide(g.conn.env, locked, &g.classified, confirm)
+        {
+            self.audit_write(&g.conn, "confirmed_sent", &info, &g.preview);
+            (g.go.clone())(self, window, cx);
+            return;
+        }
+        self.gate(g, window, cx);
+    }
+
     fn audit_write(&self, c: &SavedConnection, event: &str, info: &WriteInfo, sql: &str) {
         let mut e = audit::Entry::new(&c.name, env_str(c.env), event);
         e.keywords = info.keywords.clone();
