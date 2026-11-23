@@ -28,23 +28,24 @@ Record user-visible changes with `knope document-change` (`patch` fix, `minor` f
 
 ## Releasing
 
-Releases are automated, like changesets:
+Releases are automated, like changesets (modelled on Tessera's `version.yml` and Arke's release notice):
 
-1. Every user-visible PR adds a changeset (`knope document-change`, committed in `.changeset/`).
-2. On each push to `main` the `prepare release` workflow runs `knope prepare-release` on the `release` branch and opens or updates the PR `chore(release): x.y.z` (version bump, new CHANGELOG.md section as the PR body). With no changesets it does nothing, and closes a stale release PR.
-3. Merge that PR. The `release` workflow sees the `chore(release):` commit on `main`, tests and builds the exe, then creates the tag `vx.y.z` and the GitHub Release. The notes come from `.github/release-notes.md` filled with the CHANGELOG section (`scripts/ci/release-notes.ps1 -Version x.y.z` previews them); the `virustotal` job appends its links.
+1. Every user-visible PR adds a changeset (`knope document-change`, committed in `.changeset/`). Mention the issue it fixes as `(#N)` at the end of the text (`(#12, #15)` for several): knope copies the text into CHANGELOG.md and the release notes, and the release notice uses those references.
+2. On each push to `main` the `version` workflow looks at `.changeset/`:
+   - changesets pending: it runs `knope prepare-release` on the `release` branch and opens or updates the PR `chore(release): x.y.z` (version bump, the new CHANGELOG section as the PR body);
+   - none pending: it closes a stale release PR, reads the version in `Cargo.toml`, and if the tag `vx.y.z` does not exist, creates it through the API and calls `release.yml` (a tag pushed with `GITHUB_TOKEN` starts no workflow).
+3. Merging the release PR is the decision to release, whatever its merge title. `release.yml` tests and builds the exe (read-only token), then the `publish` job attests it and creates the GitHub Release with `--verify-tag`. The notes come from `.github/release-notes.md` plus the CHANGELOG section (`scripts/ci/release-notes.ps1 -Version x.y.z` previews them). The `virustotal` job appends its links, and the `notice` job comments on the issues the notes reference as `(#N)` (a stable release also closes them; an RC only comments; issues labeled `needs testing` stay open and are asked to try it).
 
 Setup, once: Settings > Actions > General > "Allow GitHub Actions to create and approve pull requests". PRs opened with the default `GITHUB_TOKEN` do not start `ci`; run it on the `release` branch with Actions > ci > Run workflow (`workflow_dispatch`), or add a repository secret `RELEASE_TOKEN` (fine-grained PAT or GitHub App token with Contents and Pull requests write) and the workflow uses it, so `ci` starts by itself.
 
-Manual fallback (also for `-rc.N` prereleases):
+Retry and manual runs:
 
-```powershell
-knope release        # bumps Cargo.toml and updates CHANGELOG.md
-git commit -am "chore(release): 0.2.0"; git tag v0.2.0
-git push --follow-tags
-```
+- A release that failed after its tag was made: Actions > release > Run workflow with the version (`0.2.0`). `gh release create` fails if the release already exists; delete that release first.
+- A release candidate: set the `Cargo.toml` version, tag `v0.2.0-rc.1` by hand (`git tag v0.2.0-rc.1; git push origin v0.2.0-rc.1`), then run `release` with `0.2.0-rc.1`. Versions must be `X.Y.Z` or `X.Y.Z-rc.N`, and `X.Y.Z` must match `Cargo.toml`.
+- Notices for an existing release: Actions > release notice (`dry_run` is on by default).
+- `knope release` still bumps `Cargo.toml` and CHANGELOG.md locally if you ever need to do it without the PR.
 
-A pushed `v*` tag runs the same `release` workflow (tags with a `-suffix` are published as prereleases).
+The workflows are checked with `actionlint` and `zizmor` (`.github/zizmor.yml`).
 
 ## Tests
 
