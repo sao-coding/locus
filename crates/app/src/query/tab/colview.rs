@@ -203,3 +203,20 @@ impl QueryTab {
         Some(row.into_any_element())
     }
 }
+
+impl QueryTab {
+    /// Shows a grid menu (right-click or header arrow) at `pos`, above everything else.
+    pub(super) fn show_grid_menu(
+        &mut self,
+        menu: Entity<PopupMenu>,
+        pos: Point<Pixels>,
+        cx: &mut Context<Self>,
+    ) {
+        let sub = cx.subscribe(&menu, |this: &mut QueryTab, _, _: &DismissEvent, cx| {
+            this.grid_menu = None;
+            cx.notify();
+        });
+        self.grid_menu = Some((menu, pos, sub));
+        cx.notify();
+    }
+}

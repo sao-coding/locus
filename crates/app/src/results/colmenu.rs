@@ -211,6 +211,7 @@ pub fn build(
     ctx: &MenuCtx,
 ) -> PopupMenu {
     let col = ctx.col.clone();
+    menu = menu.scrollable(true).max_h(px(520.));
     menu = menu
         .item(
             with_icon(
@@ -312,7 +313,6 @@ impl ResultGrid {
         cx: &mut Context<TableState<Self>>,
     ) -> Option<AnyElement> {
         use gpui_kit::component::button::{Button, ButtonVariants as _};
-        use gpui_kit::component::menu::DropdownMenu as _;
         use gpui_kit::component::{ActiveTheme as _, Sizable as _};
         let view = self.colview.as_ref()?;
         let meta = self.rs.columns().get(col_ix)?;
@@ -341,7 +341,7 @@ impl ResultGrid {
                     .when(active, |i| i.text_color(accent)),
             )
             .tooltip(tip.to_string())
-            .dropdown_menu(move |menu, _, cx| {
+            .on_click(move |_, window, cx| {
                 let cell = me.upgrade().and_then(|t| selected_cell(t.read(cx), col_ix));
                 let ctx = MenuCtx {
                     col: col.clone(),
@@ -351,7 +351,13 @@ impl ResultGrid {
                     saved,
                     any,
                 };
-                build(menu, &me, &ctx)
+                // Same mechanism as the right-click menu: the tab shows it at
+                // window level (deferred + anchored), so no header clips it.
+                let weak = me.clone();
+                let menu = PopupMenu::build(window, cx, move |m, _, _| build(m, &weak, &ctx));
+                menu.read(cx).focus_handle(cx).focus(window, cx);
+                let pos = window.mouse_position();
+                let _ = me.update(cx, |t, cx| t.delegate().up(GridUp::ColMenu(menu, pos), cx));
             });
         Some(
             div()

@@ -148,6 +148,7 @@ impl QueryTab {
             }
             GridUp::Stats => cx.notify(),
             GridUp::Col(a) => self.col_act(a, cx),
+            GridUp::ColMenu(menu, pos) => self.show_grid_menu(menu, pos, cx),
         }
     }
 

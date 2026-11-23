@@ -1368,6 +1368,8 @@ pub enum GridUp {
     Stats,
     /// A header menu entry (filter / order).
     Col(super::colmenu::ColAct),
+    /// The header arrow was clicked: show this menu at the point.
+    ColMenu(Entity<PopupMenu>, Point<Pixels>),
 }
 
 /// Most "referencing rows" entries offered for one cell.
