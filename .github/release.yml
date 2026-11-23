@@ -1,0 +1,16 @@
+# GitHub's auto-generated notes (`gh release create --generate-notes`), grouped by PR label.
+# The release workflow's own notes come from release-notes.md and CHANGELOG.md.
+changelog:
+  exclude:
+    authors: [dependabot, dependabot[bot]]
+  categories:
+    - title: Bug fixes
+      labels: [bug]
+    - title: Enhancements
+      labels: [enhancement]
+    - title: Refactoring
+      labels: [refactor]
+    - title: Roadmap
+      labels: [roadmap]
+    - title: Other changes
+      labels: ["*"]
