@@ -1,0 +1,46 @@
+# Comments on the issues a release fixes (the "(#N)" in its notes) once release.yml has published,
+# or by hand for an existing tag; a stable release also closes them. See .github/release-notice.sh.
+# release.yml calls this (a workflow_run trigger would not see the run, because version.yml calls
+# release.yml and so the run is named "version").
+name: release notice
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+      dry_run:
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag, e.g. v0.2.0
+        type: string
+        required: true
+      dry_run:
+        description: Only list what would be posted
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ inputs.tag }}
+      DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: comment on the fixed issues
+        run: bash .github/release-notice.sh $DRY_RUN

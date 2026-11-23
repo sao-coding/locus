@@ -1,8 +1,4 @@
-## Locus {version}
-
-{changelog}
-
-### Download
+## Download
 | File | |
 |---|---|
 | `locus-{version}-windows-x64.exe` | Portable, Windows 10/11 x64. No installer; the Oracle helper is embedded. |
@@ -14,4 +10,6 @@ Provenance: `gh attestation verify locus-{version}-windows-x64.exe -R sao-coding
 
 > The exe is not code-signed yet, so Windows SmartScreen may warn on first run: choose "More info" → "Run anyway".
 
-**Full Changelog**: {compare}
+## What's changed
+{changelog}
+{extra}
