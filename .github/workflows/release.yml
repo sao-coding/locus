@@ -1,4 +1,7 @@
-# Push a tag like v0.2.0 (v0.2.0-rc.1 is published as a prerelease). Publishes ONE portable exe,
+# Runs when the release PR (chore(release): x.y.z, made by prepare-release.yml) is merged into main,
+# or when a v* tag is pushed by hand (v0.2.0-rc.1 is published as a prerelease). A tag pushed with
+# GITHUB_TOKEN would not start another workflow, so the main-push run does everything itself and
+# `gh release create` makes the tag. Publishes ONE portable exe,
 # locus-<version>-windows-x64.exe (the Oracle helper sidecar.exe is embedded in it), its .sha256,
 # THIRD_PARTY_LICENSES.md and a build provenance attestation.
 # The test and build jobs run side by side with a read-only token; only the publish job can write
@@ -7,13 +10,41 @@ name: release
 
 on:
   push:
+    branches: [main]
     tags: ["v*"]
 
 permissions:
   contents: read
 
 jobs:
+  # Decides what to release: the pushed tag, or for a push to main the version in Cargo.toml when
+  # the commit is the release PR's merge and that tag doesn't exist yet. Anything else stops here.
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.p.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: p
+        env:
+          MSG: ${{ github.event.head_commit.message }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          elif [[ "$MSG" == "chore(release):"* ]]; then
+            v=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+            if git ls-remote --exit-code --tags "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "refs/tags/v$v" > /dev/null; then
+              echo "v$v already released; skipping"
+            else
+              echo "tag=v$v" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
   test:
+    needs: plan
+    if: needs.plan.outputs.tag != ''
     runs-on: windows-latest
     # Same settings and cache key as ci.yml's test job, so the tests reuse the cache main saved
     # (rust-cache keys on CARGO_* variables too) instead of compiling everything again. The
@@ -21,13 +52,14 @@ jobs:
     env:
       CARGO_PROFILE_DEV_DEBUG: line-tables-only
       CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER: rust-lld
+      TAG: ${{ needs.plan.outputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: tag matches Cargo.toml
         shell: pwsh
-        run: ./scripts/ci/check-tag.ps1
+        run: ./scripts/ci/check-tag.ps1 -Tag $env:TAG
       - name: toolchain (rust-toolchain.toml)
         run: rustup toolchain install
       # Restore only: a cache saved under a tag can't be used by any later run.
@@ -42,14 +74,18 @@ jobs:
         run: cargo nextest run --locked --workspace --lib --bins --profile ci
 
   build:
+    needs: plan
+    if: needs.plan.outputs.tag != ''
     runs-on: windows-latest
+    env:
+      TAG: ${{ needs.plan.outputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: tag matches Cargo.toml
         shell: pwsh
-        run: ./scripts/ci/check-tag.ps1
+        run: ./scripts/ci/check-tag.ps1 -Tag $env:TAG
       - name: toolchain (rust-toolchain.toml)
         run: rustup toolchain install
       # The release build's dependencies, saved from main by release-cache.yml: only Locus's own
@@ -70,7 +106,7 @@ jobs:
         run: cargo build --locked --release -p app
       - name: package
         run: |
-          $name = "locus-$($env:GITHUB_REF_NAME.TrimStart('v'))-windows-x64.exe"
+          $name = "locus-$($env:TAG.TrimStart('v'))-windows-x64.exe"
           New-Item -ItemType Directory dist | Out-Null
           Copy-Item target/release/locus.exe "dist/$name"
           Copy-Item THIRD_PARTY_LICENSES.md dist/THIRD_PARTY_LICENSES.md
@@ -85,8 +121,10 @@ jobs:
           retention-days: 7
 
   publish:
-    needs: [test, build]
+    needs: [plan, test, build]
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.plan.outputs.tag }}
     permissions:
       contents: write
       # Build provenance: lets anyone check with `gh attestation verify` that the exe came from
@@ -95,6 +133,10 @@ jobs:
       attestations: write
       artifact-metadata: write
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # tags, for the compare link
+          persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: dist
@@ -102,11 +144,27 @@ jobs:
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: dist/*.exe
+      # Notes come from .github/release-notes.md + CHANGELOG.md; the virustotal job appends its links.
+      - name: release notes
+        shell: pwsh
+        run: ./scripts/ci/release-notes.ps1 -Version $env:TAG -Out notes.md
       - name: publish
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           args=()
-          case "$GITHUB_REF_NAME" in *-*) args+=(--prerelease) ;; esac
-          gh release create "$GITHUB_REF_NAME" dist/*.exe dist/*.sha256 dist/THIRD_PARTY_LICENSES.md --generate-notes "${args[@]}"
+          case "$TAG" in *-*) args+=(--prerelease) ;; esac
+          # --target makes gh create the tag at this commit when it doesn't exist (release PR merge).
+          gh release create "$TAG" dist/*.exe dist/*.sha256 dist/THIRD_PARTY_LICENSES.md \
+            --title "Locus ${TAG#v}" --notes-file notes.md --target "$GITHUB_SHA" "${args[@]}"
+
+  # Scans the published exe (needs the VirusTotal environment, so it lives in its own workflow).
+  virustotal:
+    needs: [plan, publish]
+    permissions:
+      contents: write
+    uses: ./.github/workflows/virustotal.yml
+    with:
+      tag: ${{ needs.plan.outputs.tag }}
+    secrets: inherit

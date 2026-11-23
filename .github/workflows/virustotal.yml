@@ -1,12 +1,14 @@
-# Uploads a release's exe to VirusTotal and adds the scan link to its notes. Runs once the
-# release workflow has published, or by hand for an existing tag. The API key lives in the
+# Uploads a release's exe to VirusTotal and adds the scan link to its notes. Called by the
+# release workflow after it publishes, or run by hand for an existing tag. The API key lives in the
 # VirusTotal environment (secret VT_API_KEY), so only jobs that ask for it can read it.
 name: virustotal
 
 on:
-  workflow_run:
-    workflows: [release]
-    types: [completed]
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
   workflow_dispatch:
     inputs:
       tag:
@@ -19,8 +21,6 @@ permissions:
 
 jobs:
   scan:
-    # After a release run only if it published; its head branch is the tag it ran for.
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment: VirusTotal
     permissions:
@@ -29,7 +29,7 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
-      TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
+      TAG: ${{ inputs.tag }}
     steps:
       - name: download the exe
         run: gh release download "$TAG" --pattern '*.exe' --dir dist
