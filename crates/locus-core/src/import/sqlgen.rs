@@ -92,6 +92,16 @@ pub fn insert_sql(e: Engine, table_q: &str, cols: &[(String, TargetKind)], rows:
     }
 }
 
+/// `SELECT COUNT(*)` of the table.
+pub fn count_sql(table_q: &str) -> String {
+    format!("SELECT COUNT(*) FROM {table_q}")
+}
+
+/// Removes the table.
+pub fn drop_sql(table_q: &str) -> String {
+    format!("DROP TABLE {table_q}")
+}
+
 /// Empties the table. Inside one transaction it is a DELETE (it rolls back
 /// with the import); MySQL / Oracle TRUNCATE would commit on the spot.
 pub fn clear_sql(e: Engine, table_q: &str, transactional: bool) -> String {
@@ -106,6 +116,13 @@ pub fn clear_sql(e: Engine, table_q: &str, transactional: bool) -> String {
 mod tests {
     use super::*;
     use TargetKind::*;
+
+    #[test]
+    fn count_and_drop() {
+        let q = qualified(Engine::Mysql, Some("d"), "t");
+        assert_eq!(count_sql(&q), "SELECT COUNT(*) FROM `d`.`t`");
+        assert_eq!(drop_sql(&q), "DROP TABLE `d`.`t`");
+    }
 
     #[test]
     fn quoting() {

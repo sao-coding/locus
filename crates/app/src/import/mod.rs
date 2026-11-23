@@ -1064,7 +1064,9 @@ impl ImportWizard {
                         String::new()
                     }
             } else if r.cancelled {
-                if r.rolled_back {
+                if r.table_dropped {
+                    t!("imp.cancelled_dropped").to_string()
+                } else if r.rolled_back {
                     t!("imp.cancelled_rolled").to_string()
                 } else {
                     t!("imp.cancelled_kept", n = r.inserted.to_string()).to_string()

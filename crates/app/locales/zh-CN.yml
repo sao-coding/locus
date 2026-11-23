@@ -1029,6 +1029,7 @@ imp:
   rolled_back: 已全部回滚。
   cancelled_rolled: 已取消，所有更改已回滚，表保持原样。
   cancelled_kept: "已取消，已完成批次的 %{n} 行保留在表中。"
+  cancelled_dropped: 已取消，新建的表没有数据，已一并移除。
   errors_saved: "失败的行已存到 %{path}"
 
 act:
