@@ -28,13 +28,23 @@ Record user-visible changes with `knope document-change` (`patch` fix, `minor` f
 
 ## Releasing
 
+Releases are automated, like changesets:
+
+1. Every user-visible PR adds a changeset (`knope document-change`, committed in `.changeset/`).
+2. On each push to `main` the `prepare release` workflow runs `knope prepare-release` on the `release` branch and opens or updates the PR `chore(release): x.y.z` (version bump, new CHANGELOG.md section as the PR body). With no changesets it does nothing, and closes a stale release PR.
+3. Merge that PR. The `release` workflow sees the `chore(release):` commit on `main`, tests and builds the exe, then creates the tag `vx.y.z` and the GitHub Release. The notes come from `.github/release-notes.md` filled with the CHANGELOG section (`scripts/ci/release-notes.ps1 -Version x.y.z` previews them); the `virustotal` job appends its links.
+
+Setup, once: Settings > Actions > General > "Allow GitHub Actions to create and approve pull requests". PRs opened with the default `GITHUB_TOKEN` do not start `ci`; run it on the `release` branch with Actions > ci > Run workflow (`workflow_dispatch`), or add a repository secret `RELEASE_TOKEN` (fine-grained PAT or GitHub App token with Contents and Pull requests write) and the workflow uses it, so `ci` starts by itself.
+
+Manual fallback (also for `-rc.N` prereleases):
+
 ```powershell
 knope release        # bumps Cargo.toml and updates CHANGELOG.md
 git commit -am "chore(release): 0.2.0"; git tag v0.2.0
 git push --follow-tags
 ```
 
-The `release` workflow builds the exe, checksum and attestation from the tag.
+A pushed `v*` tag runs the same `release` workflow (tags with a `-suffix` are published as prereleases).
 
 ## Tests
 
