@@ -94,6 +94,7 @@ impl QueryTab {
         if let Some((text, color)) = note {
             col = col.child(line_bar("note", IconName::Info, text, color, cx));
         }
+        col = col.children(self.render_chips(cx));
         if ro.is_none() && editable && staged == 0 && self.ap.error.is_none() {
             col = col.child(
                 h_flex()

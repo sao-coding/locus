@@ -236,7 +236,7 @@ impl Locus {
         }));
         // Dev only: an observer (it sees every keystroke, changes nothing).
         #[cfg(feature = "dev")]
-        subs.push(cx.observe_keystrokes(|ev, _, _| keylog(&ev.keystroke)));
+        subs.push(cx.observe_keystrokes(|_, ev, _, _| keylog(&ev.keystroke)));
         let me = cx.entity().downgrade();
         window.on_window_should_close(cx, move |window, cx| {
             me.update(cx, |this, cx| this.should_close(window, cx))
@@ -530,6 +530,11 @@ impl Locus {
                 TabEvent::Rerun => {
                     let sql = tab.read(cx).last_sql.clone();
                     this.run_tab(tab.clone(), RunMode::Script, Some(sql), window, cx)
+                }
+                TabEvent::RerunView => {
+                    if let Some(sql) = tab.update(cx, |t, _| t.view_sql()) {
+                        this.run_tab(tab.clone(), RunMode::Script, Some(sql), window, cx)
+                    }
                 }
                 TabEvent::Changed => this.schedule_save(cx),
                 TabEvent::ApplyRequest => this.request_apply(tab.clone(), window, cx),

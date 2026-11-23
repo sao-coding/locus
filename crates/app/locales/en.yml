@@ -1222,3 +1222,26 @@ dataerr:
 
 keymap:
   invalid: "keymap.json: %{n} entries could not be used and were skipped (details in the log)."
+
+colmenu:
+  tip: "Filter / order"
+  tip_filtered: "Filtered — filter / order"
+  tip_asc: "Ordered ascending — filter / order"
+  tip_desc: "Ordered descending — filter / order"
+  order_asc: "Order by %{col} ASC"
+  order_desc: "Order by %{col} DESC"
+  by_value: "Filter by value"
+  cell_value: "Cell value"
+  custom: "Custom"
+  clipboard: "Clipboard"
+  save: "Save filter settings"
+  reset: "Reset default filter"
+  clear: "Remove all filters/orders"
+  raw: "Custom filter..."
+  raw_title: "Custom filter"
+  raw_label: "WHERE clause"
+  value_title: "Filter %{col}"
+  apply: "Apply"
+  remove: "Remove"
+  saved: "Filter settings saved for this query."
+  save_failed: "Could not save the filter settings: %{msg}"

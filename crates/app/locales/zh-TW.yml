@@ -1223,3 +1223,26 @@ dataerr:
 
 keymap:
   invalid: "keymap.json：有 %{n} 個項目無法使用，已略過（詳情請見記錄檔）。"
+
+colmenu:
+  tip: "篩選／排序"
+  tip_filtered: "已篩選 — 篩選／排序"
+  tip_asc: "已遞增排序 — 篩選／排序"
+  tip_desc: "已遞減排序 — 篩選／排序"
+  order_asc: "依 %{col} 遞增排序 (ASC)"
+  order_desc: "依 %{col} 遞減排序 (DESC)"
+  by_value: "依值篩選"
+  cell_value: "儲存格的值"
+  custom: "自訂"
+  clipboard: "剪貼簿"
+  save: "儲存篩選設定"
+  reset: "重設預設篩選"
+  clear: "移除所有篩選／排序"
+  raw: "自訂篩選..."
+  raw_title: "自訂篩選"
+  raw_label: "WHERE 條件"
+  value_title: "篩選 %{col}"
+  apply: "套用"
+  remove: "移除"
+  saved: "已儲存此查詢的篩選設定。"
+  save_failed: "無法儲存篩選設定：%{msg}"

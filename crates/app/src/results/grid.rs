@@ -97,6 +97,10 @@ pub struct ResultGrid {
     sel_task: Option<Task<()>>,
     /// Numbers of the finished range selection (two or more cells).
     pub sel_summary: Option<locus_core::selstats::Summary>,
+    /// Server-side filters and orders of this result (header menu); None = the menu is off (not a plain SELECT).
+    pub colview: Option<locus_core::colfilter::ColView>,
+    /// Filters saved for this query (enables Reset default filter).
+    pub colsaved: bool,
 }
 
 impl ResultGrid {
@@ -126,6 +130,8 @@ impl ResultGrid {
             sel_job: None,
             sel_task: None,
             sel_summary: None,
+            colview: None,
+            colsaved: false,
         }
     }
 
@@ -690,6 +696,7 @@ impl TableDelegate for ResultGrid {
         _: &mut Window,
         cx: &mut Context<TableState<Self>>,
     ) -> impl IntoElement {
+        let menu = self.header_menu(col_ix, cx);
         let theme = cx.theme();
         let (name, ty) = match self.rs.columns().get(col_ix) {
             Some(c) => (c.name.clone(), c.type_name.to_uppercase()),
@@ -699,22 +706,33 @@ impl TableDelegate for ResultGrid {
             .w_full()
             .min_w_0()
             .gap_1()
-            .items_baseline()
+            .items_center()
+            .group(SharedString::from(format!("th{col_ix}")))
             .child(
-                div()
-                    .flex_shrink_0()
-                    .max_w(relative(0.7))
-                    .truncate()
-                    .child(name),
-            )
-            .child(
-                div()
+                // Name and type share a baseline (inner row); that row is centred with the icons, the 2 px below lifts it so the cap height is centred.
+                h_flex()
+                    .flex_1()
                     .min_w_0()
-                    .truncate()
-                    .text_xs()
-                    .text_color(theme.muted_foreground.opacity(0.8))
-                    .child(ty),
+                    .gap_1()
+                    .pb(px(2.))
+                    .items_baseline()
+                    .child(
+                        div()
+                            .flex_shrink_0()
+                            .max_w(relative(0.7))
+                            .truncate()
+                            .child(name),
+                    )
+                    .child(
+                        div()
+                            .min_w_0()
+                            .truncate()
+                            .text_xs()
+                            .text_color(theme.muted_foreground.opacity(0.8))
+                            .child(ty),
+                    ),
             )
+            .children(menu)
     }
 
     fn render_tr(
@@ -1357,6 +1375,10 @@ pub enum GridUp {
     Open(String),
     /// The numbers of the range selection changed.
     Stats,
+    /// A header menu entry (filter / order).
+    Col(super::colmenu::ColAct),
+    /// The header arrow was clicked: show this menu at the point.
+    ColMenu(Entity<PopupMenu>, Point<Pixels>),
 }
 
 /// Most "referencing rows" entries offered for one cell.

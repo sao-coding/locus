@@ -1223,3 +1223,26 @@ dataerr:
 
 keymap:
   invalid: "keymap.json：有 %{n} 个条目无法使用，已跳过（详情见日志）。"
+
+colmenu:
+  tip: "筛选/排序"
+  tip_filtered: "已筛选 — 筛选/排序"
+  tip_asc: "已升序排序 — 筛选/排序"
+  tip_desc: "已降序排序 — 筛选/排序"
+  order_asc: "按 %{col} 升序排序 (ASC)"
+  order_desc: "按 %{col} 降序排序 (DESC)"
+  by_value: "按值筛选"
+  cell_value: "单元格的值"
+  custom: "自定义"
+  clipboard: "剪贴板"
+  save: "保存筛选设置"
+  reset: "重置默认筛选"
+  clear: "移除所有筛选/排序"
+  raw: "自定义筛选..."
+  raw_title: "自定义筛选"
+  raw_label: "WHERE 条件"
+  value_title: "筛选 %{col}"
+  apply: "应用"
+  remove: "移除"
+  saved: "已保存此查询的筛选设置。"
+  save_failed: "无法保存筛选设置：%{msg}"
