@@ -2,8 +2,8 @@
 #   knope document-change   records a change in .changeset/
 #   knope prepare-release   bumps the workspace version, updates CHANGELOG.md, deletes the
 #                           changesets and commits "chore(release): <version>". The
-#                           prepare-release workflow runs it on the `release` branch and opens the PR.
-# Merging that PR tags and publishes (release.yml); `knope release` stays as the manual fallback.
+#                           version workflow runs it on the `release` branch and opens the PR.
+# Merging that PR makes version.yml tag and call release.yml; `knope release` is a local fallback.
 [package]
 versioned_files = ["Cargo.toml"]
 changelog = "CHANGELOG.md"
