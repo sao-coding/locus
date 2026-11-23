@@ -1,0 +1,6 @@
+# zizmor reads this on its own; it is the only zizmor setting in the repository.
+rules:
+  # Wants `uses: $/.github/workflows/x.yml` instead of `./`. actionlint (latest 1.7.12) does not know
+  # that syntax and fails on it. Switch the `uses: ./` lines over and remove this once it does.
+  self-repository:
+    disable: true
