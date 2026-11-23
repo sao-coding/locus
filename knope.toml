@@ -1,8 +1,16 @@
-# Release flow: `knope document-change` records a change in .changeset/, `knope release`
-# bumps the workspace version and updates CHANGELOG.md. See CONTRIBUTING.md.
+# Release flow (see CONTRIBUTING.md "Releasing"):
+#   knope document-change   records a change in .changeset/
+#   knope prepare-release   bumps the workspace version, updates CHANGELOG.md, deletes the
+#                           changesets and commits "chore(release): <version>". The
+#                           prepare-release workflow runs it on the `release` branch and opens the PR.
+# Merging that PR tags and publishes (release.yml); `knope release` stays as the manual fallback.
 [package]
 versioned_files = ["Cargo.toml"]
 changelog = "CHANGELOG.md"
+
+[github]
+owner = "sao-coding"
+repo = "locus"
 
 [[workflows]]
 name = "document-change"
@@ -10,6 +18,20 @@ name = "document-change"
 [[workflows.steps]]
 type = "CreateChangeFile"
 
+[[workflows]]
+name = "prepare-release"
+
+[[workflows.steps]]
+type = "PrepareRelease"
+
+[[workflows.steps]]
+type = "Command"
+command = "git commit -am \"chore(release): $version\""
+
+[workflows.steps.variables]
+"$version" = "Version"
+
+# Manual fallback: bump and update the changelog only, commit and tag by hand.
 [[workflows]]
 name = "release"
 
