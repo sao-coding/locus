@@ -124,6 +124,7 @@ impl QueryTab {
                         let _ = weak.update(cx, |tab, cx| {
                             if let Some(s) = tab.structure.as_mut() {
                                 s.section = sec;
+                                super::remember_section(&s.r, sec);
                             }
                             cx.notify();
                         });
