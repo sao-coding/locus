@@ -18,7 +18,31 @@
 
 Windows 上不卡顿的数据库工具。GPU 渲染、Rust 编写、一个小小的可执行文件。
 
-Locus 支持 MySQL / MariaDB、PostgreSQL、SQLite、Redis 和 Oracle。查询还在运行时，结果就已经流式显示在表格里；取消查询会真正让服务器停止；界面以 143 Hz 显示器的流畅度为目标。
+Locus 支持 MySQL / MariaDB、PostgreSQL、SQLite、Redis 和 Oracle。查询还在运行时，结果就已经流式显示在表格里；取消查询会真正让服务器停止。
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/screenshots/hero-dark.png">
+    <img src=".github/assets/screenshots/hero-light.png" alt="Locus 查询 30 万行数据" width="900">
+  </picture>
+</p>
+
+<table>
+  <tr>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset=".github/assets/screenshots/prod-dark.png">
+        <img src=".github/assets/screenshots/prod-light.png" alt="Production 连接在解锁前会拦截写入">
+      </picture>
+    </td>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset=".github/assets/screenshots/split-dark.png">
+        <img src=".github/assets/screenshots/split-light.png" alt="并排的两个查询窗格">
+      </picture>
+    </td>
+  </tr>
+</table>
 
 ## 为什么用 Locus
 

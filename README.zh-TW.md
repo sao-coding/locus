@@ -18,7 +18,31 @@
 
 Windows 上不卡頓的資料庫工具。GPU 繪製、Rust 撰寫、一個小小的執行檔。
 
-Locus 支援 MySQL / MariaDB、PostgreSQL、SQLite、Redis 和 Oracle。查詢還在跑的時候，結果就已經串流進表格；取消查詢會真的讓伺服器停止；介面以 143 Hz 螢幕的流暢度為目標。
+Locus 支援 MySQL / MariaDB、PostgreSQL、SQLite、Redis 和 Oracle。查詢還在跑的時候，結果就已經串流進表格；取消查詢會真的讓伺服器停止。
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/screenshots/hero-dark.png">
+    <img src=".github/assets/screenshots/hero-light.png" alt="Locus 查詢 30 萬行資料" width="900">
+  </picture>
+</p>
+
+<table>
+  <tr>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset=".github/assets/screenshots/prod-dark.png">
+        <img src=".github/assets/screenshots/prod-light.png" alt="Production 連線在解鎖前會攔截寫入">
+      </picture>
+    </td>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset=".github/assets/screenshots/split-dark.png">
+        <img src=".github/assets/screenshots/split-light.png" alt="並排的兩個查詢窗格">
+      </picture>
+    </td>
+  </tr>
+</table>
 
 ## 為什麼用 Locus
 
