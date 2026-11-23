@@ -150,6 +150,7 @@ jobs:
     permissions:
       contents: write
     uses: ./.github/workflows/virustotal.yml
+    secrets: inherit # zizmor: ignore[secrets-inherit]
     with:
       tag: v${{ inputs.version }}
 

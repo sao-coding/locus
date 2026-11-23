@@ -107,5 +107,7 @@ jobs:
       artifact-metadata: write
       issues: write
     uses: ./.github/workflows/release.yml
+    # The VirusTotal environment secret only reaches a called job when the caller inherits secrets.
+    secrets: inherit # zizmor: ignore[secrets-inherit]
     with:
       version: ${{ needs.version.outputs.version }}
