@@ -79,6 +79,33 @@ fn send(me: &WeakEntity<TableState<ResultGrid>>, a: ColAct, cx: &mut App) {
     let _ = me.update(cx, |t, cx| t.delegate().up(GridUp::Col(a), cx));
 }
 
+/// Width of the icon column: every row reserves it, so all labels start at the same x.
+const ICON_W: f32 = 16.;
+
+/// One menu row: a fixed-width icon column (empty when `icon` is `None`), then the text.
+/// `head` = muted section title; `dim` = disabled look.
+fn row(icon: Option<&'static str>, text: String, head: bool, dim: bool) -> PopupMenuItem {
+    PopupMenuItem::element(move |_, cx| {
+        let t = crate::shell::theme::tokens(cx);
+        let slot = div()
+            .flex_none()
+            .w(px(ICON_W))
+            .h(px(ICON_W))
+            .flex()
+            .items_center()
+            .justify_center()
+            .children(icon.map(|i| crate::shell::icons::icon(i).size(px(14.)).text_color(t.tx3)));
+        h_flex()
+            .w_full()
+            .gap_2()
+            .items_center()
+            .when(head, |d| d.text_xs().text_color(t.tx4))
+            .when(dim, |d| d.opacity(0.45))
+            .child(slot)
+            .child(div().min_w_0().truncate().child(text.clone()))
+    })
+}
+
 fn entry(
     me: &WeakEntity<TableState<ResultGrid>>,
     text: String,
@@ -86,26 +113,18 @@ fn entry(
     on: bool,
 ) -> PopupMenuItem {
     let me = me.clone();
-    PopupMenuItem::new(text)
+    row(None, text, false, !on)
         .disabled(!on)
         .on_click(move |_, _, cx| send(&me, act.clone(), cx))
 }
 
 fn with_icon(icon: &'static str, text: String) -> PopupMenuItem {
-    PopupMenuItem::element(move |_, cx| {
-        let t = crate::shell::theme::tokens(cx);
-        h_flex()
-            .gap_2()
-            .items_center()
-            .child(
-                crate::shell::icons::icon(icon)
-                    .size(px(14.))
-                    .text_color(t.tx3),
-            )
-            .child(text.clone())
-    })
+    row(Some(icon), text, false, false)
 }
 
+fn head(text: String) -> PopupMenuItem {
+    row(None, text, true, false)
+}
 /// Asks for a value, then adds `col <op> value`.
 fn ask_value(
     me: &WeakEntity<TableState<ResultGrid>>,
@@ -171,7 +190,7 @@ fn value_section(
     title: String,
     v: &str,
 ) -> PopupMenu {
-    menu = menu.separator().item(PopupMenuItem::label(title));
+    menu = menu.separator().item(head(title));
     for op in Op::ALL {
         let text = label(&ctx.col, op, v, ctx.numeric);
         menu = menu.item(entry(
@@ -192,13 +211,19 @@ fn custom_section(
 ) -> PopupMenu {
     menu = menu
         .separator()
-        .item(PopupMenuItem::label(t!("colmenu.custom").to_string()));
+        .item(head(t!("colmenu.custom").to_string()));
     for op in Op::ALL {
         let (me, col, numeric) = (me.clone(), ctx.col.clone(), ctx.numeric);
         menu = menu.item(
-            PopupMenuItem::new(format!("{} {} ..", ctx.col, op.symbol())).on_click(
-                move |_, window, cx| ask_value(&me, &col, op, numeric, String::new(), window, cx),
-            ),
+            row(
+                None,
+                format!("{} {} ..", ctx.col, op.symbol()),
+                false,
+                false,
+            )
+            .on_click(move |_, window, cx| {
+                ask_value(&me, &col, op, numeric, String::new(), window, cx)
+            }),
         );
     }
     menu
@@ -294,7 +319,7 @@ pub fn build(
         ));
     let me = me.clone();
     menu.item(
-        PopupMenuItem::new(t!("colmenu.raw").to_string())
+        row(None, t!("colmenu.raw").to_string(), false, false)
             .on_click(move |_, window, cx| ask_raw(&me, window, cx)),
     )
 }
@@ -335,6 +360,7 @@ impl ResultGrid {
         let btn = Button::new(("colmenu", col_ix))
             .ghost()
             .xsmall()
+            .size(px(20.))
             .icon(
                 crate::shell::icons::icon(icon)
                     .size(px(12.))
@@ -361,8 +387,11 @@ impl ResultGrid {
             });
         Some(
             div()
-                .flex_shrink_0()
-                .ml_auto()
+                .flex()
+                .flex_none()
+                .items_center()
+                .justify_center()
+                .size(px(20.))
                 .when(!active, |d| {
                     d.opacity(0.).group_hover(group, |s| s.opacity(1.))
                 })

@@ -706,22 +706,30 @@ impl TableDelegate for ResultGrid {
             .w_full()
             .min_w_0()
             .gap_1()
-            .items_baseline()
+            .items_center()
             .group(SharedString::from(format!("th{col_ix}")))
             .child(
-                div()
-                    .flex_shrink_0()
-                    .max_w(relative(0.7))
-                    .truncate()
-                    .child(name),
-            )
-            .child(
-                div()
+                // Name and type share a baseline; the arrow is centred against the row.
+                h_flex()
+                    .flex_1()
                     .min_w_0()
-                    .truncate()
-                    .text_xs()
-                    .text_color(theme.muted_foreground.opacity(0.8))
-                    .child(ty),
+                    .gap_1()
+                    .items_baseline()
+                    .child(
+                        div()
+                            .flex_shrink_0()
+                            .max_w(relative(0.7))
+                            .truncate()
+                            .child(name),
+                    )
+                    .child(
+                        div()
+                            .min_w_0()
+                            .truncate()
+                            .text_xs()
+                            .text_color(theme.muted_foreground.opacity(0.8))
+                            .child(ty),
+                    ),
             )
             .children(menu)
     }

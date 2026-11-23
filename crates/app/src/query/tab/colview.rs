@@ -164,8 +164,10 @@ impl QueryTab {
                     cx: &mut Context<Self>| {
             h_flex()
                 .flex_none()
+                .h(px(24.))
                 .gap(px(sc::S2))
-                .pl(px(sc::S4))
+                .pl(px(8.))
+                .pr(px(2.))
                 .items_center()
                 .rounded_md()
                 .border_1()
@@ -177,6 +179,7 @@ impl QueryTab {
                     Button::new(id)
                         .ghost()
                         .xsmall()
+                        .size(px(18.))
                         .icon(crate::shell::icons::icon("x").size(px(12.)))
                         .tooltip(t!("colmenu.remove").to_string())
                         .on_click(cx.listener(move |this, _, _, cx| this.col_act(act.clone(), cx))),
@@ -187,8 +190,8 @@ impl QueryTab {
             .flex_none()
             .flex_wrap()
             .gap(px(sc::S3))
-            .px(px(sc::S5))
-            .py(px(sc::S2))
+            .px(px(24.))
+            .py(px(4.))
             .items_center()
             .border_b_1()
             .border_color(theme.border);
