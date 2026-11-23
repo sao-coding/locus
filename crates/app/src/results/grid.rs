@@ -709,13 +709,13 @@ impl TableDelegate for ResultGrid {
             .items_center()
             .group(SharedString::from(format!("th{col_ix}")))
             .child(
-                // Name and type are centred like the icons; the 2 px below lifts the text so its cap height (not its line box with descender room) is centred.
+                // Name and type share a baseline (inner row); that row is centred with the icons, the 2 px below lifts it so the cap height is centred.
                 h_flex()
                     .flex_1()
                     .min_w_0()
                     .gap_1()
                     .pb(px(2.))
-                    .items_center()
+                    .items_baseline()
                     .child(
                         div()
                             .flex_shrink_0()
