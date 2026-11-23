@@ -47,6 +47,12 @@ impl Locus {
             Some(s) => (s, Vec::new()),
             None => tab.read(cx).sql_for(mode, cx),
         };
+        let sql = match stmts.len() <= 1 {
+            true => tab
+                .update(cx, |t, _| t.saved_view_sql(&sql, &conn))
+                .unwrap_or(sql),
+            false => sql,
+        };
         if tab.read(cx).busy(cx) || tab.read(cx).ap.applying || sql.trim().is_empty() {
             return;
         }

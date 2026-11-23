@@ -43,6 +43,8 @@ pub enum TabEvent {
     Changed,
     /// Run `last_sql` again (after Apply, to show the stored values).
     Rerun,
+    /// Run the query again with the header-menu filters and orders around it.
+    RerunView,
     /// A run ended: one query-history entry.
     Finished(locus_core::history::Entry),
     /// Open a table in a new tab (diagram double-click).
@@ -139,6 +141,8 @@ pub struct QueryTab {
     /// Result area state: panes, filter, plan, timing.
     pub ui: crate::results::ui::ResultsUi,
     pub last_sql: String,
+    /// Header-menu filters and orders (colview.rs).
+    pub(crate) cv: colview::ColState,
     pub driver: Option<Arc<locus_core::driver::AnyDriver>>,
     pub slot: Option<Slot>,
     job: Option<Job>,
@@ -255,6 +259,7 @@ impl QueryTab {
             caret,
             ui: crate::results::ui::ResultsUi::new(window, cx),
             last_sql: String::new(),
+            cv: Default::default(),
             driver: None,
             slot: None,
             job: None,
@@ -424,6 +429,7 @@ fn split_statements(sql: &str) -> Vec<std::ops::Range<usize>> {
 }
 
 // ---- rendering ---------------------------------------------------------------
+mod colview;
 mod edit;
 mod paging;
 mod render;

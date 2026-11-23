@@ -9,6 +9,8 @@ rust_i18n::i18n!("../app/locales", fallback = "en");
 pub mod activity;
 pub mod apply;
 pub mod audit;
+pub mod colfilter;
+pub mod colfilter_store;
 pub mod colors;
 pub mod copyfmt;
 pub mod creds;

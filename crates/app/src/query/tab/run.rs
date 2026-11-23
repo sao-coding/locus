@@ -192,6 +192,7 @@ impl QueryTab {
         self.out.rows_total = 0;
         self.out.truncated = None;
         self.last_sql = sql.to_string();
+        self.cv_begin(sql, conn);
         self.trace.count_ctx = Some((
             match conn.kind {
                 locus_core::store::DbKind::Postgres => db_core::sql::SqlDialect::Postgres,
@@ -324,6 +325,7 @@ impl QueryTab {
         let table = cx.new(|cx| {
             let mut g = ResultGrid::new();
             g.reset(cols);
+            self.cv_grid(&mut g);
             g.on_up = Some(std::rc::Rc::new(move |m, cx| {
                 let _ = tab_weak.update(cx, |t, cx| t.grid_up(m, cx));
             }));
@@ -345,14 +347,8 @@ impl QueryTab {
                         crate::results::grid::grid_menu(weak, r, c, editable, nav, m)
                     });
                     let pos = window.mouse_position();
-                    let sub =
-                        cx.subscribe(&menu, |this: &mut QueryTab, _, _: &DismissEvent, cx| {
-                            this.grid_menu = None;
-                            cx.notify();
-                        });
                     menu.read(cx).focus_handle(cx).focus(window, cx);
-                    this.grid_menu = Some((menu, pos, sub));
-                    cx.notify();
+                    this.show_grid_menu(menu, pos, cx);
                 }
                 TableEvent::ColumnWidthsChanged(w) => {
                     table.update(cx, |t, _| t.delegate_mut().set_widths(w))

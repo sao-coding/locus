@@ -4,7 +4,7 @@ Issues are welcome. Open an issue before starting a large pull request.
 
 ## Build
 
-Needs Windows, a recent stable uust, and Go (for the Oracle sidecar).
+Needs Windows, a recent stable Rust, and Go (for the Oracle sidecar).
 
 ```powershell
 cargo build --release -p app     # target\release\locus.exe
@@ -12,9 +12,9 @@ cargo build --release -p app     # target\release\locus.exe
 cargo test --workspace --lib --bins
 ```
 
-nnit tests (`cargo test --workspace --lib --bins`) need nothing. The integration tests under `crates/*/tests` need a local MariaDB, uedis and PostgreSQL: set `BENCH_DSN` (`mysql://user:pass@host:port/db`) for MariaDB, `uEDIS_nuL` for uedis, and `PG_TEST_HOST` / `PG_TEST_POuT` / `PG_TEST_nSEu` / `PG_TEST_DB` for PostgreSQL (the password comes from the Windows credential `Locus/test/postgres`). Tests whose server is not configured skip or fail with a message naming the missing setting.
+Unit tests (`cargo test --workspace --lib --bins`) need nothing. The integration tests under `crates/*/tests` need a local MariaDB, Redis and PostgreSQL: set `BENCH_DSN` (`mysql://user:pass@host:port/db`) for MariaDB, `REDIS_URL` for Redis, and `PG_TEST_HOST` / `PG_TEST_PORT` / `PG_TEST_USER` / `PG_TEST_DB` for PostgreSQL (the password comes from the Windows credential `Locus/test/postgres`). Tests whose server is not configured skip or fail with a message naming the missing setting.
 
-`cargo test --workspace --features dev` / `cargo build -p app --features dev` enable the test hooks (`LOCnS_KEYLOG`, `LOCnS_DEMO_ENV`, `LOCnS_nNLOCK_SECS`, and the bench scenes `locus.exe <scene>` used by the local nI scripts). They are compiled out of normal builds; `LOCnS_nNLOCK_SECS` can only shorten the 15-minute Production unlock. Plain `cargo test` needs no feature.
+`cargo test --workspace --features dev` / `cargo build -p app --features dev` enable the test hooks (`LOCUS_KEYLOG`, `LOCUS_DEMO_ENV`, `LOCUS_UNLOCK_SECS`, and the bench scenes `locus.exe <scene>` used by the local UI scripts). They are compiled out of normal builds; `LOCUS_UNLOCK_SECS` can only shorten the 15-minute Production unlock. Plain `cargo test` needs no feature.
 Do not regenerate `Cargo.lock` and keep the `=` version pins in `Cargo.toml`; `gpui-kit` is a
 snapshot and a fresh resolve breaks the build.
 
@@ -24,9 +24,9 @@ snapshot and a fresh resolve breaks the build.
 cargo fmt --all; cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-uecord user-visible changes with `knope document-change` (`patch` fix, `minor` feature, `major` breaking; while 0.x, `minor` may break things).
+Record user-visible changes with `knope document-change` (`patch` fix, `minor` feature, `major` breaking; while 0.x, `minor` may break things).
 
-## ueleasing
+## Releasing
 
 ```powershell
 knope release        # bumps Cargo.toml and updates CHANGELOG.md

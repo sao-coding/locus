@@ -45,7 +45,7 @@ impl QueryTab {
         // SELECT names its table; columns are then taken by name.
         if single_result
             && origins.iter().all(Option::is_none)
-            && let Some(tr) = db_core::sql::single_table(&self.last_sql)
+            && let Some(tr) = db_core::sql::single_table(self.base_sql())
             && let Some(schema) = tr.schema.clone().or_else(|| default_db.clone())
         {
             origins = cols
@@ -147,6 +147,8 @@ impl QueryTab {
                 }
             }
             GridUp::Stats => cx.notify(),
+            GridUp::Col(a) => self.col_act(a, cx),
+            GridUp::ColMenu(menu, pos) => self.show_grid_menu(menu, pos, cx),
         }
     }
 
