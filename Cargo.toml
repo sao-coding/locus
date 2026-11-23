@@ -48,7 +48,7 @@ simplelog = { version = "=0.12.2", default-features = false }
 sys-locale = "=0.3.2"
 windows-sys = "=0.59.0"
 embed-resource = "=3.0.12"
-bigdecimal = { version = "=0.4.8", default-features = false }
+bigdecimal = { version = "=0.4.11", default-features = false }
 russh = { version = "=0.65.2", default-features = false, features = ["ring", "flate2", "rsa"] }
 csv = "=1.4.0"
 encoding_rs = "=0.8.44"
