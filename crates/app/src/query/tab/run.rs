@@ -192,6 +192,7 @@ impl QueryTab {
         self.out.rows_total = 0;
         self.out.truncated = None;
         self.last_sql = sql.to_string();
+        self.cv_begin(sql, conn);
         self.trace.count_ctx = Some((
             match conn.kind {
                 locus_core::store::DbKind::Postgres => db_core::sql::SqlDialect::Postgres,
@@ -324,6 +325,7 @@ impl QueryTab {
         let table = cx.new(|cx| {
             let mut g = ResultGrid::new();
             g.reset(cols);
+            self.cv_grid(&mut g);
             g.on_up = Some(std::rc::Rc::new(move |m, cx| {
                 let _ = tab_weak.update(cx, |t, cx| t.grid_up(m, cx));
             }));

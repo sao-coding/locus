@@ -1044,4 +1044,20 @@ mod tests {
             assert_eq!(cw(s), None, "{s}");
         }
     }
+
+    #[test]
+    fn view_wrapper_wraps_a_plain_select_only() {
+        let body = select_body("select * from t; -- c", SqlDialect::Mysql).unwrap();
+        assert_eq!(body, "select * from t");
+        assert_eq!(
+            view_wrapper(&body, "a = 1", "a DESC"),
+            "SELECT * FROM (\nselect * from t\n) wb_view\nWHERE a = 1\nORDER BY a DESC"
+        );
+        assert_eq!(select_body("select 1; select 2", SqlDialect::Mysql), None);
+        assert_eq!(select_body("delete from t", SqlDialect::Mysql), None);
+        assert_eq!(
+            select_body("select * from t for update", SqlDialect::Postgres),
+            None
+        );
+    }
 }

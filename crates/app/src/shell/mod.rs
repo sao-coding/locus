@@ -531,6 +531,11 @@ impl Locus {
                     let sql = tab.read(cx).last_sql.clone();
                     this.run_tab(tab.clone(), RunMode::Script, Some(sql), window, cx)
                 }
+                TabEvent::RerunView => {
+                    if let Some(sql) = tab.update(cx, |t, _| t.view_sql()) {
+                        this.run_tab(tab.clone(), RunMode::Script, Some(sql), window, cx)
+                    }
+                }
                 TabEvent::Changed => this.schedule_save(cx),
                 TabEvent::ApplyRequest => this.request_apply(tab.clone(), window, cx),
                 TabEvent::CompileSource => this.compile_source(tab.clone(), window, cx),

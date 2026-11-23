@@ -97,6 +97,10 @@ pub struct ResultGrid {
     sel_task: Option<Task<()>>,
     /// Numbers of the finished range selection (two or more cells).
     pub sel_summary: Option<locus_core::selstats::Summary>,
+    /// Server-side filters and orders of this result (header menu); None = the menu is off (not a plain SELECT).
+    pub colview: Option<locus_core::colfilter::ColView>,
+    /// Filters saved for this query (enables Reset default filter).
+    pub colsaved: bool,
 }
 
 impl ResultGrid {
@@ -126,6 +130,8 @@ impl ResultGrid {
             sel_job: None,
             sel_task: None,
             sel_summary: None,
+            colview: None,
+            colsaved: false,
         }
     }
 
@@ -690,6 +696,7 @@ impl TableDelegate for ResultGrid {
         _: &mut Window,
         cx: &mut Context<TableState<Self>>,
     ) -> impl IntoElement {
+        let menu = self.header_menu(col_ix, cx);
         let theme = cx.theme();
         let (name, ty) = match self.rs.columns().get(col_ix) {
             Some(c) => (c.name.clone(), c.type_name.to_uppercase()),
@@ -700,6 +707,7 @@ impl TableDelegate for ResultGrid {
             .min_w_0()
             .gap_1()
             .items_baseline()
+            .group(SharedString::from(format!("th{col_ix}")))
             .child(
                 div()
                     .flex_shrink_0()
@@ -715,6 +723,7 @@ impl TableDelegate for ResultGrid {
                     .text_color(theme.muted_foreground.opacity(0.8))
                     .child(ty),
             )
+            .children(menu)
     }
 
     fn render_tr(
@@ -1357,6 +1366,8 @@ pub enum GridUp {
     Open(String),
     /// The numbers of the range selection changed.
     Stats,
+    /// A header menu entry (filter / order).
+    Col(super::colmenu::ColAct),
 }
 
 /// Most "referencing rows" entries offered for one cell.
