@@ -19,8 +19,31 @@
 A database client for Windows that stays smooth. GPU-rendered, written in Rust, one small exe.
 
 Locus talks to MySQL / MariaDB, PostgreSQL, SQLite, Redis and Oracle. Results stream into the
-grid while the query is still running, cancelling really stops the query on the server, and the
-UI is built to hold the frame rate of a 143 Hz screen.
+grid while the query is still running, and cancelling really stops the query on the server.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/screenshots/hero-dark.png">
+    <img src=".github/assets/screenshots/hero-light.png" alt="Locus running a query over 300,000 rows" width="900">
+  </picture>
+</p>
+
+<table>
+  <tr>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset=".github/assets/screenshots/prod-dark.png">
+        <img src=".github/assets/screenshots/prod-light.png" alt="A Production connection blocks a write until it is unlocked">
+      </picture>
+    </td>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset=".github/assets/screenshots/split-dark.png">
+        <img src=".github/assets/screenshots/split-light.png" alt="Two query panes side by side">
+      </picture>
+    </td>
+  </tr>
+</table>
 
 ## Why Locus
 
