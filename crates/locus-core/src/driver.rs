@@ -56,6 +56,12 @@ pub fn set_embedded_sidecar(bytes: &'static [u8]) {
 /// Where `sidecar.exe` is: `LOCUS_SIDECAR`, next to `locus.exe`, the copy
 /// embedded in `locus.exe` (unpacked once into `%LOCALAPPDATA%\Locus\sidecar`),
 /// or the build output of this checkout (development).
+///
+/// A `sidecar.exe` next to `locus.exe` is used only when its hello frame
+/// matches this build (an older one left behind by an update would
+/// otherwise win over the embedded copy); otherwise the embedded copy is
+/// used and the reason logged. `LOCUS_SIDECAR` is taken as given: the
+/// handshake still refuses a mismatch, with the reason.
 pub fn sidecar_exe() -> Result<PathBuf, DbError> {
     let me = std::env::current_exe().ok();
     let local =
@@ -65,31 +71,71 @@ pub fn sidecar_exe() -> Result<PathBuf, DbError> {
         me.as_deref().and_then(|m| m.parent()),
         EMBEDDED_SIDECAR.get().copied(),
         local.as_deref(),
+        &cached_probe,
     )
 }
 
-/// [`sidecar_exe`] with every input passed in.
+/// [`db_sidecar_client::probe`], remembered per file (path, size, modified
+/// time) so a connect does not start an extra process each time.
+fn cached_probe(exe: &Path) -> Result<(), DbError> {
+    type Key = (PathBuf, u64, Option<std::time::SystemTime>);
+    static SEEN: std::sync::Mutex<Option<(Key, Result<(), String>)>> = std::sync::Mutex::new(None);
+    let meta = std::fs::metadata(exe).ok();
+    let key = (
+        exe.to_path_buf(),
+        meta.as_ref().map_or(0, |m| m.len()),
+        meta.and_then(|m| m.modified().ok()),
+    );
+    let mut seen = SEEN.lock().unwrap_or_else(|e| e.into_inner());
+    let result = match seen.as_ref() {
+        Some((k, r)) if *k == key => r.clone(),
+        _ => {
+            let r = db_sidecar_client::probe(exe)
+                .map(drop)
+                .map_err(|e| e.message);
+            *seen = Some((key, r.clone()));
+            r
+        }
+    };
+    result.map_err(|m| DbError::new(ErrorKind::Internal, m))
+}
+
+/// [`sidecar_exe`] with every input passed in. `probe` checks a
+/// `sidecar.exe` found next to `locus.exe` when there is an embedded copy
+/// to fall back on.
 fn resolve_sidecar(
     env_value: Option<&std::ffi::OsStr>,
     exe_dir: Option<&Path>,
     embedded: Option<&[u8]>,
     extract_dir: Option<&Path>,
+    probe: &dyn Fn(&Path) -> Result<(), DbError>,
 ) -> Result<PathBuf, DbError> {
     let mut tried = Vec::new();
-    let mut candidates = Vec::new();
     if let Some(p) = env_value {
-        candidates.push(PathBuf::from(p));
-    }
-    if let Some(dir) = exe_dir {
-        candidates.push(dir.join("sidecar.exe"));
-    }
-    for c in candidates {
+        let c = PathBuf::from(p);
         if c.is_file() {
             return Ok(c);
         }
         tried.push(c.display().to_string());
     }
-    if let Some(bytes) = embedded.filter(|b| !b.is_empty()) {
+    let embedded = embedded.filter(|b| !b.is_empty());
+    if let Some(dir) = exe_dir {
+        let c = dir.join("sidecar.exe");
+        if c.is_file() {
+            match probe(&c) {
+                Ok(()) => return Ok(c),
+                // Nothing to fall back on: the handshake reports it.
+                Err(_) if embedded.is_none() => return Ok(c),
+                Err(e) => log::warn!(
+                    "not using {}: {}; using the sidecar built into locus.exe",
+                    c.display(),
+                    e.message
+                ),
+            }
+        }
+        tried.push(c.display().to_string());
+    }
+    if let Some(bytes) = embedded {
         let dir = extract_dir.ok_or_else(|| {
             DbError::new(
                 ErrorKind::Internal,
@@ -221,13 +267,47 @@ mod sidecar_embed_tests {
         std::fs::write(exe_dir.join("sidecar.exe"), b"n").unwrap();
         let ex = d.join("ex");
         let r = |env: Option<&std::ffi::OsStr>| {
-            resolve_sidecar(env, Some(&exe_dir), Some(b"emb"), Some(&ex)).unwrap()
+            resolve_sidecar(env, Some(&exe_dir), Some(b"emb"), Some(&ex), &|_| Ok(())).unwrap()
         };
         assert_eq!(r(Some(env_file.as_os_str())), env_file);
         assert_eq!(r(None), exe_dir.join("sidecar.exe"));
         std::fs::remove_file(exe_dir.join("sidecar.exe")).unwrap();
         let p = r(None);
         assert!(p.starts_with(&ex) && p.is_file());
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn stale_sidecar_next_to_the_exe_gives_way_to_the_embedded_one() {
+        let d = temp("stale");
+        let exe_dir = d.join("bin");
+        std::fs::create_dir_all(&exe_dir).unwrap();
+        let beside = exe_dir.join("sidecar.exe");
+        std::fs::write(&beside, b"old").unwrap();
+        let ex = d.join("ex");
+        let stale = |_: &Path| Err(DbError::new(ErrorKind::Internal, "build 0.0.1"));
+
+        let p = resolve_sidecar(None, Some(&exe_dir), Some(b"emb"), Some(&ex), &stale).unwrap();
+        assert!(p.starts_with(&ex), "{}", p.display());
+        assert_eq!(std::fs::read(&p).unwrap(), b"emb");
+
+        // No embedded copy: still the one next to the exe (the handshake
+        // then reports the mismatch).
+        let p = resolve_sidecar(None, Some(&exe_dir), None, Some(&ex), &stale).unwrap();
+        assert_eq!(p, beside);
+
+        // LOCUS_SIDECAR is never probed.
+        let env_file = d.join("env.exe");
+        std::fs::write(&env_file, b"e").unwrap();
+        let p = resolve_sidecar(
+            Some(env_file.as_os_str()),
+            Some(&exe_dir),
+            Some(b"emb"),
+            Some(&ex),
+            &|_| panic!("probed"),
+        )
+        .unwrap();
+        assert_eq!(p, env_file);
         let _ = std::fs::remove_dir_all(&d);
     }
 }
@@ -431,7 +511,7 @@ mod wiring_tests {
         let exe = dir.join("sidecar.exe");
         std::fs::write(&exe, b"not really").unwrap();
         assert_eq!(
-            resolve_sidecar(Some(exe.as_os_str()), None, None, None).unwrap(),
+            resolve_sidecar(Some(exe.as_os_str()), None, None, None, &|_| Ok(())).unwrap(),
             exe
         );
         let c = SavedConnection {

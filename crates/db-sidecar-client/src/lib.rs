@@ -34,7 +34,14 @@ use std::sync::{Arc, Weak};
 use std::time::Duration;
 
 pub use process::ShutdownReport;
-pub use proto::ReadyInfo;
+pub use proto::{BUILD, HelloInfo, ReadyInfo};
+
+/// Checks a `sidecar.exe` without connecting anywhere: runs it with
+/// `--hello` and compares its protocol and build with this host's
+/// ([`BUILD`]). Blocking; takes one process start.
+pub fn probe(exe: &std::path::Path) -> Result<HelloInfo, DbError> {
+    process::probe(exe)
+}
 
 /// How long [`SidecarDriver::shutdown`] waits for the sidecar to clean up and
 /// exit before it terminates the process. The POC needed about 250 ms.

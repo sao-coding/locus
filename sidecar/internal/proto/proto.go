@@ -36,10 +36,14 @@ const (
 	// TypeAffected: a statement without a result set finished. u64 rows.
 	TypeAffected byte = 16
 	TypeReady    byte = 20
+	// TypeHello is the first frame, sent before anything else (also before
+	// the database connect): u16 protocol version, str16 build.
+	TypeHello byte = 21
 )
 
-// Version is the protocol version reported in the ready frame.
-const Version uint16 = 1
+// Version is the protocol version reported in the hello and ready frames.
+// 2: the hello frame.
+const Version uint16 = 2
 
 // Error kinds carried by TypeError. Same order as db_core::ErrorKind.
 const (
@@ -393,6 +397,21 @@ func EncodeReady(driver, serverVersion string) []byte {
 	p := le.AppendUint16(nil, Version)
 	p = appendStr(p, driver)
 	return appendStr(p, serverVersion)
+}
+
+// EncodeHello builds a TypeHello payload: u16 protocol version, u16 len +
+// build (the Locus version the sidecar was built for, "dev" when unstamped).
+func EncodeHello(build string) []byte {
+	return appendStr(le.AppendUint16(nil, Version), build)
+}
+
+func DecodeHello(p []byte) (version uint16, build string, err error) {
+	if len(p) < 2 {
+		return 0, "", ErrShort
+	}
+	version = le.Uint16(p)
+	build, _, err = readStr(p[2:])
+	return
 }
 
 func DecodeReady(p []byte) (version uint16, driver, server string, err error) {

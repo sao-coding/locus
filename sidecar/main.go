@@ -9,6 +9,10 @@
 //	SIDECAR_PASSWORD  password (removed from the environment after reading)
 //	SIDECAR_DATABASE  default database (optional); Oracle: the service name
 //	SIDECAR_TLS       require (default) | require-unverified | disabled
+//
+// The first frame is always hello (protocol version + build), sent before the
+// settings are read. `sidecar --hello` sends only that and exits, so the host
+// can check a sidecar.exe without giving it credentials.
 package main
 
 import (
@@ -35,6 +39,10 @@ var drivers = map[string]struct {
 }
 
 const connectTimeout = 15 * time.Second
+
+// build is the Locus version this sidecar was built for, stamped by
+// build.ps1 (-ldflags "-X main.build=<version>").
+var build = "dev"
 
 func configFromEnv() (name string, cfg backend.Config, err error) {
 	name = os.Getenv("SIDECAR_DRIVER")
@@ -72,6 +80,10 @@ func fatal(kind byte, code uint32, msg string) {
 }
 
 func main() {
+	os.Stdout.Write(proto.Encode(proto.TypeHello, 0, proto.EncodeHello(build)))
+	if len(os.Args) > 1 && os.Args[1] == "--hello" {
+		os.Exit(0)
+	}
 	name, cfg, err := configFromEnv()
 	if err != nil {
 		fatal(proto.KindInternal, 0, err.Error())

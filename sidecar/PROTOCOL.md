@@ -1,4 +1,4 @@
-# Sidecar protocol (version 1)
+# Sidecar protocol (version 2)
 
 The sidecar is a child process of the host. It serves one database over its
 stdin / stdout. Code: `internal/proto` (encoding, with unit tests),
@@ -24,15 +24,31 @@ read.
 
 Startup = **hello / ready exchange** (frames with `qid = 0`):
 
-1. The sidecar connects to the database (query pool and control connection)
+1. Before anything else, also before it reads the settings, the sidecar
+   writes one `hello` frame: protocol version and build (the Locus version
+   `sidecar/build.ps1` stamped in with `-X main.build=`, `dev` when built
+   without it).
+2. The sidecar connects to the database (query pool and control connection)
    and checks the credentials, within 15 s.
-2. Success: it writes one `ready` frame and then serves requests.
-3. Failure: it writes one `error` frame (kind `connect`, `auth`, `tls` or
+3. Success: it writes one `ready` frame and then serves requests.
+4. Failure: it writes one `error` frame (kind `connect`, `auth`, `tls` or
    `internal`) and exits with status 1.
+
+The host checks `hello` first: protocol and build must equal its own
+(`proto::VERSION`, the workspace version). On a mismatch, or when the first
+frame is not `hello` (a protocol 1 sidecar starts with `ready` or `error`),
+it kills the sidecar at once, before the connect, and `spawn` fails with
+`internal` naming both builds.
 
 The host sends nothing before `ready`. `SidecarDriver::spawn` resolves only
 after `ready`, so connect / auth / TLS errors surface there as the matching
 `ErrorKind`.
+
+`sidecar --hello` writes only the `hello` frame and exits 0, without reading
+any setting: `db_sidecar_client::probe` uses it to check a `sidecar.exe`
+without giving it credentials. Locus probes a `sidecar.exe` found next to
+`locus.exe`; a mismatched one is skipped (logged) in favour of the copy
+embedded in `locus.exe`.
 
 ## Frame
 
@@ -136,7 +152,8 @@ about 4.9 s longer.
 
 | Type | Name | Payload |
 |---|---|---|
-| 20 | `ready` | `u16 protocol_version` (1), `str16 driver`, `str16 server_version`. `qid = 0`. |
+| 21 | `hello` | `u16 protocol_version` (2), `str16 build`. Always the first frame. `qid = 0`. |
+| 20 | `ready` | `u16 protocol_version` (2), `str16 driver`, `str16 server_version`. `qid = 0`. |
 | 10 | `started` | `u64 session_id`: the server's connection / session id. The host keeps it for every running query. |
 | 11 | `columns` | `u16 count`, then per column: `str16 name`, `str16 type_name`, `u8 nullable` |
 | 12 | `batch` | `u32 rows`, then for every row, for every column: `u32 len` + bytes; `len = 0xFFFFFFFF` is NULL (an empty cell is `len = 0`) |
