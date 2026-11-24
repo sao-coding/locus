@@ -92,6 +92,20 @@ pub struct SpacePopover {
     _sub: Subscription,
 }
 
+/// A floating card at window level (above every pane, not clipped by any of them) at `at`,
+/// kept inside the window. It occludes what is under it: no click, drag or hover reaches the
+/// sidebar edge, tabs or grid below while it is open.
+pub(crate) fn overlay(body: AnyElement, at: Point<Pixels>, priority: usize) -> AnyElement {
+    deferred(
+        anchored()
+            .position(at)
+            .snap_to_window_with_margin(px(8.))
+            .child(div().occlude().child(body)),
+    )
+    .with_priority(priority)
+    .into_any_element()
+}
+
 /// A point of a box as 0..1 along its width / height between `inset`s (clamped).
 fn unit_in(b: Bounds<Pixels>, p: Point<Pixels>, inset_x: f32, inset_y: f32) -> (f32, f32) {
     let w = (b.size.width.as_f32() - 2.0 * inset_x).max(1.0);
@@ -245,9 +259,15 @@ impl Locus {
 
     /// Any mouse move / release while the popover is open (registered at paint, so a drag
     /// keeps going outside the pad).
-    fn space_pop_mouse(&mut self, pos: Point<Pixels>, released: bool, cx: &mut Context<Self>) {
+    /// Returns whether a drag was going on (the event is then consumed).
+    fn space_pop_mouse(
+        &mut self,
+        pos: Point<Pixels>,
+        released: bool,
+        cx: &mut Context<Self>,
+    ) -> bool {
         let Some(drag) = self.space_pop.as_ref().map(|p| p.drag) else {
-            return;
+            return false;
         };
         if released {
             if drag != Drag::None {
@@ -256,13 +276,14 @@ impl Locus {
                 }
                 self.schedule_save(cx);
             }
-            return;
+            return drag != Drag::None;
         }
         match drag {
             Drag::Pad => self.pad_drag_to(pos, cx),
             Drag::Wave => self.wave_drag_to(pos, cx),
-            Drag::None => {}
+            Drag::None => return false,
         }
+        true
     }
 
     pub(crate) fn render_space_popover(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
@@ -341,16 +362,7 @@ impl Locus {
             )
             .into_any_element()
         };
-        Some(
-            deferred(
-                anchored()
-                    .position(pop.at)
-                    .snap_to_window_with_margin(px(8.))
-                    .child(body),
-            )
-            .with_priority(2)
-            .into_any_element(),
-        )
+        Some(overlay(body, pop.at, 2))
     }
 
     /// Follow the app / always light / always dark: a three-icon segmented control.
@@ -457,15 +469,22 @@ impl Locus {
                 window.on_mouse_event(move |ev: &MouseMoveEvent, phase, _, cx| {
                     if phase == DispatchPhase::Bubble {
                         let held = ev.pressed_button == Some(MouseButton::Left);
-                        let _ =
-                            e.update(cx, |this, cx| this.space_pop_mouse(ev.position, !held, cx));
+                        // A drag of the pad or wave is ours: nothing below sees the moves.
+                        if let Ok(true) =
+                            e.update(cx, |this, cx| this.space_pop_mouse(ev.position, !held, cx))
+                        {
+                            cx.stop_propagation();
+                        }
                     }
                 });
                 let e = ent.clone();
                 window.on_mouse_event(move |ev: &MouseUpEvent, phase, _, cx| {
-                    if phase == DispatchPhase::Bubble && ev.button == MouseButton::Left {
-                        let _ =
-                            e.update(cx, |this, cx| this.space_pop_mouse(ev.position, true, cx));
+                    if phase == DispatchPhase::Bubble
+                        && ev.button == MouseButton::Left
+                        && let Ok(true) =
+                            e.update(cx, |this, cx| this.space_pop_mouse(ev.position, true, cx))
+                    {
+                        cx.stop_propagation();
                     }
                 });
             },
@@ -495,7 +514,10 @@ impl Locus {
             )
             .on_mouse_down(
                 MouseButton::Left,
-                cx.listener(|this, ev: &MouseDownEvent, _, cx| this.pad_press(ev.position, cx)),
+                cx.listener(|this, ev: &MouseDownEvent, _, cx| {
+                    cx.stop_propagation();
+                    this.pad_press(ev.position, cx)
+                }),
             );
         // Dots: the others first, the selected one on top.
         let order = (0..n).filter(|i| *i != pop.sel).chain([pop.sel.min(n - 1)]);
@@ -727,6 +749,7 @@ impl Locus {
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(|this, ev: &MouseDownEvent, _, cx| {
+                    cx.stop_propagation();
                     if let Some(p) = this.space_pop.as_mut() {
                         p.drag = Drag::Wave;
                     }
@@ -840,5 +863,39 @@ mod tests {
         assert_eq!((INNER_W - pill_w()) % 2.0, 0.0);
         assert_eq!((pill_w() - 2.0) / 2.0, PILL_BTN);
         assert_eq!((WAVE_H - THUMB_H) / 2.0, 6.0);
+    }
+
+    /// A window whose whole area counts mouse downs, with a card from `overlay` on top.
+    struct Under {
+        downs: usize,
+    }
+
+    impl Render for Under {
+        fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+            div()
+                .size_full()
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(|this, _, _, _| this.downs += 1),
+                )
+                .child(overlay(
+                    // A plain area of the card: no handler of its own, like the popover's padding.
+                    div().size(px(100.)).into_any_element(),
+                    point(px(10.), px(10.)),
+                    1,
+                ))
+        }
+    }
+
+    #[gpui_kit::test]
+    fn overlay_blocks_clicks_to_what_is_under_it(cx: &mut gpui_kit::TestAppContext) {
+        let (view, vcx) = cx.add_window_view(|_, _| Under { downs: 0 });
+        vcx.run_until_parked();
+        // On the card: nothing below sees it.
+        vcx.simulate_click(point(px(50.), px(50.)), Modifiers::default());
+        assert_eq!(vcx.update(|_, cx| view.read(cx).downs), 0);
+        // Beside it: the layer below does.
+        vcx.simulate_click(point(px(300.), px(300.)), Modifiers::default());
+        assert_eq!(vcx.update(|_, cx| view.read(cx).downs), 1);
     }
 }
