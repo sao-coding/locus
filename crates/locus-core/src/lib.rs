@@ -42,6 +42,7 @@ pub mod runview;
 pub mod saved;
 pub mod selstats;
 pub mod settings;
+pub mod space_theme;
 pub mod spaces;
 pub mod split;
 pub mod sqlrefs;

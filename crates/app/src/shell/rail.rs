@@ -41,7 +41,7 @@ impl Locus {
         });
         v_flex()
             .id("rail")
-            .bg(crate::shell::style::panel_bg(self.space().hue(), cx))
+            .bg(crate::shell::style::panel_bg(self.space().look(), cx))
             .flex_none()
             .w(px(scale::W_RAIL))
             .h_full()

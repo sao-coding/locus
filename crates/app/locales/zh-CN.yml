@@ -29,14 +29,22 @@ space:
   icon: 图标
   icon_none: 颜色圆点
   colors:
-    c0: 蓝
-    c1: 绿
-    c2: 橙
-    c3: 粉红
-    c4: 紫
-    c5: 青
-    c6: 黄
-    c7: 红
+    p0: 玫瑰
+    p1: 粉红
+    p2: 洋红
+    p3: 橙
+    p4: 黄
+    p5: 绿
+    p6: 青
+    p7: 蓝
+    p8: 紫罗兰
+  appearance_auto: 跟随应用
+  appearance_light: 始终浅色
+  appearance_dark: 始终深色
+  add_color: 添加颜色（最多 3 个，以渐变显示）
+  remove_color: 移除最后一个颜色
+  intensity: 强度
+  intensity_tip: 颜色为窗口着色的浓淡
   bind_folder: 绑定文件夹…
   unbind_folder: 解除文件夹绑定
   delete_menu: 删除空间…

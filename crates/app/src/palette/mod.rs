@@ -154,8 +154,8 @@ pub(crate) struct PalItem {
     icon: String,
     badge: Option<(DbKind, bool)>,
     env: Option<Env>,
-    /// Space hue (open tabs).
-    hue: Option<f32>,
+    /// Space colour (open tabs).
+    hue: Option<locus_core::space_theme::SpaceColor>,
     /// Space icon (open tabs), shown instead of the hue dot when set.
     space_icon: Option<IconName>,
     target: Target,
@@ -697,13 +697,13 @@ impl Palette {
                 match it.space_icon.clone() {
                     Some(i) => Icon::new(i)
                         .size(px(12.))
-                        .text_color(space_color(h, cx))
+                        .text_color(crate::shell::style::tint_color(h, cx))
                         .into_any_element(),
                     None => div()
                         .flex_none()
                         .size(px(7.))
                         .rounded_full()
-                        .bg(space_color(h, cx))
+                        .bg(crate::shell::style::tint_color(h, cx))
                         .into_any_element(),
                 }
             }))
@@ -826,7 +826,7 @@ impl Locus {
                     Some(c) => format!("{} · {}", sp.name, c.name),
                     None => sp.name.clone(),
                 };
-                it.hue = Some(sp.hue());
+                it.hue = Some(sp.theme.primary());
                 it.space_icon = crate::shell::space_popover::space_icon(sp.icon.as_deref());
                 tabs.push(it);
             }

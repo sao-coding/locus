@@ -26,7 +26,7 @@ impl Locus {
             name: t!("space.new_name", n = (n + 1).to_string()).into_owned(),
             color: n % SPACE_HUES.len(),
             icon: None,
-            custom_hue: None,
+            theme: locus_core::space_theme::SpaceTheme::of(n % SPACE_HUES.len(), None, None),
             connections: Vec::new(),
             tabs: vec![tab],
             layout: Layout::Tab(data.id),

@@ -76,7 +76,8 @@ pub struct Space {
     pub name: String,
     pub color: usize,
     pub icon: Option<String>,
-    pub custom_hue: Option<f32>,
+    /// Colours, intensity, light / dark (old hue-only Spaces get a one-colour theme on load).
+    pub theme: locus_core::space_theme::SpaceTheme,
     pub connections: Vec<String>,
     pub tabs: Vec<Entity<QueryTab>>,
     pub layout: Layout,
@@ -119,8 +120,14 @@ impl Space {
         v
     }
 
-    pub(crate) fn hue(&self) -> f32 {
-        locus_core::spaces::space_hue(self.color, self.custom_hue)
+    /// What the tint helpers draw this Space with.
+    pub(crate) fn look(&self) -> crate::shell::style::Look {
+        crate::shell::style::Look::of(&self.theme)
+    }
+
+    /// The Space colour as an accent (dots, icons, active marks): its first colour.
+    pub(crate) fn accent(&self, cx: &App) -> Hsla {
+        crate::shell::style::tint_color(self.theme.primary(), cx)
     }
 }
 
@@ -383,7 +390,11 @@ impl Locus {
             name: sd.name.clone(),
             color: sd.color,
             icon: sd.icon.clone(),
-            custom_hue: sd.custom_hue,
+            theme: locus_core::space_theme::SpaceTheme::of(
+                sd.color,
+                sd.custom_hue,
+                sd.theme.as_ref(),
+            ),
             connections: sd
                 .connections
                 .iter()
@@ -711,8 +722,18 @@ impl Render for Locus {
         }
         let theme = cx.theme().clone();
         let t = crate::shell::theme::tokens(cx);
-        let hue = self.space().hue();
-        crate::shell::style::set_space_hue(hue, cx);
+        let look = self.space().look();
+        crate::shell::style::set_space_look(look, cx);
+        self.sync_space_appearance(window, cx);
+        let mut bg = window_bg(look, cx);
+        // Three colours: two gradient halves (GPUI gradients have two stops), drawn under
+        // everything as the first child.
+        let bg_layers = (bg.len() > 1).then(|| {
+            bg.drain(..).fold(v_flex().absolute().inset_0(), |v, b| {
+                v.child(div().flex_1().w_full().bg(b))
+            })
+        });
+        let root_bg = bg.pop();
         self.sync_objects(cx);
         self.probe_conns(cx);
         self.sync_pages(cx);
@@ -743,7 +764,8 @@ impl Render for Locus {
         keymap::register(root, cx)
             .size_full()
             .relative()
-            .bg(window_bg(hue, cx))
+            .when_some(root_bg, |d, b| d.bg(b))
+            .children(bg_layers)
             .text_color(t.tx)
             .child(self.render_title_bar(cx))
             .children(self.render_space_popover(cx))
@@ -794,14 +816,14 @@ impl Locus {
     /// The main card: header, panes with the right panel and rail, status bar.
     fn render_main_card(&self, work: AnyElement, cx: &mut Context<Self>) -> Stateful<Div> {
         let t = crate::shell::theme::tokens(cx);
-        let hue = self.space().hue();
+        let look = self.space().look();
         v_flex()
             .id("main-card")
             .flex_1()
             .min_w_0()
             .h_full()
             .rounded(px(scale::R_LG))
-            .bg(crate::shell::style::card_bg(hue, cx))
+            .bg(crate::shell::style::card_bg(look, cx))
             .border_1()
             .border_color(t.ring)
             .shadow(vec![BoxShadow {
@@ -902,6 +924,7 @@ fn first_run_file(conns: &[SavedConnection], initial_sql: &str) -> SpacesFile {
             color: 0,
             icon: None,
             custom_hue: None,
+            theme: None,
             connections: conns.iter().map(|c| c.id.clone()).collect(),
             tabs: vec![TabData {
                 id: locus_core::store::new_id() + "t",

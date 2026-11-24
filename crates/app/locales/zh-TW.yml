@@ -29,14 +29,22 @@ space:
   icon: 圖示
   icon_none: 顏色圓點
   colors:
-    c0: 藍
-    c1: 綠
-    c2: 橘
-    c3: 粉紅
-    c4: 紫
-    c5: 青
-    c6: 黃
-    c7: 紅
+    p0: 玫瑰
+    p1: 粉紅
+    p2: 洋紅
+    p3: 橘
+    p4: 黃
+    p5: 綠
+    p6: 青
+    p7: 藍
+    p8: 紫羅蘭
+  appearance_auto: 跟隨應用程式
+  appearance_light: 一律淺色
+  appearance_dark: 一律深色
+  add_color: 新增顏色（最多 3 個，以漸層呈現）
+  remove_color: 移除最後一個顏色
+  intensity: 強度
+  intensity_tip: 顏色為視窗著色的濃淡
   bind_folder: 綁定資料夾…
   unbind_folder: 解除資料夾綁定
   delete_menu: 刪除空間…

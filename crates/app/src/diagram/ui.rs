@@ -41,7 +41,7 @@ impl Locus {
     ) -> Div {
         let t = crate::shell::theme::tokens(cx);
         let tr = tab.read(cx);
-        let col = space_color(self.space().hue(), cx);
+        let col = self.space().accent(cx);
         let chevron = || {
             crate::shell::icons::icon("chevron-right")
                 .size(px(10.))
@@ -335,12 +335,7 @@ impl Locus {
                 h_flex()
                     .gap(px(S3))
                     .items_center()
-                    .child(
-                        div()
-                            .size(px(6.))
-                            .rounded_full()
-                            .bg(space_color(s.hue(), cx)),
-                    )
+                    .child(div().size(px(6.)).rounded_full().bg(s.accent(cx)))
                     .child(s.name.clone()),
             )
             .into_any_element()
