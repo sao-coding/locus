@@ -59,6 +59,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B release
           knope prepare-release
+          # knope bumps Cargo.toml only; release.yml builds with --locked, so Cargo.lock must follow.
+          cargo update --workspace
+          git add Cargo.lock
+          git commit --amend --no-edit
           version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
           # The new CHANGELOG section is the PR body.
           awk -v v="$version" '/^## /{ if (on) exit; if ($2 == v) { on = 1; next } } on' CHANGELOG.md > "$RUNNER_TEMP/body.md"
