@@ -6,6 +6,7 @@
 use crate::shell::scale::*;
 use crate::shell::seg::{SegItem, seg};
 use crate::shell::*;
+use gpui_kit::component::Disableable as _;
 use std::rc::Rc;
 
 pub(crate) enum SettingsPageEvent {
@@ -58,6 +59,8 @@ enum Ctl {
     FormatIndent,
     ProdManualTx,
     TxIdle,
+    /// Shown in About, not through `DEFS`.
+    UpdateCheck,
 }
 
 /// (category, label key, description key, control)
@@ -168,6 +171,8 @@ pub(crate) struct SettingsPage {
     /// Page focus target: the search box is not focused when the tab opens (audit S2).
     focus: FocusHandle,
     _sub: Subscription,
+    /// Re-renders About when the update check changes state.
+    _upd: Option<Subscription>,
 }
 
 impl SettingsPage {
@@ -188,7 +193,16 @@ impl SettingsPage {
             scroll: ScrollHandle::new(),
             focus: cx.focus_handle(),
             _sub: sub,
+            _upd: crate::update::entity(cx).map(|u| cx.observe(&u, |_, _, cx| cx.notify())),
         }
+    }
+
+    /// Switches to `cat` (clears the search).
+    pub(crate) fn show_cat(&mut self, cat: Cat, window: &mut Window, cx: &mut Context<Self>) {
+        self.cat = cat;
+        self.query.clear();
+        self.search.update(cx, |s, cx| s.set_value("", window, cx));
+        cx.notify();
     }
 
     pub fn focus_handle(&self, _cx: &App) -> FocusHandle {
@@ -383,6 +397,23 @@ impl SettingsPage {
                         )
                     })
                     .collect()
+            }
+            Ctl::UpdateCheck => {
+                let on = s.update_check();
+                vec![
+                    c!(
+                        "upd-on".into(),
+                        t!("settings.count_on").into_owned(),
+                        on,
+                        |s: &mut Settings| s.update_check = None
+                    ),
+                    c!(
+                        "upd-off".into(),
+                        t!("settings.count_off").into_owned(),
+                        !on,
+                        |s: &mut Settings| s.update_check = Some(false)
+                    ),
+                ]
             }
             Ctl::Count => {
                 let nc = s.no_count;
@@ -733,6 +764,16 @@ impl SettingsPage {
                 rows.push(line(2000, lv, env!("CARGO_PKG_VERSION")));
                 rows.push(line(2001, ll.into_owned(), "AGPL-3.0-only"));
             }
+            let (lu, la) = (t!("upd.label").into_owned(), t!("upd.auto").into_owned());
+            let la_d = t!("upd.auto_note").into_owned();
+            let hay = format!("{lu} {la} {la_d} {}", Self::cat_name(cat));
+            if let Some(u) =
+                crate::update::entity(cx).filter(|_| !searching || matches_query(&hay, q))
+            {
+                rows.push(self.update_row(&u, lu, cx));
+                let ctl = self.controls(Ctl::UpdateCheck, cx);
+                rows.push(self.row(2003, la, la_d, ctl, cx));
+            }
         } else {
             for (i, (c, lk, dk, ctl)) in DEFS.iter().enumerate() {
                 if *c != cat
@@ -750,6 +791,77 @@ impl SettingsPage {
             }
         }
         rows
+    }
+
+    /// About › Updates: what the check knows and the next step. A newer release opens its
+    /// page (installer, portable exe) or offers the command (Scoop owns its copy).
+    fn update_row(
+        &self,
+        u: &Entity<crate::update::Updates>,
+        label: String,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let ur = u.read(cx);
+        let checking = ur.status == crate::update::Status::Checking;
+        let avail = ur.available().cloned();
+        let hinted = avail.as_ref().is_some_and(|r| ur.state.should_hint(r));
+        let cmd = ur.install.command();
+        let mut desc = ur.summary();
+        let mut ctl = h_flex().gap(px(S3)).items_center();
+        if let Some(r) = avail {
+            match cmd {
+                Some(c) => {
+                    desc = format!("{desc} {}", t!("upd.by_command"));
+                    let t = crate::shell::theme::tokens(cx);
+                    ctl = ctl
+                        .child(
+                            div()
+                                .px(px(S4))
+                                .py(px(S1))
+                                .rounded(px(R_SM))
+                                .bg(t.hv)
+                                .font_family(cx.theme().mono_font_family.clone())
+                                .text_size(px(TX_MONO))
+                                .text_color(t.tx2)
+                                .child(c),
+                        )
+                        .child(
+                            Button::new("upd-copy")
+                                .label(t!("upd.copy").into_owned())
+                                .on_click(move |_, _, cx| {
+                                    cx.write_to_clipboard(ClipboardItem::new_string(c.into()));
+                                    crate::shell::toast::show(t!("upd.copied").into_owned(), cx);
+                                }),
+                        );
+                }
+                None => {
+                    let url = r.url.clone();
+                    ctl = ctl.child(
+                        Button::new("upd-open")
+                            .primary()
+                            .label(t!("upd.download").into_owned())
+                            .on_click(move |_, _, cx| cx.open_url(&url)),
+                    );
+                }
+            }
+            if hinted {
+                let u = u.clone();
+                ctl = ctl.child(
+                    Button::new("upd-dismiss")
+                        .ghost()
+                        .label(t!("upd.dismiss").into_owned())
+                        .on_click(move |_, _, cx| u.update(cx, |u, cx| u.dismiss(cx))),
+                );
+            }
+        }
+        let u = u.clone();
+        ctl = ctl.child(
+            Button::new("upd-check")
+                .label(t!("upd.check_now").into_owned())
+                .disabled(checking)
+                .on_click(move |_, _, cx| u.update(cx, |u, cx| u.check(true, cx))),
+        );
+        self.row(2002, label, desc, ctl.into_any_element(), cx)
     }
 
     /// Category list on the left.

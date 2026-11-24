@@ -142,6 +142,10 @@ Settings, saved connections and history live in `%APPDATA%\Locus`. Delete the fo
 Oracle helper is the only file outside it (`%LOCALAPPDATA%\Locus\sidecar\`); delete that folder too
 to remove everything.
 
+About once a day Locus asks GitHub whether a newer release exists (only `User-Agent: Locus/<version>`
+is sent) and shows it in the status bar; nothing is downloaded by itself. Turn it off in
+Settings › About.
+
 ## Keyboard
 
 | Keys | Action |

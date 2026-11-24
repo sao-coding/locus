@@ -250,6 +250,11 @@ impl Locus {
                 .unwrap_or(true)
         });
 
+        // The automatic update check only for the real data folder, not the demo / UI-test
+        // scenes (those still read update.json from their LOCUS_DATA_DIR).
+        let updates = crate::update::init(store.persists(), matches!(store, Store::Disk), cx);
+        subs.push(cx.observe(&updates, |_, _, cx| cx.notify()));
+
         let objects = cx.new(|_| crate::connections::objects::ObjectTree::new());
         subs.push(cx.subscribe_in(
             &objects,

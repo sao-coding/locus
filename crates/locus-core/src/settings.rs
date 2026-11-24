@@ -57,6 +57,16 @@ pub struct Settings {
     /// Minutes an open Manual transaction may sit idle before a warning; 0 = never; missing = 10.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tx_idle_minutes: Option<u64>,
+    /// Look for a new release on GitHub after start (default on); see `update`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub update_check: Option<bool>,
+}
+
+impl Settings {
+    /// Whether the automatic update check is on (missing = on).
+    pub fn update_check(&self) -> bool {
+        self.update_check.unwrap_or(true)
+    }
 }
 
 pub fn app_dir() -> Option<PathBuf> {

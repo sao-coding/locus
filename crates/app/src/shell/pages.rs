@@ -45,6 +45,23 @@ impl Locus {
         self.open_page(TabPage::Settings, window, cx);
     }
 
+    /// Settings on its About category (the update state lives there).
+    pub(crate) fn open_settings_about(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_settings(window, cx);
+        let view = self.space().tabs.iter().find_map(|t| {
+            let t = t.read(cx);
+            (t.pageslot.kind == Some(TabPage::Settings))
+                .then(|| t.pageslot.view.clone())
+                .flatten()
+                .and_then(|v| v.downcast::<SettingsPage>().ok())
+        });
+        if let Some(v) = view {
+            v.update(cx, |p, cx| {
+                p.show_cat(crate::settings::page::Cat::About, window, cx)
+            });
+        }
+    }
+
     pub(crate) fn open_history(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.open_page(TabPage::History, window, cx);
     }
