@@ -52,13 +52,20 @@ const DOT_STEP: f32 = 16.0;
 /// The `−` / `+` pill at the pad's foot.
 const PILL_BTN: f32 = 32.0;
 const PILL_H: f32 = 24.0;
+/// Two full buttons inside its 1 px border.
+const fn pill_w() -> f32 {
+    2.0 * PILL_BTN + 2.0
+}
 const WAVE_H: f32 = 32.0;
 /// The thumb's centre travels between these insets.
 const WAVE_INSET: f32 = 8.0;
 const THUMB_W: f32 = 10.0;
 const THUMB_H: f32 = 24.0;
-const SWATCH: f32 = 28.0;
-const SWATCH_DOT: f32 = 20.0;
+/// Swatch cell and its colour dot: 9 × 24 leaves an even 7 px between them.
+const SWATCH: f32 = 24.0;
+const SWATCH_DOT: f32 = 16.0;
+/// Icon grid: eight equal cells across the card, a 28 px button centred in each.
+const ICON_COLS: f32 = 8.0;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Drag {
@@ -278,12 +285,6 @@ impl Locus {
             .border_color(theme.border)
             .shadow_lg()
             .on_mouse_down_out(cx.listener(|this, _, _, cx| this.close_space_popover(cx)))
-            .capture_key_down(cx.listener(|this, ev: &KeyDownEvent, _, cx| {
-                if ev.keystroke.key == "escape" {
-                    cx.stop_propagation();
-                    this.close_space_popover(cx);
-                }
-            }))
             .child(
                 v_flex()
                     .gap(px(scale::S4))
@@ -399,7 +400,7 @@ impl Locus {
         // The spectrum, drawn at a lightness that reads on the card in either theme.
         let l = if t.dark { 0.42 } else { 0.66 };
         let grey = hsla(0., 0., l, 1.0);
-        let hue = |h: f32| hsla(h, 0.85, l, 1.0);
+        let hue = |h: f32| hsla(h, 0.7, l, 1.0);
         let span = INNER_W - 2.0 * PAD_INSET;
         let mut spectrum = h_flex()
             .absolute()
@@ -522,11 +523,12 @@ impl Locus {
         let t = crate::shell::theme::tokens(cx);
         let mut bg = t.pop;
         bg.a = 0.92;
-        let w = 2.0 * PILL_BTN;
+        let w = pill_w();
         let btn = |id: &'static str, icon: &'static str, on: bool, key: &'static str| {
             div()
                 .id(id)
-                .w(px(PILL_BTN))
+                // Equal halves of the inside of the border (two fixed 32s would shrink unevenly).
+                .flex_1()
                 .h_full()
                 .flex()
                 .items_center()
@@ -583,7 +585,8 @@ impl Locus {
         let t = crate::shell::theme::tokens(cx);
         let si = pop.space;
         let cur = self.spaces[si].theme.colors.get(pop.sel).copied();
-        let mut row = h_flex().w(px(INNER_W)).justify_between().items_center();
+        let gap = (INNER_W - PRESETS.len() as f32 * SWATCH) / (PRESETS.len() - 1) as f32;
+        let mut row = h_flex().w(px(INNER_W)).gap(px(gap)).items_center();
         for (ci, c) in PRESETS.iter().copied().enumerate() {
             let selected = cur == Some(c);
             let key = format!("space.colors.p{ci}");
@@ -717,56 +720,69 @@ impl Locus {
             )
     }
 
-    /// Icon buttons of the Space popover.
+    /// Icon buttons of the Space popover: the colour dot, then the icons, on an even grid.
     fn space_icons(&self, si: usize, cx: &mut Context<Self>) -> Div {
         let s = &self.spaces[si];
         let theme = cx.theme().clone();
         let accent = s.accent(cx);
-        let mut icons = h_flex().gap(px(scale::S2)).flex_wrap();
-        let none_selected = s.icon.is_none();
-        icons = icons.child(
+        let button = |id: ElementId, selected: bool, glyph: AnyElement| {
             div()
-                .id("icon-none")
-                .size(px(scale::H_CONTROL))
-                .rounded_md()
+                .w(px(INNER_W / ICON_COLS))
                 .flex()
-                .items_center()
                 .justify_center()
-                .cursor_pointer()
-                .hover(|st| st.bg(theme.muted))
-                .when(none_selected, |d| {
-                    d.bg(theme.muted).border_1().border_color(theme.border)
-                })
-                .tooltip(tip(t!("space.icon_none").into_owned()))
-                .child(div().size(px(10.)).rounded_full().bg(accent))
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.spaces[si].icon = None;
-                    this.schedule_save(cx);
-                    cx.notify();
-                })),
+                .child(
+                    div()
+                        .id(id)
+                        .size(px(scale::H_CONTROL))
+                        .rounded_md()
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .cursor_pointer()
+                        .hover(|st| st.bg(theme.muted))
+                        .when(selected, |d| {
+                            d.bg(theme.muted).border_1().border_color(theme.border)
+                        })
+                        .child(glyph),
+                )
+        };
+        let mut icons = h_flex().w(px(INNER_W)).flex_wrap().gap_y(px(scale::S2));
+        icons = icons.child(
+            button(
+                "icon-none".into(),
+                s.icon.is_none(),
+                div()
+                    .size(px(10.))
+                    .rounded_full()
+                    .bg(accent)
+                    .into_any_element(),
+            )
+            .id("icon-none-cell")
+            .tooltip(tip(t!("space.icon_none").into_owned()))
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.spaces[si].icon = None;
+                this.schedule_save(cx);
+                cx.notify();
+            })),
         );
         for (ii, (key, icon)) in SPACE_ICONS.iter().enumerate() {
             let selected = s.icon.as_deref() == Some(*key);
             let k = key.to_string();
             icons = icons.child(
-                div()
-                    .id(("space-icon", ii))
-                    .size(px(scale::H_CONTROL))
-                    .rounded_md()
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .cursor_pointer()
-                    .hover(|st| st.bg(theme.muted))
-                    .when(selected, |d| {
-                        d.bg(theme.muted).border_1().border_color(theme.border)
-                    })
-                    .child(Icon::new(icon.clone()).small().text_color(accent))
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.spaces[si].icon = Some(k.clone());
-                        this.schedule_save(cx);
-                        cx.notify();
-                    })),
+                button(
+                    ("space-icon", ii).into(),
+                    selected,
+                    Icon::new(icon.clone())
+                        .small()
+                        .text_color(accent)
+                        .into_any_element(),
+                )
+                .id(("space-icon-cell", ii))
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.spaces[si].icon = Some(k.clone());
+                    this.schedule_save(cx);
+                    cx.notify();
+                })),
             );
         }
         icons
@@ -805,10 +821,9 @@ mod tests {
         // Pill and thumb centred, card on the 8 px grid.
         assert_eq!(CARD_W % 8.0, 0.0);
         assert_eq!(INNER_W % 8.0, 0.0);
-        assert_eq!(
-            (INNER_W - 2.0 * PILL_BTN) / 2.0 * 2.0 + 2.0 * PILL_BTN,
-            INNER_W
-        );
+        // The pill sits on whole pixels and each half is a full button.
+        assert_eq!((INNER_W - pill_w()) % 2.0, 0.0);
+        assert_eq!((pill_w() - 2.0) / 2.0, PILL_BTN);
         assert_eq!((WAVE_H - THUMB_H) / 2.0, 4.0);
     }
 }
