@@ -140,7 +140,10 @@ impl QueryTab {
         let body = if r.rows == 0 && no_new_rows && r.note == Some(Note::Cancelled) {
             empty(t!("results.cancelled_empty").into_owned(), cx)
         } else {
-            DataTable::new(&r.table).bordered(false).into_any_element()
+            DataTable::new(&r.table)
+                .bordered(false)
+                .stripe(crate::settings::get(cx).grid_stripes())
+                .into_any_element()
         };
         let pager = self.render_pager(r.rows, cx);
         col.child(Self::grid_actions(div().flex_1().min_h_0(), cx).child(body))

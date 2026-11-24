@@ -57,6 +57,9 @@ pub struct Settings {
     /// Minutes an open Manual transaction may sit idle before a warning; 0 = never; missing = 10.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tx_idle_minutes: Option<u64>,
+    /// Alternate the tone of odd and even result rows (default on).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grid_stripes: Option<bool>,
 }
 
 pub fn app_dir() -> Option<PathBuf> {
@@ -226,6 +229,13 @@ impl Settings {
 }
 
 impl Settings {
+    /// Zebra striping of the result grid.
+    pub fn grid_stripes(&self) -> bool {
+        self.grid_stripes.unwrap_or(true)
+    }
+}
+
+impl Settings {
     /// "Confirm writes on non-Production connections" (Production always confirms).
     pub fn confirm_nonprod(&self) -> bool {
         self.confirm_nonprod_writes.unwrap_or(true)
@@ -315,5 +325,23 @@ mod tests {
         assert!((glass_alpha("blur", false, 0.0) - 0.82).abs() < 1e-6);
         assert!((glass_alpha("mica_alt", false, 0.1) - 0.76).abs() < 1e-6);
         assert!((glass_alpha("blur", true, 0.3) - 0.48).abs() < 1e-6);
+    }
+}
+
+#[cfg(test)]
+mod stripe_tests {
+    use super::*;
+
+    #[test]
+    fn grid_stripes_default_on_and_round_trip() {
+        assert!(Settings::default().grid_stripes());
+        let off = Settings {
+            grid_stripes: Some(false),
+            ..Default::default()
+        };
+        let back: Settings = serde_json::from_str(&serde_json::to_string(&off).unwrap()).unwrap();
+        assert!(!back.grid_stripes());
+        let old: Settings = serde_json::from_str("{}").unwrap();
+        assert!(old.grid_stripes());
     }
 }

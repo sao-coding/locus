@@ -292,6 +292,7 @@ settings:
   motion: Animations
   motion_on: "On"
   motion_off: Reduce motion
+  stripes: Alternate row shading in result grids
   count: Count the rows of a paged query in the background
   count_on: "On"
   count_off: "Off"
@@ -609,6 +610,7 @@ sp:
   d_theme: Light, dark, or follow Windows.
   d_font: Size of the interface and editor text.
   d_motion: Turn animations off if they distract you.
+  d_stripes: Shades odd and even rows of a result grid in two close tones so rows are easier to tell apart.
   d_material: What shows through the window background.
   d_translucency: How see-through the window tint is when a material is chosen.
   d_cap: A query is stopped with a note when its result reaches this many rows.

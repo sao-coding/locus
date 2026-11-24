@@ -448,6 +448,7 @@ fn strip_tab(
     id: impl Into<ElementId>,
     label: String,
     count: Option<String>,
+    tip: Option<String>,
     on: bool,
     cx: &App,
 ) -> Stateful<Div> {
@@ -470,16 +471,29 @@ fn strip_tab(
         .cursor_pointer()
         .when(!on, |d| d.hover(|s| s.text_color(t.tx2)))
         .when(on, |d| d.border_b_2().border_color(t.acc))
-        .child(label)
-        .when_some(count, |d, c| {
-            d.child(
-                div()
-                    .text_size(px(TX_XS))
-                    .font_weight(FontWeight::NORMAL)
-                    .text_color(t.tx4)
-                    .child(c),
-            )
+        .when_some(tip, |d, tip| {
+            d.tooltip(move |w, cx| {
+                gpui_kit::component::tooltip::Tooltip::new(tip.clone()).build(w, cx)
+            })
         })
+        // Label and count share a baseline; the pair is centred in the tab.
+        .child(
+            h_flex()
+                .min_w_0()
+                .gap(px(S3))
+                .items_baseline()
+                .child(div().max_w(px(TAB_LABEL_MAX_W)).truncate().child(label))
+                .when_some(count, |d, c| {
+                    d.child(
+                        div()
+                            .flex_none()
+                            .text_size(px(TX_XS))
+                            .font_weight(FontWeight::NORMAL)
+                            .text_color(t.tx4)
+                            .child(c),
+                    )
+                }),
+        )
 }
 
 /// A tab of the strip, as data so it can be drawn inline or in the overflow menu.
@@ -491,6 +505,9 @@ enum StripAct {
     Messages,
     Stats,
 }
+
+/// Widest a tab label gets before it is cut with an ellipsis.
+const TAB_LABEL_MAX_W: f32 = 160.0;
 
 /// Below this width of the result area the tab strip folds into one tab and a "⋯" menu.
 const STRIP_FOLD_W: f32 = 480.0;
@@ -590,6 +607,7 @@ impl QueryTab {
     ) -> Stateful<Div> {
         let t = crate::shell::theme::tokens(cx);
         let mut tabs: Vec<(StripAct, String, Option<String>, bool)> = Vec::new();
+        let mut tips: Vec<Option<String>> = Vec::new();
         if self.out.results.is_empty() {
             tabs.push((
                 StripAct::Data,
@@ -597,13 +615,24 @@ impl QueryTab {
                 None,
                 matches!(pane, Pane::NoData),
             ));
+            tips.push(None);
         }
+        let several = self.out.results.len() > 1;
+        let names: Vec<Option<String>> = self.out.results.iter().map(|r| r.name.clone()).collect();
+        let names = if several {
+            db_core::tabname::dedupe(&names)
+        } else {
+            names
+        };
         for (i, r) in self.out.results.iter().enumerate() {
-            let label = if self.out.results.len() == 1 {
+            let label = if !several {
                 t!("rt.data").into_owned()
+            } else if let Some(n) = names[i].clone() {
+                n
             } else {
                 t!("results.result_n", n = (i + 1).to_string()).into_owned()
             };
+            tips.push((!r.tip.is_empty()).then(|| r.tip.clone()));
             tabs.push((
                 StripAct::Result(i),
                 label,
@@ -634,13 +663,14 @@ impl QueryTab {
             None,
             matches!(pane, Pane::Stats),
         ));
+        tips.resize(tabs.len(), None);
         let make_tab = |idx: usize,
                         act: StripAct,
                         label: String,
                         count: Option<String>,
                         on: bool,
                         cx: &mut Context<Self>| {
-            let mut el = strip_tab(("rtab", idx), label, count, on, cx);
+            let mut el = strip_tab(("rtab", idx), label, count, tips[idx].clone(), on, cx);
             if matches!(act, StripAct::Messages) && errors {
                 el = el.child(div().size(px(S3)).rounded_full().bg(t.red));
             }

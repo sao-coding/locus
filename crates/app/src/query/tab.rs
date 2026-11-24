@@ -118,6 +118,10 @@ pub struct ResultTab {
     pub table: Entity<TableState<ResultGrid>>,
     pub note: Option<Note>,
     pub rows: u64,
+    /// The single table the statement read, for the tab label.
+    pub name: Option<String>,
+    /// The statement, elided, for the tab tooltip.
+    pub tip: String,
     _sub: Subscription,
 }
 
