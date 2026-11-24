@@ -227,12 +227,21 @@ fn parse_feed(body: &str) -> Vec<Listed> {
 }
 
 fn agent() -> ureq::Agent {
+    agent_with(Some(TIMEOUT))
+}
+
+/// HTTP client for the update requests: native-tls with the Windows roots, the system proxy,
+/// statuses as values. `timeout`: for the whole request (`None` for a download, which instead
+/// gets connect and response timeouts).
+pub(crate) fn agent_with(timeout: Option<Duration>) -> ureq::Agent {
     let tls = ureq::tls::TlsConfig::builder()
         .provider(ureq::tls::TlsProvider::NativeTls)
         .root_certs(ureq::tls::RootCerts::PlatformVerifier)
         .build();
     ureq::Agent::config_builder()
-        .timeout_global(Some(TIMEOUT))
+        .timeout_global(timeout)
+        .timeout_connect(Some(TIMEOUT))
+        .timeout_recv_response(Some(TIMEOUT * 2))
         .user_agent(format!("Locus/{CURRENT}"))
         .tls_config(tls)
         .http_status_as_error(false)
@@ -241,7 +250,7 @@ fn agent() -> ureq::Agent {
 }
 
 /// GET `url`: status and body.
-fn get(agent: &ureq::Agent, url: &str, accept: &str) -> Result<(u16, String), String> {
+pub(crate) fn get(agent: &ureq::Agent, url: &str, accept: &str) -> Result<(u16, String), String> {
     let mut r = agent
         .get(url)
         .header("Accept", accept)

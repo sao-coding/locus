@@ -143,8 +143,9 @@ Oracle helper is the only file outside it (`%LOCALAPPDATA%\Locus\sidecar\`); del
 to remove everything.
 
 About once a day Locus asks GitHub whether a newer release exists (only `User-Agent: Locus/<version>`
-is sent) and shows it in the status bar; nothing is downloaded by itself. Turn it off in
-Settings › About.
+is sent) and shows it in the status bar. A new version is downloaded in the background and installed
+only when you pick Restart and update; it is installed only if its minisign signature is from the
+key in `minisign.pub`. A Scoop install is left to `scoop update`. Both are switched in Settings › About.
 
 ## Keyboard
 

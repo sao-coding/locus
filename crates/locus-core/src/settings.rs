@@ -60,12 +60,20 @@ pub struct Settings {
     /// Look for a new release on GitHub after start (default on); see `update`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub update_check: Option<bool>,
+    /// Download a release found in the background, ready to install on restart (default on).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub update_download: Option<bool>,
 }
 
 impl Settings {
     /// Whether the automatic update check is on (missing = on).
     pub fn update_check(&self) -> bool {
         self.update_check.unwrap_or(true)
+    }
+
+    /// Whether a release found is downloaded by itself (missing = on).
+    pub fn update_download(&self) -> bool {
+        self.update_download.unwrap_or(true)
     }
 }
 

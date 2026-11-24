@@ -13,6 +13,8 @@ pub(crate) enum SettingsPageEvent {
     Language(&'static str),
     /// A setting was saved: re-apply theme, material, motion.
     Changed,
+    /// "Restart and update" in About.
+    RestartToUpdate,
 }
 
 impl EventEmitter<SettingsPageEvent> for SettingsPage {}
@@ -61,6 +63,7 @@ enum Ctl {
     TxIdle,
     /// Shown in About, not through `DEFS`.
     UpdateCheck,
+    UpdateDownload,
 }
 
 /// (category, label key, description key, control)
@@ -415,6 +418,23 @@ impl SettingsPage {
                     ),
                 ]
             }
+            Ctl::UpdateDownload => {
+                let on = s.update_download();
+                vec![
+                    c!(
+                        "upd-dl-on".into(),
+                        t!("settings.count_on").into_owned(),
+                        on,
+                        |s: &mut Settings| s.update_download = None
+                    ),
+                    c!(
+                        "upd-dl-off".into(),
+                        t!("settings.count_off").into_owned(),
+                        !on,
+                        |s: &mut Settings| s.update_download = Some(false)
+                    ),
+                ]
+            }
             Ctl::Count => {
                 let nc = s.no_count;
                 vec![
@@ -766,13 +786,22 @@ impl SettingsPage {
             }
             let (lu, la) = (t!("upd.label").into_owned(), t!("upd.auto").into_owned());
             let la_d = t!("upd.auto_note").into_owned();
-            let hay = format!("{lu} {la} {la_d} {}", Self::cat_name(cat));
+            let (ld, ld_d) = (
+                t!("upd.auto_download").into_owned(),
+                t!("upd.auto_download_note").into_owned(),
+            );
+            let hay = format!("{lu} {la} {la_d} {ld} {ld_d} {}", Self::cat_name(cat));
             if let Some(u) =
                 crate::update::entity(cx).filter(|_| !searching || matches_query(&hay, q))
             {
+                let self_updating = u.read(cx).can_install();
                 rows.push(self.update_row(&u, lu, cx));
                 let ctl = self.controls(Ctl::UpdateCheck, cx);
                 rows.push(self.row(2003, la, la_d, ctl, cx));
+                if self_updating {
+                    let ctl = self.controls(Ctl::UpdateDownload, cx);
+                    rows.push(self.row(2004, ld, ld_d, ctl, cx));
+                }
             }
         } else {
             for (i, (c, lk, dk, ctl)) in DEFS.iter().enumerate() {
@@ -835,11 +864,42 @@ impl SettingsPage {
                         );
                 }
                 None => {
+                    use crate::update::Dl;
+                    match ur.dl_for_available() {
+                        Dl::Ready { .. } => {
+                            ctl = ctl.child(
+                                Button::new("upd-restart")
+                                    .primary()
+                                    .label(t!("upd.restart").into_owned())
+                                    .on_click(cx.listener(|_, _, _, cx| {
+                                        cx.emit(SettingsPageEvent::RestartToUpdate)
+                                    })),
+                            );
+                        }
+                        Dl::Downloading { .. } => {}
+                        failed @ (Dl::Idle | Dl::Failed { .. }) => {
+                            let label = if matches!(failed, Dl::Failed { .. }) {
+                                t!("upd.retry")
+                            } else {
+                                t!("upd.download_update")
+                            };
+                            let u = u.clone();
+                            ctl = ctl.child(
+                                Button::new("upd-get")
+                                    .primary()
+                                    .label(label.into_owned())
+                                    .on_click(move |_, _, cx| {
+                                        u.update(cx, |u, cx| u.download(true, cx))
+                                    }),
+                            );
+                        }
+                    }
+                    // The release page: notes, and the files for doing it by hand.
                     let url = r.url.clone();
                     ctl = ctl.child(
                         Button::new("upd-open")
-                            .primary()
-                            .label(t!("upd.download").into_owned())
+                            .ghost()
+                            .label(t!("upd.release_page").into_owned())
                             .on_click(move |_, _, cx| cx.open_url(&url)),
                     );
                 }

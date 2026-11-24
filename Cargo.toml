@@ -59,6 +59,8 @@ calamine = { version = "=0.38.0", default-features = false }
 rust_xlsxwriter = { version = "=0.103.0", features = ["constant_memory"] }
 jiff = "=1.0.1"
 semver = "=1.0.28"
+# Checks the minisign signature of an update before it is installed.
+minisign-verify = "=0.3.0"
 # Update check only. native-tls (schannel, like the database drivers) with the Windows root
 # store, and the Windows system proxy as well as the *_PROXY variables.
 ureq = { version = "=3.5.1", default-features = false, features = ["native-tls-no-default", "win-system-proxy"] }

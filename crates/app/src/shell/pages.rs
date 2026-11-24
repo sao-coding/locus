@@ -62,6 +62,22 @@ impl Locus {
         }
     }
 
+    /// "Restart and update": marks the downloaded update for installing, then closes the way
+    /// the window's close button does (open transactions and running queries first). The
+    /// update goes in while Locus quits (`update::init`, `on_app_quit`).
+    pub(crate) fn restart_to_update(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(u) = crate::update::entity(cx) else {
+            return;
+        };
+        if let Err(e) = u.update(cx, |u, cx| u.request_install(cx)) {
+            crate::shell::toast::show(e, cx);
+            return;
+        }
+        if self.should_close(window, cx) {
+            window.remove_window();
+        }
+    }
+
     pub(crate) fn open_history(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.open_page(TabPage::History, window, cx);
     }
@@ -146,6 +162,7 @@ impl Locus {
                     |this, _, ev: &SettingsPageEvent, window, cx| match ev {
                         SettingsPageEvent::Language(l) => this.set_language(l, window, cx),
                         SettingsPageEvent::Changed => this.apply_settings(window, cx),
+                        SettingsPageEvent::RestartToUpdate => this.restart_to_update(window, cx),
                     },
                 );
                 self.tab_subs.push((data.id.clone(), sub));
