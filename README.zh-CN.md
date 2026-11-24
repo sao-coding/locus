@@ -106,7 +106,7 @@ Locus 支持 MySQL / MariaDB、PostgreSQL、SQLite、Redis 和 Oracle。查询�
 
 ## 安装
 
-到 [Releases](../../releases) 下载 `locus-<版本>-windows-x64.exe` 并运行。它是单个便携文件，没有安装程序。已内置 Oracle 支持，不需要额外文件：第一次连接 Oracle 时，会把一个小型辅助程序解压到 `%LOCALAPPDATA%\Locus\sidecar\`。
+到 [Releases](../../releases) 下载：可以运行安装程序 `locus-<版本>-windows-x64-setup.exe`（安装在当前用户下、不需要管理员权限，会创建开始菜单快捷方式和卸载程序），或直接运行便携版 `locus-<版本>-windows-x64.exe`，单个文件、无需安装。已内置 Oracle 支持，不需要额外文件：第一次连接 Oracle 时，会把一个小型辅助程序解压到 `%LOCALAPPDATA%\Locus\sidecar\`。
 
 可执行文件尚未签名，第一次运行时 SmartScreen 可能会警告。验证下载的文件：
 

@@ -1,8 +1,8 @@
 # Called by version.yml after it tags v<version> (a tag pushed with GITHUB_TOKEN starts no workflow);
-# run it by hand (workflow_dispatch) only to retry a release whose tag already exists. Publishes ONE
-# portable exe,
-# locus-<version>-windows-x64.exe (the Oracle helper sidecar.exe is embedded in it), its .sha256,
-# THIRD_PARTY_LICENSES.md and a build provenance attestation.
+# run it by hand (workflow_dispatch) only to retry a release whose tag already exists. Publishes the
+# portable exe locus-<version>-windows-x64.exe (the Oracle helper sidecar.exe is embedded in it),
+# the Inno Setup installer locus-<version>-windows-x64-setup.exe (installer/locus.iss; winget uses
+# it), a .sha256 for each, THIRD_PARTY_LICENSES.md and a build provenance attestation.
 # The test and build jobs run side by side with a read-only token; only the publish job can write
 # to the repo, and it only uploads what the build job made.
 name: release
@@ -95,8 +95,22 @@ jobs:
           New-Item -ItemType Directory dist | Out-Null
           Copy-Item target/release/locus.exe "dist/$name"
           Copy-Item THIRD_PARTY_LICENSES.md dist/THIRD_PARTY_LICENSES.md
-          $h = (Get-FileHash "dist/$name" -Algorithm SHA256).Hash.ToLower()
-          "$h  $name" | Out-File "dist/$name.sha256" -Encoding ascii
+      # Inno Setup 6 comes with the windows-latest image; install it only if a new image drops it.
+      - name: installer
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE) { exit 1 }
+          }
+          & $iscc /Q "/DAppVersion=$($env:TAG.TrimStart('v'))" "/DSourceExe=$PWD\target\release\locus.exe" installer\locus.iss
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: checksums
+        run: |
+          Get-ChildItem dist -Filter *.exe | ForEach-Object {
+            $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$h  $($_.Name)" | Out-File "$($_.FullName).sha256" -Encoding ascii
+          }
           Get-ChildItem dist | Format-Table Name, Length
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

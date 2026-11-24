@@ -122,8 +122,10 @@ result both were done in under a second.
 
 ## Install
 
-Download `locus-<version>-windows-x64.exe` from [Releases](../../releases) and run it. It is one portable
-file, there is no installer. Oracle support is built in, no extra file needed: the first Oracle
+Download from [Releases](../../releases) and either run the installer
+`locus-<version>-windows-x64-setup.exe` (per user, no admin, with a Start menu entry and an
+uninstaller) or run the portable `locus-<version>-windows-x64.exe`, one file with nothing to
+install. Oracle support is built in, no extra file needed: the first Oracle
 connection unpacks a small helper into `%LOCALAPPDATA%\Locus\sidecar\`.
 
 The builds are not code-signed, so SmartScreen may warn the first time. To check a download:
