@@ -1117,8 +1117,8 @@ impl Locus {
                 state.update(cx, |s, cx| s.set_readonly(true, cx));
                 tab.update(cx, |t, _| {
                     t.structure = Some(crate::structure::Structure {
+                        section: crate::structure::last_section(&r),
                         r,
-                        section: crate::structure::Section::Columns,
                         data: crate::structure::Load::Loading,
                         ddl: crate::structure::Load::Loading,
                     })

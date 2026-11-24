@@ -168,6 +168,7 @@ impl SqlCompletions {
         if c.is_none_or(|c| c.current.is_none()) {
             needs.push(Need::Current);
         }
+        let expect = expect_of(before, prefix);
         let refs = table_refs(stmt);
         let resolve = |name: &str| -> Option<(String, String)> {
             refs.iter()
@@ -250,7 +251,7 @@ impl SqlCompletions {
                     }
                 }
                 for k in KEYWORDS {
-                    if ok(k) {
+                    if (!p.is_empty() || expect == Expect::Any) && ok(k) {
                         items.push(item((*k).to_string(), CompletionItemKind::KEYWORD, None));
                     }
                 }
@@ -289,9 +290,56 @@ impl SqlCompletions {
                 }
             }
         }
+        // What the position asks for goes first (stable: FK suggestions already lead).
+        if expect != Expect::Any {
+            items.sort_by_key(|i| rank(expect, i));
+        }
         items.dedup_by(|a, b| a.label == b.label && a.kind == b.kind);
         items.truncate(200);
         (items, needs)
+    }
+}
+
+/// What the cursor position expects when nothing is typed yet.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Expect {
+    Any,
+    /// After JOIN / FROM / UPDATE / INTO: a table.
+    Tables,
+    /// After ON: a column.
+    Columns,
+}
+
+fn expect_of(before: &str, prefix: &str) -> Expect {
+    let head = before.strip_suffix(prefix).unwrap_or(before);
+    if !head.ends_with(|c: char| c.is_whitespace()) {
+        return Expect::Any;
+    }
+    match head
+        .split_whitespace()
+        .next_back()
+        .map(str::to_ascii_uppercase)
+        .as_deref()
+    {
+        Some("JOIN" | "FROM" | "UPDATE" | "INTO") => Expect::Tables,
+        Some("ON") => Expect::Columns,
+        _ => Expect::Any,
+    }
+}
+
+/// Sort key: FK suggestions, then what `expect` asks for, then the rest.
+fn rank(expect: Expect, i: &CompletionItem) -> u8 {
+    if i.detail
+        .as_deref()
+        .is_some_and(|d| d.starts_with("FK ") || d == t!("sq.fk_on").as_ref())
+    {
+        return 0;
+    }
+    match (expect, i.kind) {
+        (Expect::Tables, Some(CompletionItemKind::CLASS | CompletionItemKind::INTERFACE)) => 1,
+        (Expect::Columns, Some(CompletionItemKind::FIELD)) => 1,
+        (_, Some(CompletionItemKind::KEYWORD)) => 3,
+        _ => 2,
     }
 }
 
@@ -398,7 +446,7 @@ impl CompletionProvider for SqlCompletions {
         &self,
         text: &Rope,
         offset: usize,
-        _: CompletionContext,
+        context: CompletionContext,
         _: &mut Window,
         cx: &mut App,
     ) -> Task<Result<CompletionResponse>> {
@@ -433,6 +481,15 @@ impl CompletionProvider for SqlCompletions {
             .rev()
             .collect();
         let rest = &before[..before.len() - prefix.len()];
+        // A space typed on its own opens the menu only where a table or condition is
+        // expected (after JOIN / ON); a manual invoke (Ctrl+Space) always does.
+        if context.trigger_kind == lsp_types::CompletionTriggerKind::TRIGGER_CHARACTER
+            && prefix.is_empty()
+            && before.ends_with(|c: char| c.is_whitespace())
+            && joinsug::context(&before_stmt, "").is_none()
+        {
+            return Task::ready(Ok(CompletionResponse::Array(Vec::new())));
+        }
         let qualifier = rest.strip_suffix('.').map(|r| {
             r.chars()
                 .rev()
@@ -505,6 +562,37 @@ impl CompletionProvider for SqlCompletions {
         new_text
             .chars()
             .last()
-            .is_some_and(|c| is_word(c) || c == '.')
+            .is_some_and(|c| is_word(c) || c == '.' || c.is_whitespace())
+    }
+}
+
+#[cfg(test)]
+mod expect_tests {
+    use super::*;
+
+    #[::core::prelude::v1::test]
+    fn position_decides_what_comes_first() {
+        assert_eq!(expect_of("SELECT * FROM a JOIN ", ""), Expect::Tables);
+        assert_eq!(expect_of("select * from ", ""), Expect::Tables);
+        assert_eq!(expect_of("UPDATE ", ""), Expect::Tables);
+        assert_eq!(expect_of("INSERT INTO ", ""), Expect::Tables);
+        assert_eq!(expect_of("SELECT * FROM a JOIN b ON ", ""), Expect::Columns);
+        assert_eq!(expect_of("SELECT * FROM a JOIN b", "b"), Expect::Tables);
+        assert_eq!(expect_of("SELECT ", ""), Expect::Any);
+        assert_eq!(expect_of("SELECT * FROM a", ""), Expect::Any);
+    }
+
+    #[::core::prelude::v1::test]
+    fn tables_before_schemas_before_keywords() {
+        let mk = |l: &str, k| item(l.to_string(), k, None);
+        let mut v = [
+            mk("SELECT", CompletionItemKind::KEYWORD),
+            mk("public", CompletionItemKind::MODULE),
+            mk("orders", CompletionItemKind::CLASS),
+            mk("v_sales", CompletionItemKind::INTERFACE),
+        ];
+        v.sort_by_key(|i| rank(Expect::Tables, i));
+        let names: Vec<_> = v.iter().map(|i| i.label.as_str()).collect();
+        assert_eq!(names, ["orders", "v_sales", "public", "SELECT"]);
     }
 }

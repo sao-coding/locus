@@ -103,6 +103,20 @@ impl Target {
     fn q(&self, table: &str) -> String {
         locus_core::import::sqlgen::qualified(self.engine, self.schema.as_deref(), table)
     }
+    /// Does the table exist? (a count that fails means no)
+    async fn exists(&self, table: &str) -> bool {
+        let mut h = self.d.query(
+            format!("SELECT COUNT(*) FROM {}", self.q(table)),
+            QueryOptions::default(),
+        );
+        let mut ok = true;
+        while let Some(ev) = h.next().await {
+            if let QueryEvent::Finished(Outcome::Failed(_)) = ev {
+                ok = false;
+            }
+        }
+        ok
+    }
     async fn count(&self, table: &str) -> u64 {
         scalar(&*self.d, &format!("SELECT COUNT(*) FROM {}", self.q(table)))
             .await
@@ -426,8 +440,34 @@ async fn cancel(t: &Target, dir: &TmpDir) {
         rep.cancelled && rep.rolled_back && rep.fatal.is_none(),
         "{rep:?}"
     );
-    assert_eq!(t.count("cancel_one").await, 0, "partial rows after cancel");
+    assert!(
+        rep.table_dropped && !t.exists("cancel_one").await,
+        "a cancelled import into a table it created leaves no empty table: {rep:?}"
+    );
     assert!(rep.read < 400_000);
+    // A table that was already there is never dropped: import in full, then cancel a second one.
+    let full = new_table_job(t, csv_spec(&p), "cancel_exist", o.clone());
+    let rep = run(t.d.clone(), full, Arc::new(AtomicBool::new(false)), |_| {}).await;
+    assert!(rep.ok(), "{rep:?}");
+    let mut again = new_table_job(t, csv_spec(&p), "cancel_exist", o.clone());
+    again.create = None;
+    let flag = Arc::new(AtomicBool::new(false));
+    let f2 = flag.clone();
+    let rep = run(t.d.clone(), again, flag, move |p| {
+        if p.read > 0 && p.fraction < 1.0 {
+            f2.store(true, Ordering::Relaxed);
+        }
+    })
+    .await;
+    assert!(
+        rep.cancelled && rep.rolled_back && !rep.table_dropped,
+        "{rep:?}"
+    );
+    assert_eq!(
+        t.count("cancel_exist").await,
+        400_000,
+        "the rows of the first import stay"
+    );
     // Per batch: what was committed stays, and the report says how much.
     o.scope = TxScope::PerBatch;
     let job = new_table_job(t, csv_spec(&p), "cancel_batch", o);
@@ -443,6 +483,7 @@ async fn cancel(t: &Target, dir: &TmpDir) {
     let n = t.count("cancel_batch").await;
     assert_eq!(n, rep.inserted);
     assert!(n > 0 && n < 400_000, "{n}");
+    assert!(!rep.table_dropped, "a table that holds rows is kept");
 }
 
 async fn suite(t: Target, dir: TmpDir) {

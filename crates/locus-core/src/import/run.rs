@@ -102,6 +102,8 @@ pub struct Report {
     pub cancelled: bool,
     /// Everything was undone (Single scope: cancel or error).
     pub rolled_back: bool,
+    /// A cancelled new-table import dropped the table it had created (still empty).
+    pub table_dropped: bool,
     /// What stopped the import.
     pub fatal: Option<String>,
     pub error_log: Option<PathBuf>,
@@ -191,6 +193,16 @@ impl Ctx<'_> {
             .map(|_| ())
             .map_err(|e| msg(&e))
     }
+}
+
+/// Drops the table the import created when it holds no rows (checked again here, not
+/// assumed). True when it was dropped.
+async fn drop_if_empty(cx: &Ctx<'_>) -> bool {
+    let rows = exec(cx.s, sqlgen::count_sql(&cx.table_q), Vec::new()).await;
+    if !matches!(rows, Ok(0)) {
+        return false;
+    }
+    cx.control(&sqlgen::drop_sql(&cx.table_q)).await.is_ok()
 }
 
 /// Runs the import. `cancel` is polled between batches. `progress` is called
@@ -378,6 +390,11 @@ async fn run_inner(
             rep.inserted = 0;
             fatal = Some(e);
         }
+    }
+    // A cancelled import into a table it created leaves no empty table behind. Only a
+    // table that is still empty (counted again just now) is dropped.
+    if rep.cancelled && job.create.is_some() {
+        rep.table_dropped = drop_if_empty(&cx).await;
     }
     match fatal {
         Some(e) => Err(e),

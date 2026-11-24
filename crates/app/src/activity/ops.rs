@@ -276,6 +276,7 @@ impl Locus {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        // The activity dialog already confirmed; the gate only adds the lock and the audit.
         // A kill changes server state whatever its text says (a SELECT of pg_terminate_backend).
         let mut c = db_core::classify::classify("KILL 1");
         c.writes = true;
@@ -283,7 +284,7 @@ impl Locus {
         let preview = cmd.text();
         let go: crate::prod::Cont =
             Rc::new(move |_, _, cx| view.update(cx, |p, cx| p.run_kill(cmd.clone(), cx)));
-        self.gate(
+        self.gate_confirmed(
             crate::prod::Gated {
                 tab: Some(tab),
                 conn,

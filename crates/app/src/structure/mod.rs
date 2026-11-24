@@ -50,6 +50,24 @@ pub struct Structure {
     pub ddl: Load<String>,
 }
 
+/// The section last chosen per table, so a reopened tab comes back to it (this run only).
+fn last_sections() -> &'static Mutex<HashMap<StructureRef, Section>> {
+    static C: OnceLock<Mutex<HashMap<StructureRef, Section>>> = OnceLock::new();
+    C.get_or_init(Default::default)
+}
+
+pub(crate) fn remember_section(r: &StructureRef, s: Section) {
+    last_sections().lock().insert(r.clone(), s);
+}
+
+pub(crate) fn last_section(r: &StructureRef) -> Section {
+    last_sections()
+        .lock()
+        .get(r)
+        .copied()
+        .unwrap_or(Section::Columns)
+}
+
 type Entry = (Arc<TableStructure>, Result<String, String>);
 
 fn cache() -> &'static Mutex<HashMap<StructureRef, Entry>> {
@@ -114,8 +132,8 @@ impl Locus {
         state.update(cx, |s, cx| s.set_readonly(true, cx));
         tab.update(cx, |t, _| {
             t.structure = Some(Structure {
+                section: last_section(&r),
                 r,
-                section: Section::Columns,
                 data: Load::Loading,
                 ddl: Load::Loading,
             })

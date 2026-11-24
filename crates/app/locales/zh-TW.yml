@@ -1029,6 +1029,7 @@ imp:
   rolled_back: 已全部復原。
   cancelled_rolled: 已取消，所有變更已復原，資料表維持原樣。
   cancelled_kept: "已取消，已完成批次的 %{n} 列保留在資料表中。"
+  cancelled_dropped: 已取消，新建的資料表沒有資料，已一併移除。
   errors_saved: "失敗的列已存到 %{path}"
 
 act:

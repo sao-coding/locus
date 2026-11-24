@@ -1028,6 +1028,7 @@ imp:
   rolled_back: Everything was rolled back.
   cancelled_rolled: Cancelled. Everything was rolled back, the table is unchanged.
   cancelled_kept: "Cancelled. %{n} rows of finished batches stay in the table."
+  cancelled_dropped: Cancelled. The new table had no rows and was removed.
   errors_saved: "Failed rows saved to %{path}"
 
 act:
