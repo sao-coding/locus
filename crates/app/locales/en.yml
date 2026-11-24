@@ -29,8 +29,8 @@ space:
   icon: Icon
   icon_none: Colour dot
   colors:
-    p0: Rose
-    p1: Pink
+    p0: Blush
+    p1: Rose
     p2: Magenta
     p3: Orange
     p4: Yellow

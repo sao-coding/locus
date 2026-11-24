@@ -204,6 +204,12 @@ pub(crate) fn tint_color(c: locus_core::space_theme::SpaceColor, cx: &App) -> Hs
     hsla(h, s, l, 1.0)
 }
 
+/// A key colour as the picker shows it (dots, swatches): soft, see `display_hsl`.
+pub(crate) fn swatch_color(c: locus_core::space_theme::SpaceColor, cx: &App) -> Hsla {
+    let (h, s, l) = locus_core::space_theme::display_hsl(c, cx.theme().is_dark());
+    hsla(h, s, l, 1.0)
+}
+
 /// Follows the system light / dark setting. `LOCUS_THEME=light|dark`
 /// pins it (used for screenshots).
 pub fn apply_theme(window: &mut Window, cx: &mut App) {

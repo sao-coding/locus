@@ -72,17 +72,17 @@ pub struct SpaceTheme {
     pub appearance: Appearance,
 }
 
-/// Nine one-click colours (rose to violet), as (hue, saturation).
+/// Nine one-click colours, soft to medium (blush to violet), as (hue, saturation).
 pub const PRESETS: [SpaceColor; 9] = [
-    SpaceColor { h: 0.97, s: 0.62 }, // rose
-    SpaceColor { h: 0.92, s: 0.70 }, // pink
-    SpaceColor { h: 0.83, s: 0.55 }, // magenta
-    SpaceColor { h: 0.07, s: 0.80 }, // orange
-    SpaceColor { h: 0.13, s: 0.85 }, // yellow
-    SpaceColor { h: 0.38, s: 0.55 }, // green
-    SpaceColor { h: 0.52, s: 0.65 }, // cyan
-    SpaceColor { h: 0.60, s: 0.70 }, // blue
-    SpaceColor { h: 0.73, s: 0.55 }, // violet
+    SpaceColor { h: 0.97, s: 0.22 }, // blush (very light pink)
+    SpaceColor { h: 0.98, s: 0.45 }, // rose
+    SpaceColor { h: 0.87, s: 0.40 }, // magenta
+    SpaceColor { h: 0.06, s: 0.55 }, // orange
+    SpaceColor { h: 0.13, s: 0.60 }, // yellow
+    SpaceColor { h: 0.38, s: 0.42 }, // green
+    SpaceColor { h: 0.52, s: 0.48 }, // cyan
+    SpaceColor { h: 0.60, s: 0.58 }, // blue
+    SpaceColor { h: 0.73, s: 0.45 }, // violet
 ];
 
 impl SpaceTheme {
@@ -216,6 +216,17 @@ pub fn color_to_pad(c: SpaceColor) -> (f32, f32) {
     (c.h.rem_euclid(1.0), 1.0 - c.s.clamp(0.0, 1.0))
 }
 
+/// HSL a key colour is shown with on the picker (dots, swatches): pastel at low saturation,
+/// a medium tone at full, lighter in the dark theme so it reads on a dark surface.
+pub fn display_hsl(c: SpaceColor, dark: bool) -> (f32, f32, f32) {
+    let s = c.s.clamp(0.0, 1.0);
+    if dark {
+        (c.h, 0.30 + 0.45 * s, 0.80 - 0.22 * s)
+    } else {
+        (c.h, 0.40 + 0.50 * s, 0.90 - 0.30 * s)
+    }
+}
+
 /// HSL (hue, saturation, lightness) a key colour is drawn with in the light or dark theme.
 /// At [`LEGACY_SAT`] it is the old fixed shade.
 pub fn tint_hsl(c: SpaceColor, dark: bool) -> (f32, f32, f32) {
@@ -253,6 +264,18 @@ mod tests {
         assert!(close(out.h, 0.0) && close(out.s, 0.0));
         let right = pad_to_color(1.5, -1.0);
         assert!(right.h < 1.0 && right.h > 0.999 && close(right.s, 1.0));
+    }
+
+    #[test]
+    fn presets_go_from_pastel_to_medium() {
+        let (_, _, l0) = display_hsl(PRESETS[0], false);
+        assert!(l0 > 0.8, "first preset is a very light pink: {l0}");
+        for c in PRESETS {
+            let (_, s, l) = display_hsl(c, false);
+            assert!((0.6..=0.9).contains(&l) && s <= 0.9, "{c:?}");
+            let (_, _, ld) = display_hsl(c, true);
+            assert!(ld > 0.6, "readable on a dark pad: {c:?}");
+        }
     }
 
     #[test]

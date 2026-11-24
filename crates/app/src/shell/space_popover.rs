@@ -46,8 +46,11 @@ const PAD_H: f32 = 160.0;
 /// The dots' centres stay this far inside the pad's edges (the big dot's radius + 2).
 const PAD_INSET: f32 = 16.0;
 /// Dot diameters: the selected colour and the others.
-const KNOB_ON: f32 = 28.0;
+const KNOB_ON: f32 = 26.0;
 const KNOB: f32 = 20.0;
+/// Alpha of the hue hint under the pad and of its grid dots.
+const HUE_HINT: f32 = 0.10;
+const DOT_ALPHA: f32 = 0.16;
 const DOT_STEP: f32 = 16.0;
 /// The `−` / `+` pill at the pad's foot.
 const PILL_BTN: f32 = 32.0;
@@ -59,11 +62,13 @@ const fn pill_w() -> f32 {
 const WAVE_H: f32 = 32.0;
 /// The thumb's centre travels between these insets.
 const WAVE_INSET: f32 = 8.0;
-const THUMB_W: f32 = 10.0;
-const THUMB_H: f32 = 24.0;
+const THUMB_W: f32 = 8.0;
+const THUMB_H: f32 = 20.0;
 /// Swatch cell and its colour dot: 9 × 24 leaves an even 7 px between them.
 const SWATCH: f32 = 24.0;
-const SWATCH_DOT: f32 = 16.0;
+const SWATCH_DOT: f32 = 20.0;
+/// The selection ring overhangs the 24 px cell by this much (28 px: dot, 2 px gap, 2 px ring).
+const RING_OUT: f32 = 2.0;
 /// Icon grid: eight equal cells across the card, a 28 px button centred in each.
 const ICON_COLS: f32 = 8.0;
 
@@ -397,10 +402,11 @@ impl Locus {
         let t = crate::shell::theme::tokens(cx);
         let th = &self.spaces[pop.space].theme;
         let n = th.colors.len();
-        // The spectrum, drawn at a lightness that reads on the card in either theme.
-        let l = if t.dark { 0.42 } else { 0.66 };
-        let grey = hsla(0., 0., l, 1.0);
-        let hue = |h: f32| hsla(h, 0.7, l, 1.0);
+        // A calm surface: the card's ink at a few per cent over the popover (dark in the dark
+        // theme, light in the light one), a faint hue hint so position stays discoverable,
+        // and the dotted grid. Only the dots carry real colour.
+        let surface = mix(t.pop, t.tx, if t.dark { 0.06 } else { 0.035 });
+        let hue = |h: f32| hsla(h, 0.9, 0.55, HUE_HINT);
         let span = INNER_W - 2.0 * PAD_INSET;
         let mut spectrum = h_flex()
             .absolute()
@@ -415,14 +421,14 @@ impl Locus {
             )));
         }
         spectrum = spectrum.child(div().flex_1().h_full().bg(hue(0.0)));
-        // Saturation: fades to grey toward the bottom, between the dots' insets.
-        let mut clear = grey;
+        // Saturation: the hint fades out toward the bottom, between the dots' insets.
+        let mut clear = surface;
         clear.a = 0.0;
         let (top, bottom) = (PAD_INSET / PAD_H, 1.0 - PAD_INSET / PAD_H);
         let veil = div().absolute().inset_0().bg(linear_gradient(
             180.,
             linear_color_stop(clear, top),
-            linear_color_stop(grey, bottom),
+            linear_color_stop(surface, bottom),
         ));
         // Dotted grid and the bounds the drag maps against.
         let ink = t.tx;
@@ -432,7 +438,7 @@ impl Locus {
             move |b, _, _| bounds.set(b),
             move |b, _, window, _| {
                 let mut c = ink;
-                c.a = 0.10;
+                c.a = DOT_ALPHA;
                 let (w, h) = (b.size.width.as_f32(), b.size.height.as_f32());
                 let mut y = DOT_STEP / 2.0;
                 while y < h {
@@ -474,6 +480,7 @@ impl Locus {
             .rounded(px(scale::R_LG))
             .overflow_hidden()
             .cursor(CursorStyle::Crosshair)
+            .bg(surface)
             .child(spectrum)
             .child(veil)
             .child(dots)
@@ -503,13 +510,13 @@ impl Locus {
                     .top(px(y - d / 2.0))
                     .size(px(d))
                     .rounded_full()
-                    .bg(crate::shell::style::tint_color(c, cx))
-                    .border(px(3.))
+                    .bg(crate::shell::style::swatch_color(c, cx))
+                    .border(px(2.))
                     .border_color(gpui_kit::white())
                     .shadow(vec![BoxShadow {
-                        color: hsla(0., 0., 0., 0.28),
+                        color: hsla(0., 0., 0., 0.22),
                         offset: point(px(0.), px(1.)),
-                        blur_radius: px(4.),
+                        blur_radius: px(6.),
                         spread_radius: px(0.),
                         inset: false,
                     }]),
@@ -585,11 +592,13 @@ impl Locus {
         let t = crate::shell::theme::tokens(cx);
         let si = pop.space;
         let cur = self.spaces[si].theme.colors.get(pop.sel).copied();
+        let clear = hsla(0., 0., 0., 0.);
         let gap = (INNER_W - PRESETS.len() as f32 * SWATCH) / (PRESETS.len() - 1) as f32;
         let mut row = h_flex().w(px(INNER_W)).gap(px(gap)).items_center();
         for (ci, c) in PRESETS.iter().copied().enumerate() {
             let selected = cur == Some(c);
             let key = format!("space.colors.p{ci}");
+            let col = crate::shell::style::swatch_color(c, cx);
             row = row.child(
                 div()
                     .id(("swatch", ci))
@@ -598,16 +607,22 @@ impl Locus {
                     .flex()
                     .items_center()
                     .justify_center()
+                    .relative()
                     .cursor_pointer()
-                    .border_2()
-                    .border_color(if selected { t.tx } else { hsla(0., 0., 0., 0.) })
-                    .when(!selected, |d| d.hover(|d| d.border_color(t.ln2)))
                     .tooltip(tip(t!(&key).into_owned()))
+                    .child(div().size(px(SWATCH_DOT)).rounded_full().bg(col))
+                    // Selected (or hovered): a ring 2 px outside the dot, with a 2 px gap; it
+                    // overhangs the cell so the row keeps its spacing.
                     .child(
                         div()
-                            .size(px(SWATCH_DOT))
+                            .absolute()
+                            .left(px(-RING_OUT))
+                            .top(px(-RING_OUT))
+                            .size(px(SWATCH + 2.0 * RING_OUT))
                             .rounded_full()
-                            .bg(crate::shell::style::tint_color(c, cx)),
+                            .border_2()
+                            .border_color(if selected { col } else { clear })
+                            .when(!selected, |d| d.hover(|d| d.border_color(t.ln2))),
                     )
                     .on_click(cx.listener(move |this, _, _, cx| {
                         let sel = this.space_pop.as_ref().map_or(0, |p| p.sel);
@@ -824,6 +839,6 @@ mod tests {
         // The pill sits on whole pixels and each half is a full button.
         assert_eq!((INNER_W - pill_w()) % 2.0, 0.0);
         assert_eq!((pill_w() - 2.0) / 2.0, PILL_BTN);
-        assert_eq!((WAVE_H - THUMB_H) / 2.0, 4.0);
+        assert_eq!((WAVE_H - THUMB_H) / 2.0, 6.0);
     }
 }

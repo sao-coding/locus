@@ -29,8 +29,8 @@ space:
   icon: 图标
   icon_none: 颜色圆点
   colors:
-    p0: 玫瑰
-    p1: 粉红
+    p0: 淡粉红
+    p1: 玫瑰
     p2: 洋红
     p3: 橙
     p4: 黄
