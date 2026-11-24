@@ -29,14 +29,22 @@ space:
   icon: Icon
   icon_none: Colour dot
   colors:
-    c0: Blue
-    c1: Green
-    c2: Orange
-    c3: Pink
-    c4: Purple
-    c5: Teal
-    c6: Yellow
-    c7: Red
+    p0: Blush
+    p1: Rose
+    p2: Magenta
+    p3: Orange
+    p4: Yellow
+    p5: Green
+    p6: Cyan
+    p7: Blue
+    p8: Violet
+  appearance_auto: Follow the app
+  appearance_light: Always light
+  appearance_dark: Always dark
+  add_color: Add a colour (up to 3, drawn as a gradient)
+  remove_color: Remove the last colour
+  intensity: Intensity
+  intensity_tip: How strongly the colours tint the window
   bind_folder: Bind folder…
   unbind_folder: Unbind folder
   delete_menu: Delete Space…

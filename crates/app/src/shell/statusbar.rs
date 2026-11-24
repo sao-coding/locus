@@ -24,7 +24,7 @@ impl Locus {
 
         // S8: caret, encoding, status and row limit only mean something for an editor tab with a connection.
         let editor_info = conn.is_some() && tr.pageslot.kind.is_none();
-        let col = space_color(s.hue(), cx);
+        let col = s.accent(cx);
         h_flex()
             .id("status-bar")
             .flex_none()

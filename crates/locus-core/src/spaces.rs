@@ -126,6 +126,11 @@ pub struct SpaceData {
     /// A hue (0..1) picked with the colour picker; overrides `color` when set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub custom_hue: Option<f32>,
+    /// Colours, intensity and light / dark choice. Missing in files from before themes: the
+    /// Space then draws with its hue (`SpaceTheme::of`). `custom_hue` keeps the first
+    /// colour's hue so an older Locus still shows it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub theme: Option<crate::space_theme::SpaceTheme>,
     /// Icon name from `SPACE_ICONS`; `None` = the colour dot.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
@@ -231,6 +236,7 @@ mod tests {
                 name: "Proj".into(),
                 color: 2,
                 custom_hue: None,
+                theme: None,
                 icon: None,
                 connections: vec!["c1".into()],
                 tabs: vec![TabData {
@@ -316,4 +322,50 @@ pub enum RightPanel {
     /// A panel this build does not have (for example `git`, removed): opens nothing.
     #[serde(other)]
     Unknown,
+}
+
+#[cfg(test)]
+mod theme_file_tests {
+    use super::*;
+    use crate::space_theme::{Appearance, LEGACY_SAT, SpaceTheme};
+
+    #[test]
+    fn a_space_from_before_themes_loads_with_its_hue() {
+        let old = r#"{"spaces":[{"id":"s","name":"Old","color":2,"custom_hue":0.3}]}"#;
+        let f: SpacesFile = serde_json::from_str(old).unwrap();
+        let sd = &f.spaces[0];
+        assert!(sd.theme.is_none());
+        let t = SpaceTheme::of(sd.color, sd.custom_hue, sd.theme.as_ref());
+        assert_eq!(t.colors.len(), 1);
+        assert!((t.colors[0].h - 0.3).abs() < 1e-6);
+        assert!((t.colors[0].s - LEGACY_SAT).abs() < 1e-6);
+    }
+
+    #[test]
+    fn a_theme_round_trips_through_the_file() {
+        let mut t = SpaceTheme::of(0, None, None);
+        t.add_color();
+        t.appearance = Appearance::Dark;
+        t.intensity = 0.8;
+        let sd = SpaceData {
+            id: "s".into(),
+            name: "N".into(),
+            color: 0,
+            custom_hue: Some(t.primary().h),
+            theme: Some(t.clone()),
+            icon: None,
+            connections: vec![],
+            tabs: vec![],
+            active_tab: None,
+            layout: None,
+            focused_pane: 0,
+            view: Default::default(),
+            folder: None,
+            groups: Default::default(),
+        };
+        let s = serde_json::to_string(&sd).unwrap();
+        assert!(s.contains(r#""appearance":"dark""#), "{s}");
+        let back: SpaceData = serde_json::from_str(&s).unwrap();
+        assert_eq!(back.theme, Some(t));
+    }
 }

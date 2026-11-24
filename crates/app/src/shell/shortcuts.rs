@@ -96,6 +96,11 @@ impl Locus {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> bool {
+        // Esc on the Space popover closes it, keeping the colours it previews.
+        if s == Shortcut::Cancel && self.space_pop.is_some() {
+            self.close_space_popover(cx);
+            return true;
+        }
         if s == Shortcut::Cancel && self.renaming.is_some() {
             self.renaming = None;
             cx.notify();

@@ -8,6 +8,8 @@ pub(crate) static MATERIAL: AtomicU8 = AtomicU8::new(0);
 pub(crate) static TRANSLUCENCY: AtomicU32 = AtomicU32::new(0);
 /// "Space tint" setting (0..2).
 pub(crate) static SPACE_TINT: AtomicU32 = AtomicU32::new(0x3f80_0000);
+/// Light / dark pinned by the active Space (0 = follow the setting, 1 = light, 2 = dark).
+pub(crate) static SPACE_APPEARANCE: AtomicU8 = AtomicU8::new(0);
 
 pub(crate) fn space_color(hue: f32, cx: &App) -> Hsla {
     if cx.theme().is_dark() {
@@ -43,50 +45,169 @@ pub(crate) fn glass_alpha(dark: bool) -> f32 {
     )
 }
 
-pub(crate) fn window_stop(hue: f32, w: f32, cx: &App) -> Hsla {
+/// Window colour of key colour `c` at tint weight `w`, with the glass alpha.
+pub(crate) fn window_stop(
+    c: locus_core::space_theme::SpaceColor,
+    w: f32,
+    strength: f32,
+    cx: &App,
+) -> Hsla {
     let t = crate::shell::theme::tokens(cx);
-    let k = f32::from_bits(SPACE_TINT.load(Ordering::Relaxed)) * if t.dark { 1.0 } else { 0.6 };
-    let mut c = mix(t.win, space_color(hue, cx), w * k);
-    c.a = glass_alpha(t.dark);
-    c
+    let k = f32::from_bits(SPACE_TINT.load(Ordering::Relaxed))
+        * strength
+        * if t.dark { 1.0 } else { 0.6 };
+    let mut col = mix(t.win, tint_color(c, cx), w * k);
+    col.a = glass_alpha(t.dark);
+    col
 }
 
-fn space_k(dark: bool) -> f32 {
-    f32::from_bits(SPACE_TINT.load(Ordering::Relaxed)) * if dark { 1.0 } else { 0.6 }
+fn space_k(dark: bool, strength: f32) -> f32 {
+    f32::from_bits(SPACE_TINT.load(Ordering::Relaxed)) * strength * if dark { 1.0 } else { 0.6 }
 }
 
 /// Surface of the main card: `main` carrying 6 % of the Space colour. The editor, grid,
 /// History detail and diagram canvas draw no fill and show this.
-pub(crate) fn card_bg(hue: f32, cx: &App) -> Hsla {
+pub(crate) fn card_bg(look: Look, cx: &App) -> Hsla {
     let t = crate::shell::theme::tokens(cx);
-    mix(t.main, space_color(hue, cx), 0.06 * space_k(t.dark))
+    mix(
+        t.main,
+        tint_color(look.primary(), cx),
+        0.06 * space_k(t.dark, look.strength),
+    )
 }
 
 /// Right panel and rail: the card +3 % lightness (`panel` grey with the same Space tint).
-pub(crate) fn panel_bg(hue: f32, cx: &App) -> Hsla {
+pub(crate) fn panel_bg(look: Look, cx: &App) -> Hsla {
     let t = crate::shell::theme::tokens(cx);
-    mix(t.panel, space_color(hue, cx), 0.06 * space_k(t.dark))
+    mix(
+        t.panel,
+        tint_color(look.primary(), cx),
+        0.06 * space_k(t.dark, look.strength),
+    )
 }
 
-/// Window background: the mockup's 160° gradient of the Space colour over `--win`,
-/// halved in the T0 audit (dark .18 → .05, light .12 → .04 after the light factor).
-/// Its alpha is `glass_alpha`: it is the only translucent surface (sidebar, title bar, gutter).
-pub(crate) fn window_bg(hue: f32, cx: &App) -> Background {
+/// Tint weights of the window gradient at its top and bottom. One colour: the mockup's
+/// fade (halved in the T0 audit, dark .18 → .05, light .12 → .04 after the light factor).
+/// Two or three: a flatter fade so the lower colours show.
+fn window_weights(n: usize, dark: bool) -> (f32, f32) {
+    match (n, dark) {
+        (1, true) => (0.18, 0.05),
+        (1, false) => (0.20, 0.067),
+        (_, true) => (0.18, 0.12),
+        (_, false) => (0.20, 0.14),
+    }
+}
+
+/// The window gradient's colour at `t` (0 top .. 1 bottom), for what has to blend into it
+/// (the sidebar list's fade).
+pub(crate) fn window_at(look: Look, t: f32, cx: &App) -> Hsla {
+    if look.n == 1 {
+        // As before themes: the fade colour of a one-colour Space.
+        return window_stop(look.primary(), 0.12, look.strength, cx);
+    }
+    let (top, bottom) = window_weights(look.n, cx.theme().is_dark());
+    let theme = locus_core::space_theme::SpaceTheme {
+        colors: look.colors[..look.n].to_vec(),
+        intensity: 0.5,
+        appearance: Default::default(),
+    };
+    window_stop(
+        theme.color_at(t),
+        top + (bottom - top) * t,
+        look.strength,
+        cx,
+    )
+}
+
+/// Window background segments, top to bottom (each a two-stop gradient, as GPUI draws
+/// them): one for one or two colours, two halves for three. Its alpha is `glass_alpha`: it is
+/// the only translucent surface (sidebar, title bar, gutter).
+pub(crate) fn window_bg(look: Look, cx: &App) -> Vec<Background> {
     if glass_debug() {
         // LOCUS_GLASS=debug: a flat magenta 30 % fill, to see what is behind the sidebar.
         let m = hsla(0.83, 1.0, 0.5, 0.3);
-        return linear_gradient(160., linear_color_stop(m, 0.), linear_color_stop(m, 1.));
+        return vec![linear_gradient(
+            160.,
+            linear_color_stop(m, 0.),
+            linear_color_stop(m, 1.),
+        )];
     }
-    let (top, bottom) = if crate::shell::theme::tokens(cx).dark {
-        (0.18, 0.05)
-    } else {
-        (0.20, 0.067)
-    };
-    linear_gradient(
-        160.,
-        linear_color_stop(window_stop(hue, top, cx), 0.),
-        linear_color_stop(window_stop(hue, bottom, cx), 1.),
-    )
+    let (top, bottom) = window_weights(look.n, crate::shell::theme::tokens(cx).dark);
+    let c = &look.colors;
+    let st = |c, w| window_stop(c, w, look.strength, cx);
+    match look.n {
+        1 => vec![linear_gradient(
+            160.,
+            linear_color_stop(st(c[0], top), 0.),
+            linear_color_stop(st(c[0], bottom), 1.),
+        )],
+        2 => vec![linear_gradient(
+            180.,
+            linear_color_stop(st(c[0], top), 0.),
+            linear_color_stop(st(c[1], bottom), 1.),
+        )],
+        _ => {
+            let mid = (top + bottom) / 2.0;
+            vec![
+                linear_gradient(
+                    180.,
+                    linear_color_stop(st(c[0], top), 0.),
+                    linear_color_stop(st(c[1], mid), 1.),
+                ),
+                linear_gradient(
+                    180.,
+                    linear_color_stop(st(c[1], mid), 0.),
+                    linear_color_stop(st(c[2], bottom), 1.),
+                ),
+            ]
+        }
+    }
+}
+
+/// What the tint helpers need of the active Space's theme (`Copy`, compared every frame).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct Look {
+    pub colors: [locus_core::space_theme::SpaceColor; 3],
+    pub n: usize,
+    /// Tint multiplier from the theme's intensity (1.0 = default).
+    pub strength: f32,
+}
+
+impl Look {
+    pub(crate) fn of(t: &locus_core::space_theme::SpaceTheme) -> Look {
+        let p = t.primary();
+        let mut colors = [p; 3];
+        for (i, c) in t.colors.iter().take(3).enumerate() {
+            colors[i] = *c;
+        }
+        Look {
+            colors,
+            n: t.colors.len().clamp(1, 3),
+            strength: t.strength(),
+        }
+    }
+
+    pub(crate) fn primary(&self) -> locus_core::space_theme::SpaceColor {
+        self.colors[0]
+    }
+}
+
+impl Default for Look {
+    fn default() -> Self {
+        Look::of(&locus_core::space_theme::SpaceTheme::of(0, None, None))
+    }
+}
+
+/// A key colour as drawn in the current light / dark theme (`space_color` for a hue-only Space).
+pub(crate) fn tint_color(c: locus_core::space_theme::SpaceColor, cx: &App) -> Hsla {
+    let (h, s, l) = locus_core::space_theme::tint_hsl(c, cx.theme().is_dark());
+    hsla(h, s, l, 1.0)
+}
+
+/// A key colour as the picker shows it (dots, swatches): soft, see `display_hsl`.
+pub(crate) fn swatch_color(c: locus_core::space_theme::SpaceColor, cx: &App) -> Hsla {
+    let (h, s, l) = locus_core::space_theme::display_hsl(c, cx.theme().is_dark());
+    hsla(h, s, l, 1.0)
 }
 
 /// Follows the system light / dark setting. `LOCUS_THEME=light|dark`
@@ -94,8 +215,14 @@ pub(crate) fn window_bg(hue: f32, cx: &App) -> Background {
 pub fn apply_theme(window: &mut Window, cx: &mut App) {
     use gpui_kit::component::{Theme, ThemeMode};
     let s = crate::settings::get(cx).clone();
+    let space_pin = match SPACE_APPEARANCE.load(Ordering::Relaxed) {
+        1 => Some("light".to_string()),
+        2 => Some("dark".to_string()),
+        _ => None,
+    };
     let pick = std::env::var("LOCUS_THEME")
         .ok()
+        .or(space_pin)
         .or(s.theme.clone())
         .unwrap_or_default();
     match pick.as_str() {
@@ -310,24 +437,35 @@ fn glass_debug() -> bool {
     std::env::var("LOCUS_GLASS").as_deref() == Ok("debug")
 }
 
-/// Hue of the active Space, mirrored here so popups (dialogs, menus) can carry its tint.
-static SPACE_HUE: AtomicU32 = AtomicU32::new(0);
+/// Look of the active Space, mirrored here so popups (dialogs, menus) can carry its tint.
+static SPACE_LOOK: std::sync::Mutex<Option<Look>> = std::sync::Mutex::new(None);
+
+fn space_look() -> Look {
+    SPACE_LOOK.lock().ok().and_then(|g| *g).unwrap_or_default()
+}
 
 /// Popup surface: `popover` with the Space colour mixed in like the card (same weight as `card_bg`).
 pub(crate) fn popup_bg(cx: &App) -> Hsla {
     let t = crate::shell::theme::tokens(cx);
-    let hue = f32::from_bits(SPACE_HUE.load(Ordering::Relaxed));
+    let look = space_look();
     let a = cx.theme().popover.a;
-    let mut c = mix(t.pop, space_color(hue, cx), 0.06 * space_k(t.dark));
+    let mut c = mix(
+        t.pop,
+        tint_color(look.primary(), cx),
+        0.06 * space_k(t.dark, look.strength),
+    );
     c.a = a;
     c
 }
 
-/// Called every frame by the shell with the active Space's hue; updates the menu colour on change.
-pub(crate) fn set_space_hue(hue: f32, cx: &mut App) {
-    let bits = hue.to_bits();
-    if SPACE_HUE.swap(bits, Ordering::Relaxed) != bits {
-        let c = popup_bg(cx);
+/// Called every frame by the shell with the active Space's look; updates the menu colour when
+/// it (or the light / dark theme under it) changed.
+pub(crate) fn set_space_look(look: Look, cx: &mut App) {
+    if let Ok(mut g) = SPACE_LOOK.lock() {
+        *g = Some(look);
+    }
+    let c = popup_bg(cx);
+    if cx.theme().colors.popover != c {
         gpui_kit::component::Theme::update(cx, |th| th.colors.popover = c);
     }
 }

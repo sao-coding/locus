@@ -180,7 +180,7 @@ impl Locus {
     fn sidebar_pins(&self, ordered: &[Entity<QueryTab>], cx: &mut Context<Self>) -> Option<Div> {
         let t = crate::shell::theme::tokens(cx);
         let s = self.space();
-        let col = space_color(s.hue(), cx);
+        let col = s.accent(cx);
         let focused = s.focused_tab_id();
         let tile_w = ((self.sidebar_width - 28.0) / 2.0).max(60.0);
         let mut pins = h_flex()
@@ -274,7 +274,7 @@ impl Locus {
     fn sidebar_tab_list(&self, ordered: &[Entity<QueryTab>], cx: &mut Context<Self>) -> (Div, Div) {
         let t = crate::shell::theme::tokens(cx);
         let s = self.space();
-        let hue = s.hue();
+        let look = s.look();
         // ---- tabs (unpinned), filtered by title or connection name
         let q = self.tab_filter_text.trim().to_lowercase();
         let matches = |tab: &Entity<QueryTab>, cx: &App| {
@@ -353,7 +353,7 @@ impl Locus {
                 .on_click(cx.listener(|this, _, window, cx| this.toggle_tab_filter(window, cx))),
             );
         // Fade the bottom of the list into the window background.
-        let fade = window_stop(hue, 0.12, cx);
+        let fade = window_at(look, 0.95, cx);
         let mut fade0 = fade;
         fade0.a = 0.0;
         let list = div()
@@ -400,7 +400,7 @@ impl Locus {
             let sp = &self.spaces[i];
             let active = i == self.active_space;
             let more = (i == lo && lo > 0) || (i + 1 == hi && hi < n);
-            let col = space_color(sp.hue(), cx);
+            let col = sp.accent(cx);
             let label = t!(
                 "space.switch_tip",
                 name = sp.name.clone(),

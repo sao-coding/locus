@@ -91,7 +91,7 @@ impl Locus {
         let prod = conn
             .as_ref()
             .is_some_and(|c| c.env == locus_core::store::Env::Prod);
-        let col = space_color(self.space().hue(), cx);
+        let col = self.space().accent(cx);
         let renaming = matches!(&self.renaming, Some((Rename::Tab(r), _, _)) if *r == id);
         let id2 = id.clone();
         let group = SharedString::from(format!("tab-row-{id}"));
@@ -420,7 +420,7 @@ impl Locus {
         let Some(g) = s.groups.get(gid).cloned() else {
             return div().into_any_element();
         };
-        let col = space_color(s.hue(), cx);
+        let col = s.accent(cx);
         let cur = s.focused_tab_id();
         let on = g.panes.contains(&cur);
         let focus_id = if on {
@@ -616,7 +616,7 @@ impl Locus {
     ) -> AnyElement {
         let t = crate::shell::theme::tokens(cx);
         let s = self.space();
-        let col = space_color(s.hue(), cx);
+        let col = s.accent(cx);
         let mut rows = v_flex().mb(px(1.)).child(header);
         if open {
             for (ix, id) in panes.iter().enumerate() {

@@ -110,7 +110,7 @@ impl Locus {
             .as_ref()
             .filter(|(t, _)| t == target)
             .map(|(_, z)| *z);
-        let accent = space_color(self.space().hue(), cx);
+        let accent = self.space().accent(cx);
         let t_move = target.to_string();
         let t_drop = target.to_string();
         let preview = hint.map(|z| {

@@ -6,7 +6,7 @@ impl Locus {
     pub(crate) fn render_title_bar(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let t = crate::shell::theme::tokens(cx);
         let s = self.space();
-        let col = space_color(s.hue(), cx);
+        let col = s.accent(cx);
         let tab = self.active_tab(cx).read(cx).display_title(cx);
         let title = format!("{} — {}", s.name, tab);
         let mut chip_bg = col;

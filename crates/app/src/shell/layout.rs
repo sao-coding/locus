@@ -351,7 +351,7 @@ impl Locus {
         let prod = conn
             .as_ref()
             .is_some_and(|c| c.env == locus_core::store::Env::Prod);
-        let col = space_color(s.hue(), cx);
+        let col = s.accent(cx);
         let drag = TabDrag {
             id: tab_id.to_string(),
             title: title.clone().into(),

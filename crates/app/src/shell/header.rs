@@ -34,7 +34,7 @@ impl Locus {
         let kind = tab_kind(tr);
         let is_diagram = tr.diagram.is_some();
         let conn = self.active_conn(cx).cloned();
-        let col = space_color(self.space().hue(), cx);
+        let col = self.space().accent(cx);
         let crumb = self.header_crumb(&tab, conn.as_ref(), (title, kind, col, modified), cx);
 
         let chip = conn.as_ref().map(|c| self.render_mode_chip(c, cx));

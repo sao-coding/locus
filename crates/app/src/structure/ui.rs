@@ -471,7 +471,7 @@ impl Locus {
         let tab = self.active_tab(cx);
         let tr = tab.read(cx);
         let conn = self.active_conn(cx).cloned();
-        let col = space_color(self.space().hue(), cx);
+        let col = self.space().accent(cx);
         let chevron = || {
             crate::shell::icons::icon("chevron-right")
                 .size(px(10.))

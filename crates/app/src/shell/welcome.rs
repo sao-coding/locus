@@ -61,7 +61,7 @@ impl Locus {
             .px(px(scale::S7))
             .py(px(scale::S6))
             .rounded(px(scale::R_XL))
-            .bg(crate::shell::style::panel_bg(self.space().hue(), cx))
+            .bg(crate::shell::style::panel_bg(self.space().look(), cx))
             .border_1()
             .border_color(theme.border)
             .shadow_lg()
