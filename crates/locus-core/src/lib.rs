@@ -48,6 +48,7 @@ pub mod sqlrefs;
 pub mod sshcfg;
 pub mod status;
 pub mod store;
+pub mod tabfit;
 pub mod tunnel;
 pub mod txn;
 pub mod viewer;

@@ -94,6 +94,8 @@ fmt:
 results:
   result: 結果
   result_n: "結果 %{n}"
+  all_results: 所有結果
+  more_actions: 更多動作
   messages: "訊息（%{n}）"
   waiting: 等待第一批資料…
   note_cancelled: "已取消：顯示取消前收到的 %{n} 列。"

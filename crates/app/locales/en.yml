@@ -94,6 +94,8 @@ fmt:
 results:
   result: Result
   result_n: "Result %{n}"
+  all_results: All results
+  more_actions: More actions
   messages: "Messages (%{n})"
   waiting: Waiting for the first rows…
   note_cancelled: "Cancelled: showing the %{n} rows that had arrived."
