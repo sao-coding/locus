@@ -26,7 +26,9 @@ pub struct Fit {
 
 /// `natural[i]` is the full width of tab `i` (padding, label and count). `avail` is the room
 /// for the tabs and the overflow button.
-pub fn fit(natural: &[f32], active: Option<usize>, avail: f32) -> Fit {
+/// `active_min` is the least the active tab gets when it has to give way (its first dozen
+/// characters and the count).
+pub fn fit(natural: &[f32], active: Option<usize>, active_min: f32, avail: f32) -> Fit {
     let n = natural.len();
     if n == 0 {
         return Fit {
@@ -70,7 +72,7 @@ pub fn fit(natural: &[f32], active: Option<usize>, avail: f32) -> Fit {
             (
                 i,
                 if k == 1 && n > 1 {
-                    w.min((avail - OVERFLOW_W).max(MIN_W / 2.0))
+                    w.min((avail - OVERFLOW_W).max(active_min.min(w)))
                 } else {
                     w
                 },
@@ -83,13 +85,43 @@ pub fn fit(natural: &[f32], active: Option<usize>, avail: f32) -> Fit {
     }
 }
 
+/// True when the two names start with the same four characters (so an end cut would make them
+/// look alike).
+pub fn shares_prefix(a: &str, b: &str) -> bool {
+    let n = a.chars().zip(b.chars()).take_while(|(x, y)| x == y).count();
+    n >= 4
+}
+
+/// Cuts `s` in the middle so it takes about `avail` px (see [`text_w`]): head and tail stay, e.g.
+/// `wb_te…t6`. A name that already fits is returned as is.
+pub fn elide_middle(s: &str, avail: f32) -> String {
+    if text_w(s) <= avail {
+        return s.to_string();
+    }
+    let chars: Vec<char> = s.chars().collect();
+    // Drop characters from the middle until head + ellipsis + tail fit.
+    let mut keep = chars.len();
+    while keep > 3 {
+        keep -= 1;
+        let tail = ((keep as f32) * 0.3).round().max(2.0) as usize;
+        let head = keep.saturating_sub(tail);
+        let cand: String = chars[..head].iter().collect::<String>()
+            + "…"
+            + &chars[chars.len() - tail..].iter().collect::<String>();
+        if text_w(&cand) <= avail {
+            return cand;
+        }
+    }
+    "…".to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn everything_fits_at_natural_width() {
-        let f = fit(&[100.0, 150.0, 300.0], Some(1), 600.0);
+        let f = fit(&[100.0, 150.0, 300.0], Some(1), 100.0, 600.0);
         assert_eq!(f.hidden, 0);
         assert_eq!(f.visible, vec![(0, 100.0), (1, 150.0), (2, ACTIVE_MAX)]);
     }
@@ -97,7 +129,7 @@ mod tests {
     #[test]
     fn tabs_share_evenly_down_to_the_minimum() {
         let nat = [200.0; 4];
-        let f = fit(&nat, Some(0), 600.0);
+        let f = fit(&nat, Some(0), 100.0, 600.0);
         assert_eq!(f.hidden, 0);
         let w: Vec<f32> = f.visible.iter().map(|v| v.1).collect();
         assert_eq!(w[0], 200.0, "the active tab keeps its full name");
@@ -108,7 +140,7 @@ mod tests {
     #[test]
     fn what_does_not_fit_goes_behind_the_button() {
         let nat = [200.0; 10];
-        let f = fit(&nat, Some(0), 600.0);
+        let f = fit(&nat, Some(0), 100.0, 600.0);
         // 200 + 2 * 96 + 48 = 440 <= 600 < 200 + 3 * 96 + 48.
         assert_eq!(f.visible.len(), 4, "{f:?}");
         assert_eq!(f.hidden, 6);
@@ -120,7 +152,7 @@ mod tests {
     #[test]
     fn a_hidden_active_tab_takes_the_last_visible_slot() {
         let nat = [200.0; 10];
-        let f = fit(&nat, Some(8), 600.0);
+        let f = fit(&nat, Some(8), 100.0, 600.0);
         let idx: Vec<usize> = f.visible.iter().map(|v| v.0).collect();
         assert_eq!(idx, vec![0, 1, 2, 8]);
         assert_eq!(f.visible[3].1, 200.0);
@@ -129,12 +161,34 @@ mod tests {
 
     #[test]
     fn very_narrow_keeps_the_active_tab_alone() {
-        let f = fit(&[200.0; 5], Some(3), 120.0);
+        let f = fit(&[200.0; 5], Some(3), 100.0, 200.0);
         assert_eq!(f.visible.len(), 1);
         assert_eq!(f.visible[0].0, 3);
-        assert!(f.visible[0].1 + OVERFLOW_W <= 120.01, "room for the button");
+        assert!(f.visible[0].1 + OVERFLOW_W <= 200.01, "room for the button");
         assert_eq!(f.hidden, 4);
-        assert_eq!(fit(&[], None, 100.0).visible.len(), 0);
+        assert_eq!(fit(&[], None, 100.0, 100.0).visible.len(), 0);
+    }
+
+    #[test]
+    fn long_active_tab_keeps_its_dozen_characters() {
+        let f = fit(&[220.0; 4], Some(0), 140.0, 200.0);
+        assert_eq!(f.visible.len(), 1);
+        assert_eq!(f.visible[0].1, 152.0);
+        let f = fit(&[220.0; 4], Some(0), 170.0, 200.0);
+        assert_eq!(f.visible[0].1, 170.0, "never below the dozen characters");
+    }
+
+    #[test]
+    fn middle_elision_keeps_head_and_tail() {
+        assert_eq!(elide_middle("short", 100.0), "short");
+        let e = elide_middle("wb_test_t6_extra_long", 70.0);
+        assert!(
+            e.starts_with("wb_t") && e.ends_with("ng") && e.contains('…'),
+            "{e}"
+        );
+        assert!(text_w(&e) <= 70.0);
+        assert!(shares_prefix("wb_test_t6", "wb_test_t7"));
+        assert!(!shares_prefix("student", "booking"));
     }
 
     #[test]

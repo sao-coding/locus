@@ -454,9 +454,16 @@ fn strip_tab(
     tip: Option<String>,
     width: Option<f32>,
     pad: f32,
+    icon: Option<&'static str>,
     on: bool,
     cx: &App,
 ) -> Stateful<Div> {
+    // An icon-only tab carries its name in the tooltip.
+    let tip = if icon.is_some() {
+        Some(label.clone())
+    } else {
+        tip
+    };
     let t = crate::shell::theme::tokens(cx);
     h_flex()
         .id(id)
@@ -490,7 +497,18 @@ fn strip_tab(
                 .when(width.is_some(), |d| d.flex_1())
                 .gap(px(S3))
                 .items_baseline()
-                .child(div().flex_shrink(1.).min_w_0().truncate().child(label))
+                .when_some(icon, |d, name| {
+                    d.child(crate::shell::icons::icon(name).size(px(14.)).flex_none())
+                })
+                .when(icon.is_none(), |d| {
+                    d.child(
+                        div()
+                            .flex_shrink(1.)
+                            .min_w_0()
+                            .truncate()
+                            .child(label.clone()),
+                    )
+                })
                 .when_some(count, |d, c| {
                     d.child(
                         div()
@@ -516,9 +534,13 @@ enum StripAct {
 
 /// Below this width the toolbar buttons show their icon only (tooltip carries the label).
 const STRIP_COMPACT_W: f32 = 1000.0;
-/// Below this width the toolbar buttons collapse into one "⋯" menu. The right side (Query Plan,
-/// Messages, Statistics, a 160 px filter and the buttons) never shrinks; the result tabs give way.
-const STRIP_MENU_W: f32 = 700.0;
+/// Below this width Query Plan, Messages and Statistics show an icon only. As the strip narrows the
+/// order is: those icons, then the filter down to its minimum, then the buttons fold into one
+/// "⋯" menu, and only then the result tabs give way (the active one never below its first
+/// dozen characters and count).
+const STRIP_ICONTABS_W: f32 = 834.0;
+/// Below this width the toolbar buttons collapse into one "⋯" menu.
+const STRIP_MENU_W: f32 = 596.0;
 /// Narrowest the row filter gets.
 const FILTER_MIN_W: f32 = 160.0;
 
@@ -566,6 +588,7 @@ impl QueryTab {
         let width = self.ui.strip_w.get();
         let compact = width < STRIP_COMPACT_W;
         let menu = width < STRIP_MENU_W;
+        let icon_tabs = width < STRIP_ICONTABS_W;
         let probe = self.ui.strip_w.clone();
         let me_id = cx.entity_id();
         let mut strip = h_flex()
@@ -584,7 +607,13 @@ impl QueryTab {
                     move |bounds, _, cx| {
                         let w = f32::from(bounds.size.width);
                         let old = probe.get();
-                        let bucket = |w: f32| (w >= STRIP_MENU_W, w >= STRIP_COMPACT_W);
+                        let bucket = |w: f32| {
+                            (
+                                w >= STRIP_MENU_W,
+                                w >= STRIP_ICONTABS_W,
+                                w >= STRIP_COMPACT_W,
+                            )
+                        };
                         probe.set(w);
                         // Re-render only when a breakpoint is crossed.
                         if bucket(old) != bucket(w) {
@@ -596,7 +625,7 @@ impl QueryTab {
                 .absolute()
                 .size_full(),
             );
-        strip = self.strip_tabs(strip, pane, menu, cx);
+        strip = self.strip_tabs(strip, pane, icon_tabs, cx);
         strip = self.strip_tools(strip, pane, compact, menu, query_tables, cx);
         strip.into_any_element()
     }
@@ -607,7 +636,7 @@ impl QueryTab {
         &self,
         mut strip: Stateful<Div>,
         pane: Pane,
-        menu: bool,
+        icon_tabs: bool,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let t = crate::shell::theme::tokens(cx);
@@ -678,7 +707,7 @@ impl QueryTab {
         ));
         tips.resize(tabs.len(), None);
         let n_left = tabs.len() - 3;
-        let rpad = if menu { S3 } else { S5 };
+        let rpad = if icon_tabs { S4 } else { S5 };
         let right_tabs = tabs.split_off(n_left);
         let right_tips = tips.split_off(n_left);
         let make_tab = |idx: usize,
@@ -690,7 +719,12 @@ impl QueryTab {
                         pad: f32,
                         on: bool,
                         cx: &mut Context<Self>| {
-            let mut el = strip_tab(("rtab", idx), label, count, tip, width, pad, on, cx);
+            let icon = (idx >= n_left && icon_tabs).then_some(match act {
+                StripAct::Plan => "explain",
+                StripAct::Messages => "message",
+                _ => "bar-chart",
+            });
+            let mut el = strip_tab(("rtab", idx), label, count, tip, width, pad, icon, on, cx);
             if matches!(act, StripAct::Messages) && errors {
                 el = el.child(div().size(px(S3)).rounded_full().bg(t.red));
             }
@@ -708,14 +742,30 @@ impl QueryTab {
             })
             .collect();
         let active_left = tabs.iter().position(|x| x.3);
-        let fit = locus_core::tabfit::fit(&natural, active_left, self.ui.tabs_w.get());
+        // The active tab never gets less than its first dozen characters and the count.
+        let min_of = |i: usize| {
+            let (_, label, count, _) = &tabs[i];
+            let head: String = label.chars().take(12).collect();
+            2.0 * S5
+                + locus_core::tabfit::text_w(&head)
+                + count
+                    .as_ref()
+                    .map_or(0.0, |c| S3 + locus_core::tabfit::text_w(c) * 0.85)
+        };
+        let active_min = active_left.map_or(0.0, min_of).min(220.0);
+        let fit = locus_core::tabfit::fit(&natural, active_left, active_min, self.ui.tabs_w.get());
         let me = cx.entity().downgrade();
         let list = tabs.clone();
         let mut left = h_flex()
             .id("rtabs")
             .relative()
             .flex_1()
-            .min_w(px(locus_core::tabfit::MIN_W + 24.0))
+            .min_w(px(active_min
+                + if n_left > 1 {
+                    locus_core::tabfit::OVERFLOW_W
+                } else {
+                    0.0
+                }))
             .h(px(H_ROW + S2))
             .items_center()
             .overflow_hidden()
@@ -738,6 +788,21 @@ impl QueryTab {
         for (idx, w) in fit.visible.iter().copied() {
             let (act, label, count, on) = tabs[idx].clone();
             let tip = tips[idx].clone();
+            // Names with a common start are cut in the middle so they stay apart.
+            let label = if tabs
+                .iter()
+                .enumerate()
+                .any(|(j, o)| j != idx && locus_core::tabfit::shares_prefix(&label, &o.1))
+            {
+                let room = w
+                    - 2.0 * S5
+                    - count
+                        .as_ref()
+                        .map_or(0.0, |c| S3 + locus_core::tabfit::text_w(c) * 0.85);
+                locus_core::tabfit::elide_middle(&label, room)
+            } else {
+                label
+            };
             left = left.child(make_tab(idx, act, label, count, tip, Some(w), S5, on, cx));
         }
         if fit.hidden > 0 {
@@ -750,7 +815,12 @@ impl QueryTab {
                         h_flex()
                             .items_center()
                             .gap(px(S2))
-                            .child(crate::shell::icons::icon("chevron-down").size(px(12.)))
+                            .child(
+                                div()
+                                    .relative()
+                                    .top(px(0.75))
+                                    .child(crate::shell::icons::icon("chevron-down").size(px(12.))),
+                            )
                             .child(div().text_size(px(TX_XS)).child(format!("+{}", fit.hidden))),
                     )
                     .tooltip(t!("results.all_results").to_string())
@@ -810,7 +880,7 @@ impl QueryTab {
             if compact { b } else { b.label(label) }
         };
         if has_data {
-            strip = self.strip_filter(strip, menu, cx);
+            strip = self.strip_filter(strip, cx);
         }
         let single_table = query_tables.clone();
         if menu {
@@ -986,12 +1056,7 @@ impl QueryTab {
     }
 
     /// Read-only lock (reason in its tooltip) and the row filter field (`.flt`), the item that shrinks.
-    fn strip_filter(
-        &self,
-        mut strip: Stateful<Div>,
-        menu: bool,
-        cx: &mut Context<Self>,
-    ) -> Stateful<Div> {
+    fn strip_filter(&self, mut strip: Stateful<Div>, cx: &mut Context<Self>) -> Stateful<Div> {
         let t = crate::shell::theme::tokens(cx);
         // Read-only: a lock icon, the reason in its tooltip.
         if let Some(why) = self
@@ -1021,11 +1086,7 @@ impl QueryTab {
                 .flex_shrink(1.)
                 .h(px(H_COMPACT))
                 .w(px(230.))
-                .min_w(px(if menu {
-                    FILTER_MIN_W - 30.0
-                } else {
-                    FILTER_MIN_W
-                }))
+                .min_w(px(FILTER_MIN_W))
                 .px(px(S4))
                 .mr(px(S4))
                 .gap(px(S3))
