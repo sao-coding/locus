@@ -26,7 +26,7 @@ pub enum DbKind {
     Oracle,
     /// A file: the path is in `database`; no host, user or password.
     Sqlite,
-    /// Microsoft SQL Server, in process (`db-sqlserver`).
+    /// Microsoft SQL Server, through the Go sidecar (go-mssqldb).
     #[serde(rename = "sqlserver")]
     SqlServer,
     /// Not SQL: own views (`crates/app/src/redis`). `database` holds the DB index (0-15), `user` the ACL user.

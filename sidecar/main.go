@@ -2,7 +2,7 @@
 // Protocol: PROTOCOL.md. Connection settings come from environment variables
 // only (never argv, never logged):
 //
-//	SIDECAR_DRIVER    mysql (default) | oracle
+//	SIDECAR_DRIVER    mysql (default) | oracle | mssql| oracle
 //	SIDECAR_HOST      host name or address
 //	SIDECAR_PORT      TCP port
 //	SIDECAR_USER      user
@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"sidecar/internal/backend"
+	"sidecar/internal/backend/mssql"
 	"sidecar/internal/backend/mysql"
 	"sidecar/internal/backend/oracle"
 	"sidecar/internal/proto"
@@ -36,6 +37,7 @@ var drivers = map[string]struct {
 }{
 	"mysql":  {mysql.Open, mysql.Classify},
 	"oracle": {oracle.Open, oracle.Classify},
+	"mssql":  {mssql.Open, mssql.Classify},
 }
 
 const connectTimeout = 15 * time.Second

@@ -2,7 +2,7 @@
 
 The sidecar is a child process of the host. It serves one database over its
 stdin / stdout. Code: `internal/proto` (encoding, with unit tests),
-`internal/server` (protocol loop), `internal/backend` (database interface; `mysql`, `oracle`),
+`internal/server` (protocol loop), `internal/backend` (database interface; `mysql`, `oracle`, `mssql`),
 host side: `crates/db-sidecar-client`.
 
 stderr is not used for protocol data and is never read by the host. Nothing
@@ -16,7 +16,7 @@ read.
 
 | Variable | Meaning |
 |---|---|
-| `SIDECAR_DRIVER` | `mysql` (default) or `oracle`. A new database = a new package under `internal/backend` and one entry in `main.go`. |
+| `SIDECAR_DRIVER` | `mysql` (default), `oracle` or `mssql`. A new database = a new package under `internal/backend` and one entry in `main.go`. |
 | `SIDECAR_HOST`, `SIDECAR_PORT` | required |
 | `SIDECAR_USER`, `SIDECAR_PASSWORD` | credentials |
 | `SIDECAR_DATABASE` | default database, optional. Oracle: the **service name** (required). |
@@ -252,7 +252,9 @@ frame: MySQL `information_schema` (same statements as `db-mysql`); Oracle
 `ALL_USERS`, `ALL_OBJECTS` (TABLE, VIEW), `ALL_TAB_COLUMNS`, `ALL_CONSTRAINTS` +
 `ALL_CONS_COLUMNS` (primary and foreign keys). Oracle reads are filtered by
 owner (the user list is the only unfiltered one) and wrapped in
-`ROWNUM <= cap` (default 20 000, `SidecarDriver::set_catalog_row_cap`).
+`ROWNUM <= cap` (default 20 000, `SidecarDriver::set_catalog_row_cap`). SQL Server
+reads `sys.schemas`, `sys.objects`, `INFORMATION_SCHEMA.COLUMNS` and
+`sys.foreign_keys` of the current database, each with `TOP (cap)`.
 
 The extended catalog (object kinds, indexes / triggers of a table, routine
 parameters, DDL, users / roles, server info) uses the same mechanism: the SQL

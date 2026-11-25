@@ -14,7 +14,7 @@ pub enum AnyDriver {
     Mysql(MysqlDriver),
     Postgres(db_postgres::PgDriver),
     Oracle(SidecarDriver),
-    SqlServer(db_sqlserver::MssqlDriver),
+    SqlServer(SidecarDriver),
     Sqlite(db_sqlite::SqliteDriver),
 }
 
@@ -166,7 +166,7 @@ fn extract_sidecar(dir: &Path, bytes: &[u8]) -> Result<PathBuf, DbError> {
         DbError::new(
             ErrorKind::Internal,
             format!(
-                "cannot unpack the Oracle helper ({what} {}): {e}",
+                "cannot unpack the database helper ({what} {}): {e}",
                 target.display()
             ),
         )
@@ -360,9 +360,12 @@ impl AnyDriver {
                 DbKind::Postgres => db_postgres::PgDriver::connect(&rt, opts)
                     .await
                     .map(AnyDriver::Postgres),
-                DbKind::SqlServer => db_sqlserver::MssqlDriver::connect(&rt, opts)
-                    .await
-                    .map(AnyDriver::SqlServer),
+                DbKind::SqlServer => {
+                    let exe = sidecar_exe()?;
+                    SidecarDriver::spawn_driver(&rt, exe, "mssql", opts)
+                        .await
+                        .map(AnyDriver::SqlServer)
+                }
                 DbKind::Sqlite => db_sqlite::SqliteDriver::connect(path, read_only)
                     .await
                     .map(AnyDriver::Sqlite),

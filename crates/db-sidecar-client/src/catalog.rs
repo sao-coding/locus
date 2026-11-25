@@ -32,6 +32,7 @@ pub(crate) const DEFAULT_ROW_CAP: u32 = 20_000;
 pub(crate) enum Dialect {
     Mysql,
     Oracle,
+    Mssql,
 }
 
 impl Dialect {
@@ -39,6 +40,7 @@ impl Dialect {
         match driver {
             "mysql" => Some(Dialect::Mysql),
             "oracle" => Some(Dialect::Oracle),
+            "mssql" => Some(Dialect::Mssql),
             _ => None,
         }
     }
@@ -113,6 +115,40 @@ fn cap(inner: &Inner) -> Param {
 /// last bound parameter.
 fn capped(inner_sql: &str) -> String {
     format!("SELECT * FROM ({inner_sql}) WHERE ROWNUM <= TO_NUMBER(?)")
+}
+
+/// SQL Server: `SELECT TOP (CAST(? AS bigint)) <rest>`, the cap is the first
+/// bound parameter.
+fn mssql_capped(rest: &str) -> String {
+    format!("SELECT TOP (CAST(? AS bigint)) {rest}")
+}
+
+/// Type text as SQL Server spells it, e.g. `nvarchar(50)`, `varchar(max)`,
+/// `decimal(10,2)`, `datetime2(3)`.
+pub(crate) fn mssql_type(
+    ty: &str,
+    max_len: Option<&str>,
+    precision: Option<&str>,
+    scale: Option<&str>,
+    dt_precision: Option<&str>,
+) -> String {
+    match ty {
+        "char" | "varchar" | "nchar" | "nvarchar" | "binary" | "varbinary" => match max_len {
+            Some("-1") => format!("{ty}(max)"),
+            Some(l) => format!("{ty}({l})"),
+            None => ty.to_string(),
+        },
+        "decimal" | "numeric" => match (precision, scale) {
+            (Some(p), Some(s)) => format!("{ty}({p},{s})"),
+            (Some(p), None) => format!("{ty}({p})"),
+            _ => ty.to_string(),
+        },
+        "datetime2" | "datetimeoffset" | "time" => match dt_precision {
+            Some(p) if p != "7" => format!("{ty}({p})"),
+            _ => ty.to_string(),
+        },
+        _ => ty.to_string(),
+    }
 }
 
 /// Type text as the Oracle dictionary columns spell it, e.g. `NUMBER(10,2)`,
@@ -209,6 +245,20 @@ impl Catalog for crate::SidecarDriver {
                 ),
                 vec![Param::Text(schema.to_string()), cap(&inner)],
             ),
+            Ok(Dialect::Mssql) => (
+                mssql_capped(
+                    "fk.name, t.name, c.name, SCHEMA_NAME(rt.schema_id), rt.name, rc.name \
+                     FROM sys.foreign_keys fk \
+                     JOIN sys.tables t ON t.object_id = fk.parent_object_id \
+                     JOIN sys.foreign_key_columns fkc ON fkc.constraint_object_id = fk.object_id \
+                     JOIN sys.columns c ON c.object_id = fkc.parent_object_id AND c.column_id = fkc.parent_column_id \
+                     JOIN sys.tables rt ON rt.object_id = fk.referenced_object_id \
+                     JOIN sys.columns rc ON rc.object_id = fkc.referenced_object_id AND rc.column_id = fkc.referenced_column_id \
+                     WHERE t.schema_id = SCHEMA_ID(?) \
+                     ORDER BY t.name, fk.name, fkc.constraint_column_id",
+                ),
+                vec![cap(&inner), Param::Text(schema.to_string())],
+            ),
             Err(e) => return Box::pin(async move { Err(e) }),
         };
         let rows = fetch(&inner, sql, params);
@@ -226,6 +276,16 @@ impl Catalog for crate::SidecarDriver {
             // ALL_USERS is the list of schemas; it has no owner column to filter on.
             Ok(Dialect::Oracle) => (
                 capped("SELECT USERNAME FROM ALL_USERS ORDER BY USERNAME"),
+                vec![cap(&inner)],
+            ),
+            // Schemas of the current database; fixed database roles and the
+            // system schemas are left out.
+            Ok(Dialect::Mssql) => (
+                mssql_capped(
+                    "s.name FROM sys.schemas s \
+                     WHERE s.principal_id < 16384 AND s.name NOT IN ('guest', 'INFORMATION_SCHEMA', 'sys') \
+                     ORDER BY s.name",
+                ),
                 vec![cap(&inner)],
             ),
             Err(e) => return Box::pin(async move { Err(e) }),
@@ -249,6 +309,15 @@ impl Catalog for crate::SidecarDriver {
                      ORDER BY OBJECT_NAME",
                 ),
                 vec![schema, cap(&inner)],
+            ),
+            // `type` is char(2): 'U ' / 'V '. ends_with("VIEW") below needs a name.
+            Ok(Dialect::Mssql) => (
+                mssql_capped(
+                    "o.name, CASE o.type WHEN 'V' THEN 'VIEW' ELSE 'TABLE' END FROM sys.objects o \
+                     WHERE o.schema_id = SCHEMA_ID(?) AND o.type IN ('U', 'V') AND o.is_ms_shipped = 0 \
+                     ORDER BY o.name",
+                ),
+                vec![cap(&inner), schema],
             ),
             Err(e) => return Box::pin(async move { Err(e) }),
         };
@@ -328,6 +397,42 @@ impl Catalog for crate::SidecarDriver {
                                 nullable: o(5) == Some("Y"),
                                 primary_key: pk.contains(&name),
                                 name,
+                            }
+                        })
+                        .collect())
+                })
+            }
+            Ok(Dialect::Mssql) => {
+                let rows = fetch(
+                    &inner,
+                    mssql_capped(
+                        "c.COLUMN_NAME, c.DATA_TYPE, CAST(c.CHARACTER_MAXIMUM_LENGTH AS varchar(12)), \
+                         CAST(c.NUMERIC_PRECISION AS varchar(12)), CAST(c.NUMERIC_SCALE AS varchar(12)), \
+                         CAST(c.DATETIME_PRECISION AS varchar(12)), c.IS_NULLABLE, \
+                         CASE WHEN EXISTS ( \
+                             SELECT 1 FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc \
+                             JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE k \
+                               ON k.CONSTRAINT_SCHEMA = tc.CONSTRAINT_SCHEMA AND k.CONSTRAINT_NAME = tc.CONSTRAINT_NAME \
+                             WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY' AND tc.TABLE_SCHEMA = c.TABLE_SCHEMA \
+                               AND tc.TABLE_NAME = c.TABLE_NAME AND k.COLUMN_NAME = c.COLUMN_NAME \
+                         ) THEN 'Y' ELSE 'N' END \
+                         FROM INFORMATION_SCHEMA.COLUMNS c \
+                         WHERE c.TABLE_SCHEMA = ? AND c.TABLE_NAME = ? \
+                         ORDER BY c.ORDINAL_POSITION",
+                    ),
+                    vec![cap(&inner), schema, object],
+                );
+                Box::pin(async move {
+                    Ok(rows
+                        .await?
+                        .iter()
+                        .map(|r| {
+                            let o = |i: usize| r.get(i).and_then(|v| v.as_deref());
+                            ColumnInfo {
+                                name: text(&r[0]),
+                                type_name: mssql_type(&text(&r[1]), o(2), o(3), o(4), o(5)),
+                                nullable: o(6).is_some_and(|v| v.eq_ignore_ascii_case("YES")),
+                                primary_key: o(7) == Some("Y"),
                             }
                         })
                         .collect())
@@ -433,6 +538,7 @@ impl Catalog for crate::SidecarDriver {
             // NULL when no database is selected.
             Ok(Dialect::Mysql) => "SELECT DATABASE()",
             Ok(Dialect::Oracle) => "SELECT SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA') FROM DUAL",
+            Ok(Dialect::Mssql) => "SELECT SCHEMA_NAME()",
             Err(e) => return Box::pin(async move { Err(e) }),
         };
         let rows = fetch(&inner, sql.to_string(), vec![]);
@@ -510,6 +616,21 @@ mod tests {
         );
         assert_eq!(t("DATE", Some("7"), None, None, None, None), "DATE");
         assert_eq!(t("CLOB", Some("4000"), None, None, None, None), "CLOB");
+    }
+
+    #[test]
+    fn mssql_type_text() {
+        let t = |a, b, c, d, e| mssql_type(a, b, c, d, e);
+        assert_eq!(t("nvarchar", Some("50"), None, None, None), "nvarchar(50)");
+        assert_eq!(t("varchar", Some("-1"), None, None, None), "varchar(max)");
+        assert_eq!(
+            t("decimal", None, Some("10"), Some("2"), None),
+            "decimal(10,2)"
+        );
+        assert_eq!(t("int", None, Some("10"), Some("0"), None), "int");
+        assert_eq!(t("datetime2", None, None, None, Some("3")), "datetime2(3)");
+        assert_eq!(t("datetime2", None, None, None, Some("7")), "datetime2");
+        assert!(mssql_capped("1").starts_with("SELECT TOP (CAST(? AS bigint)) "));
     }
 
     #[test]

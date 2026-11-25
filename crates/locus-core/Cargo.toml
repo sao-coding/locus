@@ -15,7 +15,6 @@ repository.workspace = true
 db-core.workspace = true
 db-mysql.workspace = true
 db-postgres.workspace = true
-db-sqlserver.workspace = true
 db-sqlite.workspace = true
 db-redis.workspace = true
 db-sidecar-client.workspace = true

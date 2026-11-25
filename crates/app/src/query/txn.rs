@@ -66,6 +66,28 @@ impl QueryTab {
             _ if self.tx.open => self.txn.note.take().filter(|_| self.tx.aborted),
             _ => None,
         };
+        // SQL Server keeps the transaction after a cancelled or failed
+        // statement unless the server ended it (XACT_ABORT ON, severe
+        // errors): ask it instead of assuming.
+        if engine == locus_core::txn::Engine::SqlServer
+            && self.tx.open
+            && matches!(effect, Effect::StatementUndone)
+            && let Some(session) = self.txn.session.clone()
+        {
+            cx.spawn(async move |this, cx| {
+                if session.still_open().await == Some(false) {
+                    let _ = this.update(cx, |t, cx| {
+                        if matches!(t.tx.server_rolled_back(), Effect::RolledBack) {
+                            let msg = t!("txn.note_server_rollback").into_owned();
+                            crate::shell::toast::show(msg.clone(), cx);
+                            t.txn.note = Some(msg);
+                            cx.notify();
+                        }
+                    });
+                }
+            })
+            .detach();
+        }
         cx.notify();
     }
 

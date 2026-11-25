@@ -63,7 +63,7 @@ grid while the query is still running, and cancelling really stops the query on 
 - Command palette (`Ctrl+K`), query history, light / dark / system theme, English, 简体中文 and 繁體中文
 
 **Connections**
-- MySQL / MariaDB, PostgreSQL, SQLite, SQL Server and Redis connect directly from Rust; Oracle goes through
+- MySQL / MariaDB, PostgreSQL, SQLite and Redis connect directly from Rust; Oracle and SQL Server go through
   a small Go helper (`sidecar.exe`, built into `locus.exe`)
 - SSH tunnels; passwords are stored in the Windows Credential Manager
 - Production protection: read-only by default, timed unlock, audit log
@@ -125,7 +125,7 @@ result both were done in under a second.
 Download from [Releases](../../releases) and either run the installer
 `locus-<version>-windows-x64-setup.exe` (per user, no admin, with a Start menu entry and an
 uninstaller) or run the portable `locus-<version>-windows-x64.exe`, one file with nothing to
-install. Oracle support is built in, no extra file needed: the first Oracle
+install. Oracle and SQL Server support is built in, no extra file needed: the first Oracle or SQL Server
 connection unpacks a small helper into `%LOCALAPPDATA%\Locus\sidecar\`.
 
 The builds are not code-signed, so SmartScreen may warn the first time. To check a download:
@@ -164,8 +164,8 @@ Settings has the full list.
 
 **Which Windows versions work?** Windows 10 and 11, 64-bit.
 
-**Which databases?** MySQL, MariaDB, PostgreSQL, SQLite, Redis and Oracle. There is no
-ClickHouse, SQL Server or MongoDB support.
+**Which databases?** MySQL, MariaDB, PostgreSQL, SQLite, Redis, Oracle and SQL Server. There is no
+ClickHouse or MongoDB support.
 
 **Does Oracle need an Oracle client?** No. The helper uses a pure-Go driver
 ([go-ora](https://github.com/sijms/go-ora)), and is built into `locus.exe`, so there is nothing to

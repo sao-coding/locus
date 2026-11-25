@@ -58,7 +58,7 @@ Locus 支持 MySQL / MariaDB、PostgreSQL、SQLite、Redis、Oracle 和 SQL Serv
 - 命令面板（`Ctrl+K`）、查询历史、浅色 / 深色 / 跟随系统主题、English、简体中文与繁體中文
 
 **连接**
-- MySQL / MariaDB、PostgreSQL、SQLite、SQL Server、Redis 由 Rust 直接连接；Oracle 通过一个小型 Go 辅助程序（`sidecar.exe`，已内置于 `locus.exe`）
+- MySQL / MariaDB、PostgreSQL、SQLite、Redis 由 Rust 直接连接；Oracle 和 SQL Server 通过一个小型 Go 辅助程序（`sidecar.exe`，已内置于 `locus.exe`）
 - SSH 隧道；密码保存在 Windows 凭据管理器
 - Production 保护：默认只读、限时解锁、审计日志
 
@@ -142,7 +142,7 @@ gh attestation verify .\locus-<版本>-windows-x64.exe --repo sao-coding/locus
 
 **支持哪些 Windows？** 64 位的 Windows 10 和 11。
 
-**支持哪些数据库？** MySQL、MariaDB、PostgreSQL、SQLite、Redis 和 Oracle。不支持 ClickHouse、SQL Server 或 MongoDB。
+**支持哪些数据库？** MySQL、MariaDB、PostgreSQL、SQLite、Redis、Oracle 和 SQL Server。不支持 ClickHouse 或 MongoDB。
 
 **Oracle 需要安装 Oracle Client 吗？** 不需要。辅助程序使用纯 Go 的驱动（[go-ora](https://github.com/sijms/go-ora)），什么都不用安装。
 
