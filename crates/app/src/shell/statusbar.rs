@@ -61,6 +61,7 @@ impl Locus {
             .when(editor_info, |h| {
                 h.child(div().text_color(t.tx3).child(limit))
             })
+            .children(self.update_hint(col, cx))
             .child(
                 h_flex()
                     .gap(px(scale::S3))
@@ -76,6 +77,31 @@ impl Locus {
                     ),
             )
             .into_any_element()
+    }
+
+    /// "Locus x.y.z available" when the update check found a newer release that was not
+    /// dismissed; opens Settings › About.
+    fn update_hint(&self, accent: Hsla, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let r = crate::update::entity(cx)?.read(cx).hint()?.clone();
+        let t = crate::shell::theme::tokens(cx);
+        Some(
+            h_flex()
+                .id("status-update")
+                .gap(px(scale::S3))
+                .items_center()
+                .cursor_pointer()
+                .text_color(t.tx2)
+                .hover(|h| h.text_color(t.tx))
+                .tooltip(tip(t!("upd.hint_tip").into_owned()))
+                .child(
+                    crate::shell::icons::icon("download")
+                        .size(px(12.))
+                        .text_color(accent),
+                )
+                .child(t!("upd.hint", v = r.version).into_owned())
+                .on_click(cx.listener(|this, _, window, cx| this.open_settings_about(window, cx)))
+                .into_any_element(),
+        )
     }
 
     /// Connection state, server version (opens the activity monitor) and the database or Redis keys.

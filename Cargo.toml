@@ -58,6 +58,10 @@ chardetng = "=1.0.0"
 calamine = { version = "=0.38.0", default-features = false }
 rust_xlsxwriter = { version = "=0.103.0", features = ["constant_memory"] }
 jiff = "=1.0.1"
+semver = "=1.0.28"
+# Update check only. native-tls (schannel, like the database drivers) with the Windows root
+# store, and the Windows system proxy as well as the *_PROXY variables.
+ureq = { version = "=3.5.1", default-features = false, features = ["native-tls-no-default", "win-system-proxy"] }
 parking_lot = "=0.12.5"
 uuid = { version = "=1.29.2", features = ["v7"] }
 hex = "=0.4.3"

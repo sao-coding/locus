@@ -39,6 +39,8 @@ imagesize.workspace = true
 encoding_rs_io.workspace = true
 chardetng.workspace = true
 calamine.workspace = true
+semver.workspace = true
+ureq.workspace = true
 
 [dev-dependencies]
 windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_Security_Credentials", "Win32_System_ProcessStatus", "Win32_System_Threading"] }

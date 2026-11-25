@@ -250,6 +250,11 @@ impl Locus {
                 .unwrap_or(true)
         });
 
+        // The automatic update check only for the real data folder, not the demo / UI-test
+        // scenes (those still read update.json from their LOCUS_DATA_DIR).
+        let updates = crate::update::init(store.persists(), matches!(store, Store::Disk), cx);
+        subs.push(cx.observe(&updates, |_, _, cx| cx.notify()));
+
         let objects = cx.new(|_| crate::connections::objects::ObjectTree::new());
         subs.push(cx.subscribe_in(
             &objects,
@@ -749,7 +754,10 @@ impl Render for Locus {
                 cx,
             )
         };
-        let work = if self.space().connections.is_empty() {
+        // No connection yet: the welcome card, except over a page tab (Settings, History),
+        // which works without one; the card itself links to Settings.
+        let page_in_front = self.active_tab(cx).read(cx).pageslot.kind.is_some();
+        let work = if self.space().connections.is_empty() && !page_in_front {
             self.render_welcome(cx)
         } else {
             work

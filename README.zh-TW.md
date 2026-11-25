@@ -123,6 +123,8 @@ minisign -Vm .\locus-<版本>-windows-x64.exe -P RWRDNREpYa8EZ59rUGsAnTVNIMjNfUW
 
 設定、已儲存的連線和歷史都在 `%APPDATA%\Locus`。刪掉這個資料夾就等於重設。Oracle 輔助程式是唯一放在它之外的檔案（`%LOCALAPPDATA%\Locus\sidecar\`），想完全移除請一併刪除。
 
+Locus 大約每天向 GitHub 查一次有沒有新版本（只送出 `User-Agent: Locus/<版本>`），有的話顯示在狀態列，不會自動下載任何東西。可以在「設定 › 關於」關閉。
+
 ## 快捷鍵
 
 | 按鍵 | 動作 |

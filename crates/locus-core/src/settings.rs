@@ -60,6 +60,16 @@ pub struct Settings {
     /// Alternate the tone of odd and even result rows (default on).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub grid_stripes: Option<bool>,
+    /// Look for a new release on GitHub after start (default on); see `update`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub update_check: Option<bool>,
+}
+
+impl Settings {
+    /// Whether the automatic update check is on (missing = on).
+    pub fn update_check(&self) -> bool {
+        self.update_check.unwrap_or(true)
+    }
 }
 
 pub fn app_dir() -> Option<PathBuf> {

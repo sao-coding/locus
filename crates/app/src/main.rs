@@ -24,6 +24,7 @@ mod saved;
 mod settings;
 mod shell;
 mod structure;
+mod update;
 mod viewer;
 
 use gpui_kit::component::TitleBar;
