@@ -72,15 +72,22 @@ fn body_row(id: impl Into<ElementId>, cx: &App) -> Stateful<Div> {
         .text_color(t.tx1)
 }
 
-fn scroll(id: &'static str, rows: Vec<AnyElement>, cx: &App) -> AnyElement {
+/// Narrowest the table may get before it scrolls sideways: every fixed column
+/// plus a readable width for the flexible last one.
+fn table_w(cols: &[(String, Option<f32>)]) -> f32 {
+    cols.iter().map(|(_, w)| w.unwrap_or(240.)).sum::<f32>() + 2.
+}
+
+fn scroll(id: &'static str, rows: Vec<AnyElement>, min_w: f32, cx: &App) -> AnyElement {
     let t = crate::shell::theme::tokens(cx);
     div()
         .id(id)
         .size_full()
-        .overflow_y_scrollbar()
+        .overflow_scrollbar()
         .child(
             v_flex()
                 .w_full()
+                .min_w(px(min_w))
                 .rounded(px(6.))
                 .border_1()
                 .border_color(t.ln)
@@ -221,7 +228,7 @@ impl QueryTab {
                     .into_any_element(),
             );
         }
-        scroll("st-columns", rows, cx)
+        scroll("st-columns", rows, table_w(&cols), cx)
     }
 
     fn sec_indexes(&self, d: &TableStructure, cx: &App) -> AnyElement {
@@ -248,7 +255,7 @@ impl QueryTab {
                     .into_any_element(),
             );
         }
-        scroll("st-indexes", rows, cx)
+        scroll("st-indexes", rows, table_w(&cols), cx)
     }
 
     fn fk_rows(
@@ -360,7 +367,7 @@ impl QueryTab {
         incoming_cols[2].0 = t!("structure.col_columns").into_owned();
         rows.push(head_row(&incoming_cols, cx).into_any_element());
         rows.extend(self.fk_rows(&d.referenced_by, true, 10_000, cx));
-        scroll("st-fks", rows, cx)
+        scroll("st-fks", rows, table_w(&cols), cx)
     }
 
     fn sec_triggers(&self, d: &TableStructure, cx: &mut Context<Self>) -> AnyElement {
@@ -399,7 +406,7 @@ impl QueryTab {
                     .into_any_element(),
             );
         }
-        scroll("st-triggers", rows, cx)
+        scroll("st-triggers", rows, table_w(&cols), cx)
     }
 
     fn sec_checks(&self, d: &TableStructure, cx: &App) -> AnyElement {
@@ -420,7 +427,7 @@ impl QueryTab {
                     .into_any_element(),
             );
         }
-        scroll("st-checks", rows, cx)
+        scroll("st-checks", rows, table_w(&cols), cx)
     }
 
     fn render_ddl(&self, _d: &TableStructure, cx: &mut Context<Self>) -> AnyElement {
