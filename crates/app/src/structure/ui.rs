@@ -42,6 +42,21 @@ fn cell(text: impl Into<SharedString>, w: Option<f32>, color: Hsla, mono: bool) 
     }
 }
 
+/// Width that fits the header and the longest value (estimated from
+/// character count), capped so one huge value cannot take the whole table.
+fn fit<S: AsRef<str>>(header: &str, vals: impl IntoIterator<Item = S>, max: f32) -> f32 {
+    let w = |s: &str| -> f32 {
+        s.chars()
+            .map(|c| if (c as u32) > 0x2E80 { 12.5 } else { 7.3 })
+            .sum::<f32>()
+    };
+    let longest = vals
+        .into_iter()
+        .map(|s| w(s.as_ref()))
+        .fold(w(header), f32::max);
+    (longest + S3 * 2. + 6.).clamp(44., max)
+}
+
 type Cols = [(String, Option<f32>)];
 
 /// Widths of a structure table: the frozen name column and the narrowest the
@@ -61,7 +76,7 @@ impl Tbl {
         let rest_min = cols
             .iter()
             .skip(1)
-            .map(|(_, w)| w.unwrap_or(240.))
+            .map(|(_, w)| w.unwrap_or(120.))
             .sum::<f32>();
         Self {
             first_w,
@@ -115,7 +130,11 @@ impl Tbl {
             .font_weight(FontWeight::MEDIUM);
         let cells = cols
             .iter()
-            .map(|(label, w)| cell(label.clone(), *w, t.tx2, false))
+            .enumerate()
+            .map(|(i, (label, w))| {
+                let w = if i + 1 == cols.len() { None } else { *w };
+                cell(label.clone(), w, t.tx2, false)
+            })
             .collect();
         self.split(base, cells).into_any_element()
     }
@@ -334,37 +353,56 @@ impl QueryTab {
         if d.columns.is_empty() {
             return self.structure_empty(t!("structure.empty_columns").into_owned(), cx);
         }
-        let cols = [
-            (t!("structure.col_name").into_owned(), Some(200.)),
-            (t!("structure.col_type").into_owned(), Some(180.)),
-            (t!("structure.col_nullable").into_owned(), Some(70.)),
-            (t!("structure.col_default").into_owned(), Some(180.)),
-            (t!("structure.col_pk").into_owned(), Some(50.)),
-            (t!("structure.col_auto").into_owned(), Some(90.)),
-            (t!("structure.col_comment").into_owned(), None),
+        let h = [
+            t!("structure.col_name").into_owned(),
+            t!("structure.col_type").into_owned(),
+            t!("structure.col_nullable").into_owned(),
+            t!("structure.col_default").into_owned(),
+            t!("structure.col_pk").into_owned(),
+            t!("structure.col_auto").into_owned(),
+            t!("structure.col_comment").into_owned(),
         ];
+        let cs = &d.columns;
+        let w = [
+            fit(&h[0], cs.iter().map(|c| c.name.as_str()), 280.),
+            fit(&h[1], cs.iter().map(|c| c.type_name.as_str()), 260.),
+            fit(&h[2], ["✓"], 120.),
+            fit(
+                &h[3],
+                cs.iter().map(|c| c.default.as_deref().unwrap_or("")),
+                280.,
+            ),
+            fit(&h[4], ["✓"], 120.),
+            fit(&h[5], ["✓"], 120.),
+            fit(
+                &h[6],
+                cs.iter().map(|c| c.comment.as_deref().unwrap_or("")),
+                400.,
+            ),
+        ];
+        let cols: Vec<_> = h.into_iter().zip(w.map(Some)).collect();
         let tb = Tbl::new(&cols, self.hscroll(), cx);
         let mut rows = vec![tb.head(&cols, cx)];
         for (i, c) in d.columns.iter().enumerate() {
             rows.push(
                 tb.row(("st-col", i), cx)
-                    .child(cell(c.name.clone(), Some(200.), t.tx1, false).font_weight(
+                    .child(cell(c.name.clone(), Some(w[0]), t.tx1, false).font_weight(
                         if c.primary_key {
                             FontWeight::SEMIBOLD
                         } else {
                             FontWeight::NORMAL
                         },
                     ))
-                    .child(cell(c.type_name.clone(), Some(180.), t.tx2, true))
-                    .child(cell(flag(c.nullable, cx), Some(70.), t.tx2, false))
+                    .child(cell(c.type_name.clone(), Some(w[1]), t.tx2, true))
+                    .child(cell(flag(c.nullable, cx), Some(w[2]), t.tx2, false))
                     .child(cell(
                         c.default.clone().unwrap_or_default(),
-                        Some(180.),
+                        Some(w[3]),
                         t.tx2,
                         true,
                     ))
-                    .child(cell(flag(c.primary_key, cx), Some(50.), t.tx2, false))
-                    .child(cell(flag(c.auto_increment, cx), Some(90.), t.tx2, false))
+                    .child(cell(flag(c.primary_key, cx), Some(w[4]), t.tx2, false))
+                    .child(cell(flag(c.auto_increment, cx), Some(w[5]), t.tx2, false))
                     .child(cell(
                         c.comment.clone().unwrap_or_default(),
                         None,
@@ -382,22 +420,31 @@ impl QueryTab {
         if d.indexes.is_empty() {
             return self.structure_empty(t!("structure.empty_indexes").into_owned(), cx);
         }
-        let cols = [
-            (t!("structure.col_name").into_owned(), Some(240.)),
-            (t!("structure.col_columns").into_owned(), Some(360.)),
-            (t!("structure.col_unique").into_owned(), Some(70.)),
-            (t!("structure.col_pk").into_owned(), Some(50.)),
-            (t!("structure.col_type").into_owned(), None),
+        let h = [
+            t!("structure.col_name").into_owned(),
+            t!("structure.col_columns").into_owned(),
+            t!("structure.col_unique").into_owned(),
+            t!("structure.col_pk").into_owned(),
+            t!("structure.col_type").into_owned(),
         ];
+        let xs = &d.indexes;
+        let w = [
+            fit(&h[0], xs.iter().map(|x| x.name.as_str()), 300.),
+            fit(&h[1], xs.iter().map(|x| x.columns.join(", ")), 400.),
+            fit(&h[2], ["✓"], 120.),
+            fit(&h[3], ["✓"], 120.),
+            fit(&h[4], xs.iter().map(|x| x.kind.as_str()), 200.),
+        ];
+        let cols: Vec<_> = h.into_iter().zip(w.map(Some)).collect();
         let tb = Tbl::new(&cols, self.hscroll(), cx);
         let mut rows = vec![tb.head(&cols, cx)];
         for (i, x) in d.indexes.iter().enumerate() {
             rows.push(
                 tb.row(("st-idx", i), cx)
-                    .child(cell(x.name.clone(), Some(240.), t.tx1, false))
-                    .child(cell(x.columns.join(", "), Some(360.), t.tx2, true))
-                    .child(cell(flag(x.unique, cx), Some(70.), t.tx2, false))
-                    .child(cell(flag(x.primary, cx), Some(50.), t.tx2, false))
+                    .child(cell(x.name.clone(), Some(w[0]), t.tx1, false))
+                    .child(cell(x.columns.join(", "), Some(w[1]), t.tx2, true))
+                    .child(cell(flag(x.unique, cx), Some(w[2]), t.tx2, false))
+                    .child(cell(flag(x.primary, cx), Some(w[3]), t.tx2, false))
                     .child(cell(x.kind.clone(), None, t.tx3, false))
                     .into_any_element(),
             );
@@ -408,6 +455,7 @@ impl QueryTab {
     fn fk_rows(
         &self,
         tb: &Tbl,
+        w: [f32; 5],
         list: &[StructForeignKey],
         incoming: bool,
         base: usize,
@@ -446,10 +494,10 @@ impl QueryTab {
                 tb.row(("st-fk", base + i), cx)
                     .cursor_pointer()
                     .hover(|h| h.bg(t.hv))
-                    .child(cell(k.name.clone(), Some(220.), t.tx1, false))
-                    .child(cell(local, Some(320.), t.tx2, true))
-                    .child(cell(remote, Some(320.), t.acc_text, true))
-                    .child(cell(k.on_delete.clone(), Some(110.), t.tx2, false))
+                    .child(cell(k.name.clone(), Some(w[0]), t.tx1, false))
+                    .child(cell(local, Some(w[1]), t.tx2, true))
+                    .child(cell(remote, Some(w[2]), t.acc_text, true))
+                    .child(cell(k.on_delete.clone(), Some(w[3]), t.tx2, false))
                     .child(cell(k.on_update.clone(), None, t.tx2, false))
                     .on_click(cx.listener(move |_, _, _, cx| {
                         cx.emit(TabEvent::ShowStructure {
@@ -468,13 +516,37 @@ impl QueryTab {
         if d.foreign_keys.is_empty() && d.referenced_by.is_empty() {
             return self.structure_empty(t!("structure.empty_fks").into_owned(), cx);
         }
-        let cols = [
-            (t!("structure.col_name").into_owned(), Some(220.)),
-            (t!("structure.col_columns").into_owned(), Some(320.)),
-            (t!("structure.col_references").into_owned(), Some(320.)),
-            (t!("structure.col_on_delete").into_owned(), Some(110.)),
-            (t!("structure.col_on_update").into_owned(), None),
+        let h = [
+            t!("structure.col_name").into_owned(),
+            t!("structure.col_columns").into_owned(),
+            t!("structure.col_references").into_owned(),
+            t!("structure.col_on_delete").into_owned(),
+            t!("structure.col_on_update").into_owned(),
         ];
+        // Both lists share the columns, so fit them to either end's text.
+        let all = || d.foreign_keys.iter().chain(d.referenced_by.iter());
+        let ends = |k: &StructForeignKey| {
+            [
+                k.columns.join(", "),
+                format!("{}.{}({})", k.schema, k.table, k.columns.join(", ")),
+                k.ref_columns.join(", "),
+                format!(
+                    "{}.{}({})",
+                    k.ref_schema,
+                    k.ref_table,
+                    k.ref_columns.join(", ")
+                ),
+            ]
+        };
+        let end_w = fit(&t!("structure.col_from"), all().flat_map(ends), 420.);
+        let w = [
+            fit(&h[0], all().map(|k| k.name.as_str()), 300.),
+            end_w,
+            end_w,
+            fit(&h[3], all().map(|k| k.on_delete.as_str()), 160.),
+            fit(&h[4], all().map(|k| k.on_update.as_str()), 160.),
+        ];
+        let cols: Vec<_> = h.into_iter().zip(w.map(Some)).collect();
         let tb = Tbl::new(&cols, self.hscroll(), cx);
         let title = |text: String| {
             div()
@@ -500,7 +572,7 @@ impl QueryTab {
             .into_any_element(),
         );
         rows.push(tb.head(&cols, cx));
-        rows.extend(self.fk_rows(&tb, &d.foreign_keys, false, 0, cx));
+        rows.extend(self.fk_rows(&tb, w, &d.foreign_keys, false, 0, cx));
         rows.push(
             title(
                 t!(
@@ -515,7 +587,7 @@ impl QueryTab {
         incoming_cols[1].0 = t!("structure.col_from").into_owned();
         incoming_cols[2].0 = t!("structure.col_columns").into_owned();
         rows.push(tb.head(&incoming_cols, cx));
-        rows.extend(self.fk_rows(&tb, &d.referenced_by, true, 10_000, cx));
+        rows.extend(self.fk_rows(&tb, w, &d.referenced_by, true, 10_000, cx));
         tb.frame("st-fks", rows, cx)
     }
 
@@ -527,10 +599,20 @@ impl QueryTab {
         let Some(r) = self.structure.as_ref().map(|s| s.r.clone()) else {
             return div().into_any_element();
         };
-        let cols = [
-            (t!("structure.col_name").into_owned(), Some(300.)),
-            (t!("structure.col_event").into_owned(), None),
+        let h = [
+            t!("structure.col_name").into_owned(),
+            t!("structure.col_event").into_owned(),
         ];
+        let xs = &d.triggers;
+        let w = [
+            fit(&h[0], xs.iter().map(|x| x.name.as_str()), 320.),
+            fit(
+                &h[1],
+                xs.iter().map(|x| x.detail.as_deref().unwrap_or("")),
+                400.,
+            ),
+        ];
+        let cols: Vec<_> = h.into_iter().zip(w.map(Some)).collect();
         let tb = Tbl::new(&cols, self.hscroll(), cx);
         let mut rows = vec![tb.head(&cols, cx)];
         for (i, x) in d.triggers.iter().enumerate() {
@@ -539,7 +621,7 @@ impl QueryTab {
                 tb.row(("st-trg", i), cx)
                     .cursor_pointer()
                     .hover(|h| h.bg(t.hv))
-                    .child(cell(x.name.clone(), Some(300.), t.acc_text, false))
+                    .child(cell(x.name.clone(), Some(w[0]), t.acc_text, false))
                     .child(cell(
                         x.detail.clone().unwrap_or_default(),
                         None,
@@ -564,16 +646,22 @@ impl QueryTab {
         if d.checks.is_empty() {
             return self.structure_empty(t!("structure.empty_checks").into_owned(), cx);
         }
-        let cols = [
-            (t!("structure.col_name").into_owned(), Some(260.)),
-            (t!("structure.col_expression").into_owned(), None),
+        let h = [
+            t!("structure.col_name").into_owned(),
+            t!("structure.col_expression").into_owned(),
         ];
+        let xs = &d.checks;
+        let w = [
+            fit(&h[0], xs.iter().map(|x| x.name.as_str()), 320.),
+            fit(&h[1], xs.iter().map(|x| x.expression.as_str()), 400.),
+        ];
+        let cols: Vec<_> = h.into_iter().zip(w.map(Some)).collect();
         let tb = Tbl::new(&cols, self.hscroll(), cx);
         let mut rows = vec![tb.head(&cols, cx)];
         for (i, x) in d.checks.iter().enumerate() {
             rows.push(
                 tb.row(("st-chk", i), cx)
-                    .child(cell(x.name.clone(), Some(260.), t.tx1, false))
+                    .child(cell(x.name.clone(), Some(w[0]), t.tx1, false))
                     .child(cell(x.expression.clone(), None, t.tx2, true))
                     .into_any_element(),
             );
@@ -599,6 +687,7 @@ impl QueryTab {
                 div()
                     .size_full()
                     .relative()
+                    .group("st-ddl")
                     .rounded(px(6.))
                     .border_1()
                     .border_color(t.ln)
@@ -614,6 +703,8 @@ impl QueryTab {
                         )
                         .absolute()
                         .top(px(S3))
+                        .invisible()
+                        .group_hover("st-ddl", |s| s.visible())
                         .right(px(S6))
                         .border_1()
                         .border_color(t.ln)
