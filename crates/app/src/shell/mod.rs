@@ -754,7 +754,10 @@ impl Render for Locus {
                 cx,
             )
         };
-        let work = if self.space().connections.is_empty() {
+        // No connection yet: the welcome card, except over a page tab (Settings, History),
+        // which works without one; the card itself links to Settings.
+        let page_in_front = self.active_tab(cx).read(cx).pageslot.kind.is_some();
+        let work = if self.space().connections.is_empty() && !page_in_front {
             self.render_welcome(cx)
         } else {
             work
