@@ -51,6 +51,7 @@ enum Ctl {
     Material,
     Translucency,
     SpaceTint,
+    GridStripes,
     RowLimit,
     RowsCap,
     PageIdle,
@@ -94,6 +95,12 @@ const DEFS: &[(Cat, &str, &str, Ctl)] = &[
         "shell.space_tint",
         "shell.space_tint_note",
         Ctl::SpaceTint,
+    ),
+    (
+        Cat::Appearance,
+        "settings.stripes",
+        "sp.d_stripes",
+        Ctl::GridStripes,
     ),
     (
         Cat::Editor,
@@ -293,6 +300,23 @@ impl SettingsPage {
                         t!("settings.motion_off").into_owned(),
                         rm,
                         |s: &mut Settings| s.reduce_motion = true
+                    ),
+                ]
+            }
+            Ctl::GridStripes => {
+                let on = s.grid_stripes();
+                vec![
+                    c!(
+                        "stripes-on".into(),
+                        t!("settings.count_on").into_owned(),
+                        on,
+                        |s: &mut Settings| s.grid_stripes = Some(true)
+                    ),
+                    c!(
+                        "stripes-off".into(),
+                        t!("settings.count_off").into_owned(),
+                        !on,
+                        |s: &mut Settings| s.grid_stripes = Some(false)
                     ),
                 ]
             }
@@ -1006,6 +1030,7 @@ mod tests {
             Ctl::Material,
             Ctl::Translucency,
             Ctl::SpaceTint,
+            Ctl::GridStripes,
             Ctl::RowLimit,
             Ctl::RowsCap,
             Ctl::PageIdle,

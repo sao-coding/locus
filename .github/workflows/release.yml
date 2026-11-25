@@ -2,7 +2,8 @@
 # run it by hand (workflow_dispatch) only to retry a release whose tag already exists. Publishes the
 # portable exe locus-<version>-windows-x64.exe (the Oracle helper sidecar.exe is embedded in it),
 # the Inno Setup installer locus-<version>-windows-x64-setup.exe (installer/locus.iss; winget uses
-# it), a .sha256 for each, THIRD_PARTY_LICENSES.md and a build provenance attestation.
+# it), a .sha256 and a minisign .minisig (key: minisign.pub) for each, THIRD_PARTY_LICENSES.md and
+# a build provenance attestation.
 # The test and build jobs run side by side with a read-only token; only the publish job can write
 # to the repo, and it only uploads what the build job made.
 name: release
@@ -144,6 +145,19 @@ jobs:
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: dist/*.exe
+      # minisign signatures (<exe>.minisig) for Locus's updater and for anyone checking a download
+      # against minisign.pub. Only this job sees the key; sign.ps1 fails the release when it is
+      # missing or does not match minisign.pub.
+      - name: install minisign
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends minisign
+          minisign -v
+      - name: sign
+        shell: pwsh
+        env:
+          MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
+        run: ./scripts/ci/sign.ps1 -Dist dist -Version $env:TAG.TrimStart('v')
       # Notes come from .github/release-notes.md + CHANGELOG.md; the virustotal job appends its links.
       - name: release notes
         shell: pwsh
@@ -155,7 +169,7 @@ jobs:
         run: |
           args=()
           case "$TAG" in *-*) args+=(--prerelease) ;; esac
-          gh release create "$TAG" dist/*.exe dist/*.sha256 dist/THIRD_PARTY_LICENSES.md \
+          gh release create "$TAG" dist/*.exe dist/*.sha256 dist/*.minisig dist/THIRD_PARTY_LICENSES.md \
             --verify-tag --title "$TAG" --notes-file notes.md "${args[@]}"
 
   # Scans the published exe (needs the VirusTotal environment, so it lives in its own workflow).

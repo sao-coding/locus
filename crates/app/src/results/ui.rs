@@ -60,8 +60,10 @@ pub struct ResultsUi {
     plan_task: Option<Task<()>>,
     pub filter_input: Entity<InputState>,
     debounce: Option<Task<()>>,
-    /// Width of the strip as last painted (drives the fold / icon-only breakpoints).
+    /// Width of the strip as last painted (drives the icon-only / menu breakpoints).
     pub strip_w: std::rc::Rc<std::cell::Cell<f32>>,
+    /// Width of the area the result tabs share, as last painted.
+    pub tabs_w: std::rc::Rc<std::cell::Cell<f32>>,
     scan: Option<Task<()>>,
     pub timing: Timing,
     _sub: Subscription,
@@ -84,6 +86,7 @@ impl ResultsUi {
             filter_input: input,
             debounce: None,
             strip_w: std::rc::Rc::new(std::cell::Cell::new(800.0)),
+            tabs_w: std::rc::Rc::new(std::cell::Cell::new(400.0)),
             scan: None,
             timing: Timing::default(),
             _sub: sub,
@@ -448,15 +451,26 @@ fn strip_tab(
     id: impl Into<ElementId>,
     label: String,
     count: Option<String>,
+    tip: Option<String>,
+    width: Option<f32>,
+    pad: f32,
+    icon: Option<&'static str>,
     on: bool,
     cx: &App,
 ) -> Stateful<Div> {
+    // An icon-only tab carries its name in the tooltip.
+    let tip = if icon.is_some() {
+        Some(label.clone())
+    } else {
+        tip
+    };
     let t = crate::shell::theme::tokens(cx);
     h_flex()
         .id(id)
         .flex_none()
+        .when_some(width, |d, w| d.w(px(w)))
         .h(px(H_ROW + S2))
-        .px(px(S5))
+        .px(px(pad))
         .gap(px(S3))
         .items_center()
         .whitespace_nowrap()
@@ -469,17 +483,43 @@ fn strip_tab(
         .text_color(if on { t.tx1 } else { t.tx3 })
         .cursor_pointer()
         .when(!on, |d| d.hover(|s| s.text_color(t.tx2)))
-        .when(on, |d| d.border_b_2().border_color(t.acc))
-        .child(label)
-        .when_some(count, |d, c| {
-            d.child(
-                div()
-                    .text_size(px(TX_XS))
-                    .font_weight(FontWeight::NORMAL)
-                    .text_color(t.tx4)
-                    .child(c),
-            )
+        .border_b_2()
+        .border_color(if on { t.acc } else { transparent_black() })
+        .when_some(tip, |d, tip| {
+            d.tooltip(move |w, cx| {
+                gpui_kit::component::tooltip::Tooltip::new(tip.clone()).build(w, cx)
+            })
         })
+        // Label and count share a baseline; the pair is centred in the tab.
+        .child(
+            h_flex()
+                .min_w_0()
+                .when(width.is_some(), |d| d.flex_1())
+                .gap(px(S3))
+                .items_baseline()
+                .when_some(icon, |d, name| {
+                    d.child(crate::shell::icons::icon(name).size(px(14.)).flex_none())
+                })
+                .when(icon.is_none(), |d| {
+                    d.child(
+                        div()
+                            .flex_shrink(1.)
+                            .min_w_0()
+                            .truncate()
+                            .child(label.clone()),
+                    )
+                })
+                .when_some(count, |d, c| {
+                    d.child(
+                        div()
+                            .flex_none()
+                            .text_size(px(TX_XS))
+                            .font_weight(FontWeight::NORMAL)
+                            .text_color(t.tx4)
+                            .child(c),
+                    )
+                }),
+        )
 }
 
 /// A tab of the strip, as data so it can be drawn inline or in the overflow menu.
@@ -492,12 +532,17 @@ enum StripAct {
     Stats,
 }
 
-/// Below this width of the result area the tab strip folds into one tab and a "⋯" menu.
-const STRIP_FOLD_W: f32 = 480.0;
 /// Below this width the toolbar buttons show their icon only (tooltip carries the label).
-/// Tabs ("Data n · Query Plan · Messages") + filter + three labelled buttons need ~800 px:
-/// with the Schema panel open in a 1296 px window the strip is ~730 px and clipped (N1).
-const STRIP_COMPACT_W: f32 = 820.0;
+const STRIP_COMPACT_W: f32 = 1000.0;
+/// Below this width Query Plan, Messages and Statistics show an icon only. As the strip narrows the
+/// order is: those icons, then the filter down to its minimum, then the buttons fold into one
+/// "⋯" menu, and only then the result tabs give way (the active one never below its first
+/// dozen characters and count).
+const STRIP_ICONTABS_W: f32 = 834.0;
+/// Below this width the toolbar buttons collapse into one "⋯" menu.
+const STRIP_MENU_W: f32 = 596.0;
+/// Narrowest the row filter gets.
+const FILTER_MIN_W: f32 = 160.0;
 
 fn pane_footer(text: String, cx: &App) -> impl IntoElement {
     let t = crate::shell::theme::tokens(cx);
@@ -531,8 +576,8 @@ impl QueryTab {
     }
 
     /// The strip: tabs on the left, filter / copy / export / relations on the right.
-    /// Narrow pane: the tabs fold into the active one plus a "⋯" menu, the buttons
-    /// lose their labels, and the filter field is the item that shrinks.
+    /// The result tabs share the left room (`locus_core::tabfit`); the right side keeps its size:
+    /// narrower, the buttons lose their labels, then fold into a "⋯" menu.
     pub fn render_strip(
         &self,
         query_tables: Vec<(Option<String>, String)>,
@@ -541,8 +586,9 @@ impl QueryTab {
         let t = crate::shell::theme::tokens(cx);
         let pane = self.pane();
         let width = self.ui.strip_w.get();
-        let fold = width < STRIP_FOLD_W;
         let compact = width < STRIP_COMPACT_W;
+        let menu = width < STRIP_MENU_W;
+        let icon_tabs = width < STRIP_ICONTABS_W;
         let probe = self.ui.strip_w.clone();
         let me_id = cx.entity_id();
         let mut strip = h_flex()
@@ -551,7 +597,7 @@ impl QueryTab {
             .flex_none()
             .h(px(H_ROW + S2))
             .pl(px(S4))
-            .pr(px(S5))
+            .pr(px(if menu { S3 } else { S5 }))
             .gap_0()
             .items_center()
             .border_b_1()
@@ -561,7 +607,13 @@ impl QueryTab {
                     move |bounds, _, cx| {
                         let w = f32::from(bounds.size.width);
                         let old = probe.get();
-                        let bucket = |w: f32| (w >= STRIP_FOLD_W, w >= STRIP_COMPACT_W);
+                        let bucket = |w: f32| {
+                            (
+                                w >= STRIP_MENU_W,
+                                w >= STRIP_ICONTABS_W,
+                                w >= STRIP_COMPACT_W,
+                            )
+                        };
                         probe.set(w);
                         // Re-render only when a breakpoint is crossed.
                         if bucket(old) != bucket(w) {
@@ -573,23 +625,23 @@ impl QueryTab {
                 .absolute()
                 .size_full(),
             );
-        strip = self.strip_tabs(strip, pane, fold, cx);
-        strip = strip.child(div().flex_1().min_w_0());
-        strip = self.strip_tools(strip, pane, compact, query_tables, cx);
+        strip = self.strip_tabs(strip, pane, icon_tabs, cx);
+        strip = self.strip_tools(strip, pane, compact, menu, query_tables, cx);
         strip.into_any_element()
     }
 
-    /// Result tabs of the strip (Data / Result n, Plan, Messages, Stats); folded into the
-    /// active one plus a "⋯" menu in a narrow pane.
+    /// Left: the result tabs (each shrinks evenly down to 96 px, the rest sit behind a "+n"
+    /// button). Right, never shrinking: Query Plan, Messages and Statistics.
     fn strip_tabs(
         &self,
         mut strip: Stateful<Div>,
         pane: Pane,
-        fold: bool,
+        icon_tabs: bool,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let t = crate::shell::theme::tokens(cx);
         let mut tabs: Vec<(StripAct, String, Option<String>, bool)> = Vec::new();
+        let mut tips: Vec<Option<String>> = Vec::new();
         if self.out.results.is_empty() {
             tabs.push((
                 StripAct::Data,
@@ -597,13 +649,32 @@ impl QueryTab {
                 None,
                 matches!(pane, Pane::NoData),
             ));
+            tips.push(None);
         }
+        let several = self.out.results.len() > 1;
+        let names: Vec<Option<String>> = self.out.results.iter().map(|r| r.name.clone()).collect();
+        let names = if several {
+            db_core::tabname::dedupe(&names)
+        } else {
+            names
+        };
         for (i, r) in self.out.results.iter().enumerate() {
-            let label = if self.out.results.len() == 1 {
+            let label = if !several {
                 t!("rt.data").into_owned()
+            } else if let Some(n) = names[i].clone() {
+                n
             } else {
                 t!("results.result_n", n = (i + 1).to_string()).into_owned()
             };
+            tips.push(Some(if r.tip.is_empty() {
+                label.clone()
+            } else {
+                format!(
+                    "{label}
+{}",
+                    r.tip
+                )
+            }));
             tabs.push((
                 StripAct::Result(i),
                 label,
@@ -634,33 +705,133 @@ impl QueryTab {
             None,
             matches!(pane, Pane::Stats),
         ));
+        tips.resize(tabs.len(), None);
+        let n_left = tabs.len() - 3;
+        let rpad = if icon_tabs { S4 } else { S5 };
+        let right_tabs = tabs.split_off(n_left);
+        let right_tips = tips.split_off(n_left);
         let make_tab = |idx: usize,
                         act: StripAct,
                         label: String,
                         count: Option<String>,
+                        tip: Option<String>,
+                        width: Option<f32>,
+                        pad: f32,
                         on: bool,
                         cx: &mut Context<Self>| {
-            let mut el = strip_tab(("rtab", idx), label, count, on, cx);
+            let icon = (idx >= n_left && icon_tabs).then_some(match act {
+                StripAct::Plan => "explain",
+                StripAct::Messages => "message",
+                _ => "bar-chart",
+            });
+            let mut el = strip_tab(("rtab", idx), label, count, tip, width, pad, icon, on, cx);
             if matches!(act, StripAct::Messages) && errors {
                 el = el.child(div().size(px(S3)).rounded_full().bg(t.red));
             }
             el.on_click(cx.listener(move |this, _, _, cx| this.do_strip_act(act, cx)))
         };
-        if fold {
-            let active = tabs.iter().position(|x| x.3).unwrap_or(0);
-            let (act, label, count, on) = tabs[active].clone();
-            strip = strip.child(make_tab(active, act, label, count, on, cx));
-            let me = cx.entity().downgrade();
-            let items: Vec<(StripAct, String, bool)> =
-                tabs.iter().map(|x| (x.0, x.1.clone(), x.3)).collect();
-            strip = strip.child(
+        // Natural width of a tab: padding, label, gap and count.
+        let natural: Vec<f32> = tabs
+            .iter()
+            .map(|(_, label, count, _)| {
+                2.0 * S5
+                    + locus_core::tabfit::text_w(label)
+                    + count
+                        .as_ref()
+                        .map_or(0.0, |c| S3 + locus_core::tabfit::text_w(c) * 0.85)
+            })
+            .collect();
+        let active_left = tabs.iter().position(|x| x.3);
+        // The active tab never gets less than its first dozen characters and the count.
+        let min_of = |i: usize| {
+            let (_, label, count, _) = &tabs[i];
+            let head: String = label.chars().take(12).collect();
+            2.0 * S5
+                + locus_core::tabfit::text_w(&head)
+                + count
+                    .as_ref()
+                    .map_or(0.0, |c| S3 + locus_core::tabfit::text_w(c) * 0.85)
+        };
+        let active_min = active_left.map_or(0.0, min_of).min(220.0);
+        let fit = locus_core::tabfit::fit(&natural, active_left, active_min, self.ui.tabs_w.get());
+        let me = cx.entity().downgrade();
+        let list = tabs.clone();
+        let mut left = h_flex()
+            .id("rtabs")
+            .relative()
+            .flex_1()
+            .min_w(px(active_min
+                + if n_left > 1 {
+                    locus_core::tabfit::OVERFLOW_W
+                } else {
+                    0.0
+                }))
+            .h(px(H_ROW + S2))
+            .items_center()
+            .overflow_hidden()
+            .child({
+                let probe = self.ui.tabs_w.clone();
+                let me_id = cx.entity_id();
+                canvas(
+                    move |bounds, _, cx| {
+                        let w = f32::from(bounds.size.width);
+                        if (probe.get() - w).abs() >= 1.0 {
+                            probe.set(w);
+                            cx.notify(me_id);
+                        }
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .size_full()
+            });
+        for (idx, w) in fit.visible.iter().copied() {
+            let (act, label, count, on) = tabs[idx].clone();
+            let tip = tips[idx].clone();
+            // Names with a common start are cut in the middle so they stay apart.
+            let label = if tabs
+                .iter()
+                .enumerate()
+                .any(|(j, o)| j != idx && locus_core::tabfit::shares_prefix(&label, &o.1))
+            {
+                let room = w
+                    - 2.0 * S5
+                    - count
+                        .as_ref()
+                        .map_or(0.0, |c| S3 + locus_core::tabfit::text_w(c) * 0.85);
+                locus_core::tabfit::elide_middle(&label, room)
+            } else {
+                label
+            };
+            left = left.child(make_tab(idx, act, label, count, tip, Some(w), S5, on, cx));
+        }
+        if fit.hidden > 0 {
+            left = left.child(
                 Button::new("tabs-more")
                     .ghost()
-                    .icon(crate::shell::icons::icon("more").size(px(14.)))
+                    .xsmall()
+                    .flex_none()
+                    .child(
+                        h_flex()
+                            .items_center()
+                            .gap(px(S2))
+                            .child(
+                                div()
+                                    .relative()
+                                    .top(px(0.75))
+                                    .child(crate::shell::icons::icon("chevron-down").size(px(12.))),
+                            )
+                            .child(div().text_size(px(TX_XS)).child(format!("+{}", fit.hidden))),
+                    )
+                    .tooltip(t!("results.all_results").to_string())
                     .dropdown_menu(move |mut menu, _, _| {
-                        for (act, label, on) in items.clone() {
+                        for (act, label, count, on) in list.clone() {
                             let me = me.clone();
-                            menu = menu.item(PopupMenuItem::new(label).checked(on).on_click(
+                            let text = match count {
+                                Some(c) => format!("{label}  ·  {c}"),
+                                None => label,
+                            };
+                            menu = menu.item(PopupMenuItem::new(text).checked(on).on_click(
                                 move |_, _, cx| {
                                     let _ = me.update(cx, |this, cx| this.do_strip_act(act, cx));
                                 },
@@ -669,10 +840,22 @@ impl QueryTab {
                         menu
                     }),
             );
-        } else {
-            for (idx, (act, label, count, on)) in tabs.into_iter().enumerate() {
-                strip = strip.child(make_tab(idx, act, label, count, on, cx));
-            }
+        }
+        strip = strip.child(left);
+        for (i, ((act, label, count, on), tip)) in
+            right_tabs.into_iter().zip(right_tips).enumerate()
+        {
+            strip = strip.child(make_tab(
+                n_left + i,
+                act,
+                label,
+                count,
+                tip,
+                None,
+                rpad,
+                on,
+                cx,
+            ));
         }
         strip
     }
@@ -683,6 +866,7 @@ impl QueryTab {
         mut strip: Stateful<Div>,
         pane: Pane,
         compact: bool,
+        menu: bool,
         query_tables: Vec<(Option<String>, String)>,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
@@ -699,6 +883,9 @@ impl QueryTab {
             strip = self.strip_filter(strip, cx);
         }
         let single_table = query_tables.clone();
+        if menu {
+            return self.strip_tools_menu(strip, has_data, query_tables, cx);
+        }
         if let Some(tables) = (!query_tables.is_empty() && has_data).then_some(query_tables)
             && let Some(conn) = self.conn_id.clone()
         {
@@ -780,6 +967,94 @@ impl QueryTab {
         strip
     }
 
+    /// The narrow strip: relations, structure, copy and export in one "⋯" menu.
+    fn strip_tools_menu(
+        &self,
+        strip: Stateful<Div>,
+        has_data: bool,
+        query_tables: Vec<(Option<String>, String)>,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        if !has_data {
+            return strip;
+        }
+        let me = cx.entity().downgrade();
+        let conn = self.conn_id.clone();
+        let single = match query_tables.as_slice() {
+            [(schema, table)] => Some((schema.clone().unwrap_or_default(), table.clone())),
+            _ => None,
+        };
+        strip.child(
+            Button::new("tools-more")
+                .ghost()
+                .flex_none()
+                .icon(crate::shell::icons::icon("more").size(px(14.)))
+                .tooltip(t!("results.more_actions").to_string())
+                .dropdown_menu(move |mut menu, _, _| {
+                    if let Some(conn) = conn.clone() {
+                        if !query_tables.is_empty() {
+                            let (me, conn, tables) =
+                                (me.clone(), conn.clone(), query_tables.clone());
+                            menu = menu.item(
+                                PopupMenuItem::new(t!("diagram.relations_button").to_string())
+                                    .on_click(move |_, _, cx| {
+                                        let _ = me.update(cx, |_, cx| {
+                                            cx.emit(
+                                                crate::query::tab::TabEvent::ShowQueryRelations {
+                                                    conn_id: conn.clone(),
+                                                    tables: tables.clone(),
+                                                },
+                                            )
+                                        });
+                                    }),
+                            );
+                        }
+                        if let Some((schema, table)) = single.clone() {
+                            let me = me.clone();
+                            menu = menu.item(
+                                PopupMenuItem::new(t!("structure.button").to_string()).on_click(
+                                    move |_, _, cx| {
+                                        let _ = me.update(cx, |_, cx| {
+                                            cx.emit(crate::query::tab::TabEvent::ShowStructure {
+                                                conn_id: conn.clone(),
+                                                schema: schema.clone(),
+                                                table: table.clone(),
+                                            })
+                                        });
+                                    },
+                                ),
+                            );
+                        }
+                    }
+                    menu = menu.separator();
+                    for (f, key) in [
+                        (Format::Csv, "copy.csv"),
+                        (Format::Json, "copy.json"),
+                        (Format::Insert, "copy.insert"),
+                        (Format::Markdown, "copy.markdown"),
+                        (Format::Tsv, "exp2.copy_tsv"),
+                        (Format::JsonLines, "exp2.copy_jsonl"),
+                        (Format::Html, "exp2.copy_html"),
+                    ] {
+                        let me = me.clone();
+                        menu = menu.item(PopupMenuItem::new(t!(key).to_string()).on_click(
+                            move |_, window, cx| {
+                                let _ = me.update(cx, |this, cx| this.copy_as(f, window, cx));
+                            },
+                        ));
+                    }
+                    let me = me.clone();
+                    menu.separator().item(
+                        PopupMenuItem::new(t!("export.button").to_string()).on_click(
+                            move |_, window, cx| {
+                                let _ = me.update(cx, |this, cx| this.export_current(window, cx));
+                            },
+                        ),
+                    )
+                }),
+        )
+    }
+
     /// Read-only lock (reason in its tooltip) and the row filter field (`.flt`), the item that shrinks.
     fn strip_filter(&self, mut strip: Stateful<Div>, cx: &mut Context<Self>) -> Stateful<Div> {
         let t = crate::shell::theme::tokens(cx);
@@ -811,7 +1086,7 @@ impl QueryTab {
                 .flex_shrink(1.)
                 .h(px(H_COMPACT))
                 .w(px(230.))
-                .min_w(px(120.))
+                .min_w(px(FILTER_MIN_W))
                 .px(px(S4))
                 .mr(px(S4))
                 .gap(px(S3))

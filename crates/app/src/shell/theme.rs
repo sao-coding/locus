@@ -82,6 +82,9 @@ pub struct Tokens {
     pub ed: Hsla,
     pub panel: Hsla,
     pub pop: Hsla,
+    /// Result grid body and the tone of its alternate rows.
+    pub grid: Hsla,
+    pub grid_alt: Hsla,
     pub foot: Hsla,
     /// Ring around the main card, and its drop shadow colour.
     pub ring: Hsla,
@@ -197,6 +200,8 @@ pub static DARK: LazyLock<Tokens> = LazyLock::new(|| {
         ed,
         panel,
         pop,
+        grid: hexa(PD.grid, PD.grid_a),
+        grid_alt: hexa(PD.grid, PD.grid_alt_a),
         foot: hex(0x151311),
         ring: hexa(0xfff4e6, 0.07),
         shadow: hsla(0., 0., 0., 0.25),
@@ -260,6 +265,8 @@ pub static LIGHT: LazyLock<Tokens> = LazyLock::new(|| {
         ed,
         panel,
         pop,
+        grid: hexa(PL.grid, PL.grid_a),
+        grid_alt: hexa(PL.grid, PL.grid_alt_a),
         foot: hex(0xf1ece5),
         ring: hexa(0x3c2814, 0.14),
         shadow: hsla(0., 0., 0., 0.10),
@@ -469,13 +476,13 @@ pub fn apply(font_size: Option<f32>, cx: &mut App) {
         c.list_active_border = t.sel_ring;
         c.list_even = none;
         c.list_head = t.ed;
-        c.table = none;
+        c.table = t.grid;
         c.table_head = t.ed;
         c.table_head_foreground = t.tx2;
         c.table_hover = t.hv;
         c.table_active = t.sel;
         c.table_active_border = t.sel_ring;
-        c.table_even = none;
+        c.table_even = t.grid_alt;
         c.table_row_border = t.ln;
         c.tab_bar = none;
         c.tab = none;

@@ -321,6 +321,8 @@ impl QueryTab {
         cx: &mut Context<Self>,
     ) {
         self.close_open(MsgKind::Rows);
+        let sql = self.stmt_text(self.next_index()).unwrap_or_default();
+        let name = db_core::tabname::result_name(&sql, &cols);
         let tab_weak = cx.entity().downgrade();
         let table = cx.new(|cx| {
             let mut g = ResultGrid::new();
@@ -381,6 +383,8 @@ impl QueryTab {
             table,
             note: None,
             rows: 0,
+            name,
+            tip: db_core::tabname::elide(&sql),
             _sub: sub,
         });
         self.trace.open_stmt = Some(self.out.results.len() - 1);
