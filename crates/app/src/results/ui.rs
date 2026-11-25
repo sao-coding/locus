@@ -107,6 +107,7 @@ pub(crate) fn dialect_of(d: Option<&Arc<locus_core::driver::AnyDriver>>) -> Dial
         Some(locus_core::driver::AnyDriver::Postgres(_)) => Dialect::Postgres,
         Some(locus_core::driver::AnyDriver::Oracle(_)) => Dialect::Oracle,
         Some(locus_core::driver::AnyDriver::Sqlite(_)) => Dialect::Sqlite,
+        Some(locus_core::driver::AnyDriver::SqlServer(_)) => Dialect::SqlServer,
         _ => Dialect::Mysql,
     }
 }

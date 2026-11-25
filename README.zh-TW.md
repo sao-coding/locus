@@ -18,7 +18,7 @@
 
 Windows 上不卡頓的資料庫工具。GPU 繪製、Rust 撰寫、一個小小的執行檔。
 
-Locus 支援 MySQL / MariaDB、PostgreSQL、SQLite、Redis 和 Oracle。查詢還在跑的時候，結果就已經串流進表格；取消查詢會真的讓伺服器停止。
+Locus 支援 MySQL / MariaDB、PostgreSQL、SQLite、Redis、Oracle 和 SQL Server。查詢還在跑的時候，結果就已經串流進表格；取消查詢會真的讓伺服器停止。
 
 <p align="center">
   <picture>
@@ -58,7 +58,7 @@ Locus 支援 MySQL / MariaDB、PostgreSQL、SQLite、Redis 和 Oracle。查詢�
 - 指令面板（`Ctrl+K`）、查詢歷史、亮色 / 暗色 / 跟隨系統主題、English、简体中文與繁體中文
 
 **連線**
-- MySQL / MariaDB、PostgreSQL、SQLite、Redis 由 Rust 直接連線；Oracle 透過一個小型 Go 輔助程式（`sidecar.exe`，已內建於 `locus.exe`）
+- MySQL / MariaDB、PostgreSQL、SQLite、Redis 由 Rust 直接連線；Oracle 和 SQL Server 透過一個小型 Go 輔助程式（`sidecar.exe`，已內建於 `locus.exe`）
 - SSH 通道；密碼存在 Windows 認證管理員
 - Production 保護：預設唯讀、限時解鎖、稽核日誌
 
@@ -106,7 +106,7 @@ Locus 支援 MySQL / MariaDB、PostgreSQL、SQLite、Redis 和 Oracle。查詢�
 
 ## 安裝
 
-到 [Releases](../../releases) 下載：可以執行安裝程式 `locus-<版本>-windows-x64-setup.exe`（裝在目前使用者底下、不需要系統管理員權限，會建立開始功能表捷徑和解除安裝程式），或直接執行可攜版 `locus-<版本>-windows-x64.exe`，單一檔案、不用安裝。已內建 Oracle 支援，不需要額外檔案：第一次連線 Oracle 時，會把一個小型輔助程式解壓縮到 `%LOCALAPPDATA%\Locus\sidecar\`。
+到 [Releases](../../releases) 下載：可以執行安裝程式 `locus-<版本>-windows-x64-setup.exe`（裝在目前使用者底下、不需要系統管理員權限，會建立開始功能表捷徑和解除安裝程式），或直接執行可攜版 `locus-<版本>-windows-x64.exe`，單一檔案、不用安裝。已內建 Oracle 和 SQL Server 支援，不需要額外檔案：第一次連線 Oracle 或 SQL Server 時，會把一個小型輔助程式解壓縮到 `%LOCALAPPDATA%\Locus\sidecar\`。
 
 執行檔尚未簽章，第一次執行時 SmartScreen 可能會警告。驗證下載的檔案：
 
@@ -147,7 +147,7 @@ Locus 大約每天向 GitHub 查一次有沒有新版本（只送出 `User-Agent
 
 **支援哪些 Windows？** 64 位元的 Windows 10 和 11。
 
-**支援哪些資料庫？** MySQL、MariaDB、PostgreSQL、SQLite、Redis 和 Oracle。沒有 ClickHouse、SQL Server 或 MongoDB。
+**支援哪些資料庫？** MySQL、MariaDB、PostgreSQL、SQLite、Redis、Oracle 和 SQL Server。沒有 ClickHouse 或 MongoDB。
 
 **Oracle 要裝 Oracle Client 嗎？** 不用。輔助程式用純 Go 的驅動（[go-ora](https://github.com/sijms/go-ora)），什麼都不必安裝。
 

@@ -24,14 +24,15 @@ pub enum Engine {
 }
 
 impl Engine {
-    /// `None` for SQLite: it has no server and no sessions.
+    /// `None` for SQLite (no server, no sessions) and SQL Server (not built yet).
     pub fn of(kind: DbKind) -> Option<Engine> {
         match kind {
             DbKind::Mysql => Some(Engine::Mysql),
             DbKind::Postgres => Some(Engine::Postgres),
             DbKind::Oracle => Some(Engine::Oracle),
             DbKind::Redis => Some(Engine::Redis),
-            DbKind::Sqlite => None,
+            // SQL Server: no activity view yet.
+            DbKind::Sqlite | DbKind::SqlServer => None,
         }
     }
 

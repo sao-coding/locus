@@ -25,6 +25,8 @@ fn dialects(kind: DbKind) -> (db_core::sql::SqlDialect, Dialect) {
         DbKind::Postgres => (S::Postgres, Dialect::Postgres),
         DbKind::Oracle => (S::Oracle, Dialect::Oracle),
         DbKind::Sqlite => (S::Sqlite, Dialect::Sqlite),
+        // T-SQL lexes like SQLite here: no `#` comments, no `` escapes.
+        DbKind::SqlServer => (S::Sqlite, Dialect::SqlServer),
         _ => (S::Mysql, Dialect::Mysql),
     }
 }

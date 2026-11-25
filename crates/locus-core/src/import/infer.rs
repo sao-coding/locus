@@ -54,11 +54,13 @@ impl ColType {
             (Bool, Engine::Postgres) => "BOOLEAN".into(),
             (Bool, Engine::Sqlite) => "INTEGER".into(),
             (Bool, Engine::Oracle) => "NUMBER(1)".into(),
+            (Bool, Engine::SqlServer) => "BIT".into(),
             (Date, Engine::Sqlite) => "TEXT".into(),
             (Date, _) => "DATE".into(),
             (DateTime, Engine::Mysql) => "DATETIME".into(),
             (DateTime, Engine::Postgres) | (DateTime, Engine::Oracle) => "TIMESTAMP".into(),
             (DateTime, Engine::Sqlite) => "TEXT".into(),
+            (DateTime, Engine::SqlServer) => "DATETIME2".into(),
             (Text { max_len }, e) => text_type(*max_len, e),
         }
     }
@@ -80,6 +82,10 @@ fn text_type(max_len: u32, e: Engine) -> String {
             101..=1000 => "VARCHAR2(1000 CHAR)".into(),
             1001..=1300 => "VARCHAR2(1300 CHAR)".into(),
             _ => "CLOB".into(),
+        },
+        Engine::SqlServer => match want {
+            0..=4000 => format!("NVARCHAR({})", want.clamp(255, 4000)),
+            _ => "NVARCHAR(MAX)".into(),
         },
     }
 }

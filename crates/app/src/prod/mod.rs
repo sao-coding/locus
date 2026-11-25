@@ -54,6 +54,7 @@ fn engine_label(kind: DbKind) -> &'static str {
         DbKind::Mysql => "MySQL / MariaDB",
         DbKind::Postgres => "PostgreSQL",
         DbKind::Oracle => "Oracle",
+        DbKind::SqlServer => "SQL Server",
         DbKind::Sqlite => "SQLite",
         DbKind::Redis => "Redis",
     }

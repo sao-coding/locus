@@ -11,6 +11,7 @@
 //! | PostgreSQL | `$1`, `:name` (`?` is a jsonb operator there) |
 //! | Oracle | `:name`, `:1`, `&name` / `&&name` (a PL/SQL block is left alone) |
 //! | SQLite | `?`, `?NNN`, `:name`, `@name`, `$name` |
+//! | SQL Server | `?`, `:name` (`@name` is a T-SQL variable, not a parameter) |
 //!
 //! `@name` is a user variable on MySQL, so it is only a parameter on SQLite.
 //! Strings, quoted identifiers, comments, dollar quotes, `::` casts and `:=`
@@ -97,7 +98,7 @@ pub fn detect(sql: &str, kind: DbKind) -> Vec<Placeholder> {
             b'\'' => i = skip_quoted(b, i, b'\'', mysql),
             b'"' => i = skip_quoted(b, i, b'"', mysql),
             b'`' if mysql || kind == DbKind::Sqlite => i = skip_quoted(b, i, b'`', false),
-            b'[' if kind == DbKind::Sqlite => {
+            b'[' if matches!(kind, DbKind::Sqlite | DbKind::SqlServer) => {
                 i = b[i..]
                     .iter()
                     .position(|x| *x == b']')
@@ -158,7 +159,7 @@ pub fn detect(sql: &str, kind: DbKind) -> Vec<Placeholder> {
                     i += 1;
                 }
             }
-            b'?' if mysql || kind == DbKind::Sqlite => {
+            b'?' if mysql || matches!(kind, DbKind::Sqlite | DbKind::SqlServer) => {
                 let mut j = i + 1;
                 if kind == DbKind::Sqlite {
                     while j < b.len() && b[j].is_ascii_digit() {
@@ -340,6 +341,16 @@ mod tests {
 
     fn n(sql: &str, k: DbKind) -> Vec<String> {
         detect(sql, k).into_iter().map(|p| p.name).collect()
+    }
+
+    #[test]
+    fn sqlserver_placeholders() {
+        let k = DbKind::SqlServer;
+        assert_eq!(
+            n("select * from [a?b] where x = ? and y = :y", k),
+            ["?1", "y"]
+        );
+        assert!(n("declare @x int = 1; select @x from #t", k).is_empty());
     }
 
     #[test]

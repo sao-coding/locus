@@ -452,11 +452,12 @@ impl Driver for SidecarDriver {
     }
 }
 
-/// Identifier quoting by database: MySQL backticks, Oracle (and anything
-/// else) double quotes.
+/// Identifier quoting by database: MySQL backticks, SQL Server brackets,
+/// Oracle (and anything else) double quotes.
 fn quote(driver: &str, name: &str) -> String {
     match driver {
         "mysql" => format!("`{}`", name.replace('`', "``")),
+        "mssql" => format!("[{}]", name.replace(']', "]]")),
         _ => format!("\"{}\"", name.replace('"', "\"\"")),
     }
 }

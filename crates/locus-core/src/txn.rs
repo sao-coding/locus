@@ -41,6 +41,7 @@ pub enum Engine {
     Postgres,
     Sqlite,
     Oracle,
+    SqlServer,
 }
 
 impl Engine {
@@ -50,6 +51,7 @@ impl Engine {
             AnyDriver::Postgres(_) => Engine::Postgres,
             AnyDriver::Sqlite(_) => Engine::Sqlite,
             AnyDriver::Oracle(_) => Engine::Oracle,
+            AnyDriver::SqlServer(_) => Engine::SqlServer,
         }
     }
 
@@ -64,7 +66,8 @@ impl Engine {
                     )
             }
             Engine::Oracle => matches!(c.kind, StatementKind::Ddl | StatementKind::Grant),
-            Engine::Postgres | Engine::Sqlite => false,
+            // SQL Server: DDL is transactional.
+            Engine::Postgres | Engine::Sqlite | Engine::SqlServer => false,
         }
     }
 }
@@ -216,6 +219,11 @@ impl TxState {
                 self.end(Some(Ended::ServerRollback));
                 Effect::RolledBack
             }
+            // Deadlock victim: SQL Server rolled the transaction back.
+            Engine::SqlServer if e.code == Some(1205) => {
+                self.end(Some(Ended::ServerRollback));
+                Effect::RolledBack
+            }
             _ => Effect::StatementUndone,
         }
     }
@@ -256,6 +264,17 @@ impl TxState {
         if self.open {
             self.end(Some(Ended::Lost));
             Effect::Lost
+        } else {
+            Effect::None
+        }
+    }
+
+    /// The server ended the transaction on its own (found after the fact,
+    /// e.g. SQL Server's `@@TRANCOUNT` is 0 after a cancel).
+    pub fn server_rolled_back(&mut self) -> Effect {
+        if self.open {
+            self.end(Some(Ended::ServerRollback));
+            Effect::RolledBack
         } else {
             Effect::None
         }
@@ -331,7 +350,38 @@ impl TxSession {
     }
 
     pub async fn begin(&self) -> Result<(), DbError> {
-        control(&*self.driver, BEGIN).await
+        let sql = match self.engine {
+            Engine::SqlServer => "BEGIN TRANSACTION",
+            _ => BEGIN,
+        };
+        control(&*self.driver, sql).await
+    }
+
+    /// SQL Server only: whether the session still has a transaction open
+    /// (`@@TRANCOUNT > 0`). A cancel or an error can end it on the server
+    /// (`XACT_ABORT ON`, deadlock, severe errors). `None` for other engines
+    /// or when the check itself fails.
+    pub async fn still_open(&self) -> Option<bool> {
+        if self.engine != Engine::SqlServer {
+            return None;
+        }
+        let mut h = self
+            .driver
+            .query("SELECT @@TRANCOUNT".into(), QueryOptions::default());
+        let mut n = None;
+        while let Some(ev) = h.next().await {
+            match ev {
+                QueryEvent::Batch(b) if b.rows() > 0 => {
+                    if let db_core::Cell::Text(t) = b.cell(0, 0) {
+                        n = t.trim().parse::<u32>().ok();
+                    }
+                }
+                QueryEvent::Finished(Outcome::Done { .. }) => return n.map(|n| n > 0),
+                QueryEvent::Finished(_) => return None,
+                _ => {}
+            }
+        }
+        None
     }
 
     pub async fn commit(&self) -> Result<(), DbError> {

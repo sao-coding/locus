@@ -15208,10 +15208,17 @@ the following restrictions:
 ```
 
 
-## Go sidecar (Oracle, MySQL helpers)
+## Go sidecar (Oracle, SQL Server, MySQL helpers)
 
 - github.com/go-sql-driver/mysql: MPL-2.0 (https://github.com/go-sql-driver/mysql/blob/master/LICENSE)
 - github.com/sijms/go-ora/v2: MIT (https://github.com/sijms/go-ora/blob/master/LICENSE)
+- github.com/microsoft/go-mssqldb: BSD-3-Clause (https://github.com/microsoft/go-mssqldb/blob/main/LICENSE.txt)
+- github.com/golang-sql/civil: Apache-2.0 (https://github.com/golang-sql/civil/blob/master/LICENSE)
+- github.com/golang-sql/sqlexp: BSD-3-Clause (https://github.com/golang-sql/sqlexp/blob/master/LICENSE)
+- github.com/google/uuid: BSD-3-Clause (https://github.com/google/uuid/blob/master/LICENSE)
+- github.com/shopspring/decimal: MIT (https://github.com/shopspring/decimal/blob/master/LICENSE)
+- golang.org/x/crypto: BSD-3-Clause (https://cs.opensource.google/go/x/crypto/+/master:LICENSE)
+- golang.org/x/text: BSD-3-Clause (https://cs.opensource.google/go/x/text/+/master:LICENSE)
 - filippo.io/edwards25519: BSD-3-Clause (https://github.com/FiloSottile/edwards25519/blob/main/LICENSE)
 
 ## Icons
