@@ -67,6 +67,11 @@ enum Ctl {
     UpdateCheck,
     UpdateDownload,
     UpdateBeta,
+    ParamEnabled,
+    ParamColon,
+    ParamAt,
+    ParamDollar,
+    ParamAnon,
 }
 
 impl Ctl {
@@ -84,6 +89,11 @@ impl Ctl {
                 | Ctl::UpdateCheck
                 | Ctl::UpdateDownload
                 | Ctl::UpdateBeta
+                | Ctl::ParamEnabled
+                | Ctl::ParamColon
+                | Ctl::ParamAt
+                | Ctl::ParamDollar
+                | Ctl::ParamAnon
         )
     }
 }
@@ -149,6 +159,31 @@ const DEFS: &[(Cat, &str, &str, Ctl)] = &[
         Ctl::PageIdle,
     ),
     (Cat::Queries, "settings.count", "sp.d_count", Ctl::Count),
+    (
+        Cat::Queries,
+        "sp.param_enabled",
+        "sp.d_param_enabled",
+        Ctl::ParamEnabled,
+    ),
+    (
+        Cat::Queries,
+        "sp.param_colon",
+        "sp.d_param_colon",
+        Ctl::ParamColon,
+    ),
+    (Cat::Queries, "sp.param_at", "sp.d_param_at", Ctl::ParamAt),
+    (
+        Cat::Queries,
+        "sp.param_dollar",
+        "sp.d_param_dollar",
+        Ctl::ParamDollar,
+    ),
+    (
+        Cat::Queries,
+        "sp.param_anon",
+        "sp.d_param_anon",
+        Ctl::ParamAnon,
+    ),
     (
         Cat::Queries,
         "settings.auto_plan",
@@ -248,6 +283,24 @@ impl SettingsPage {
             lang: None,
             apply: Rc::new(f),
         }
+    }
+
+    /// The [on, off] pair of a switch whose setting stores a plain bool.
+    fn on_off(id: &str, on: bool, set: fn(&mut Settings, bool)) -> Vec<Choice> {
+        vec![
+            Self::choice(
+                format!("{id}-on"),
+                t!("settings.count_on").into_owned(),
+                on,
+                move |s| set(s, true),
+            ),
+            Self::choice(
+                format!("{id}-off"),
+                t!("settings.count_off").into_owned(),
+                !on,
+                move |s| set(s, false),
+            ),
+        ]
     }
 
     fn choices(&self, ctl: Ctl) -> Vec<Choice> {
@@ -497,6 +550,19 @@ impl SettingsPage {
                         |s: &mut Settings| s.update_beta = Some(false)
                     ),
                 ]
+            }
+            Ctl::ParamEnabled => Self::on_off("pe", s.param_opts().enabled, |s, v| {
+                s.param_enabled = Some(v)
+            }),
+            Ctl::ParamColon => {
+                Self::on_off("pc", s.param_opts().colon, |s, v| s.param_colon = Some(v))
+            }
+            Ctl::ParamAt => Self::on_off("pa", s.param_opts().at, |s, v| s.param_at = Some(v)),
+            Ctl::ParamDollar => {
+                Self::on_off("pd", s.param_opts().dollar, |s, v| s.param_dollar = Some(v))
+            }
+            Ctl::ParamAnon => {
+                Self::on_off("pq", s.param_opts().anon, |s, v| s.param_anon = Some(v))
             }
             Ctl::Count => {
                 let nc = s.no_count;

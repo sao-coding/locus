@@ -112,6 +112,7 @@ commands!(
     TxMode,
     SaveQuery,
     OpenSaved,
+    ShowVariables,
 );
 
 fn space_action(i: usize) -> Box<dyn Action> {

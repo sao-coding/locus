@@ -255,6 +255,35 @@ impl QueryTab {
             .p(px(sc::S4))
             .gap(px(sc::S2))
             .overflow_y_scroll();
+        for (i, text) in self.out.echoes.iter().enumerate() {
+            list = list.child(
+                h_flex()
+                    .id(("echo", i))
+                    .gap(px(sc::S4))
+                    .items_start()
+                    .px(px(sc::S4))
+                    .py(px(sc::S2))
+                    .rounded_md()
+                    .bg(theme.muted.opacity(0.4))
+                    .text_size(px(sc::TX_BASE))
+                    .child(
+                        div()
+                            .flex_none()
+                            .h(px(sc::H_ROW))
+                            .flex()
+                            .items_center()
+                            .child(Icon::new(IconName::Info).small().text_color(tk.tx3)),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .whitespace_normal()
+                            .py(px(sc::S1))
+                            .child(text.clone()),
+                    ),
+            );
+        }
         for m in &self.out.messages {
             let (icon, color, text, detail) = match &m.kind {
                 MsgKind::Rows(n) => (

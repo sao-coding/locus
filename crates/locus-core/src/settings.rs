@@ -69,6 +69,21 @@ pub struct Settings {
     /// Offer test versions (RCs) too; missing = whether this build is one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub update_beta: Option<bool>,
+    /// Parameters (`:name`, `?`, ...) ask for values before a run (default on).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub param_enabled: Option<bool>,
+    /// `:name` is a parameter (default on).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub param_colon: Option<bool>,
+    /// `@name` is a parameter on the engines where it is not native (default off).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub param_at: Option<bool>,
+    /// `$name` is a parameter on the engines where it is not native (default off).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub param_dollar: Option<bool>,
+    /// Anonymous `?` is a parameter (default on).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub param_anon: Option<bool>,
 }
 
 impl Settings {
@@ -86,6 +101,19 @@ impl Settings {
     pub fn update_beta(&self) -> bool {
         self.update_beta
             .unwrap_or_else(crate::update::current_is_prerelease)
+    }
+}
+
+impl Settings {
+    /// Which placeholder styles count (Settings › Queries).
+    pub fn param_opts(&self) -> crate::params::ParamOpts {
+        crate::params::ParamOpts {
+            enabled: self.param_enabled.unwrap_or(true),
+            colon: self.param_colon.unwrap_or(true),
+            at: self.param_at.unwrap_or(false),
+            dollar: self.param_dollar.unwrap_or(false),
+            anon: self.param_anon.unwrap_or(true),
+        }
     }
 }
 

@@ -91,6 +91,15 @@ pub fn split_statements(sql: &str) -> Vec<Range<usize>> {
             i = line_end;
             continue;
         }
+        // A client command (`@set`, `@unset`, `@echo`) is one line and one
+        // statement of its own; the client handles it (see `locus_core::vars`).
+        if !has_code && c == b'@' && is_client_cmd(b, i) {
+            let line_end = sql[i..].find('\n').map_or(n, |p| i + p);
+            emit(sql, i, line_end, &mut out);
+            start = None;
+            i = line_end;
+            continue;
+        }
         if start.is_none() {
             start = Some(i);
         }
@@ -166,6 +175,34 @@ fn is_delimiter_cmd(b: &[u8], i: usize) -> bool {
         }
     }
     true
+}
+
+/// `@set` / `@unset` / `@echo` at `i` (DBeaver-style client commands), preceded
+/// on its line only by blanks and followed by a blank or the end of the line.
+fn is_client_cmd(b: &[u8], i: usize) -> bool {
+    let Some(len) = client_command_len(&b[i..]) else {
+        return false;
+    };
+    if b.get(i + len).is_some_and(|x| !x.is_ascii_whitespace()) {
+        return false;
+    }
+    let mut j = i;
+    while j > 0 {
+        match b[j - 1] {
+            b'\n' => return true,
+            b' ' | b'\t' | b'\r' => j -= 1,
+            _ => return false,
+        }
+    }
+    true
+}
+
+/// Length of a leading `@set`, `@unset` or `@echo` (any case), if there is one.
+fn client_command_len(b: &[u8]) -> Option<usize> {
+    [&b"@unset"[..], b"@set", b"@echo"]
+        .into_iter()
+        .find(|w| b.len() >= w.len() && b[..w.len()].eq_ignore_ascii_case(w))
+        .map(|w| w.len())
 }
 
 fn is_word_start(c: u8) -> bool {
@@ -1091,5 +1128,29 @@ mod tests {
             select_body("select * from t for update", SqlDialect::Postgres),
             None
         );
+    }
+
+    #[test]
+    fn client_commands_are_lines_of_their_own() {
+        assert_eq!(
+            parts("@set a = 1\nselect ${a}"),
+            ["@set a = 1", "select ${a}"]
+        );
+        assert_eq!(
+            parts("-- c\n  @SET a = 1; 2\n@echo hi there\n@unset a\nselect 1;\nselect 2"),
+            [
+                "@SET a = 1; 2",
+                "@echo hi there",
+                "@unset a",
+                "select 1",
+                "select 2"
+            ]
+        );
+        // Not at a statement start, or not a command word: ordinary text.
+        assert_eq!(parts("select 1\n@set a = 1"), ["select 1\n@set a = 1"]);
+        assert_eq!(parts("@settings x\nselect 1"), ["@settings x\nselect 1"]);
+        assert_eq!(parts("select '@set a'"), ["select '@set a'"]);
+        // `@set` with nothing after it still counts as a command line.
+        assert_eq!(parts("@echo\nselect 1"), ["@echo", "select 1"]);
     }
 }

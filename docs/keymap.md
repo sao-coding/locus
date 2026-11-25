@@ -117,3 +117,4 @@ Generated from the action list
 | `locus::Unsplit` | (palette only) | `Workspace` |
 | `locus::SaveQuery` | (palette only) | `Workspace` |
 | `locus::OpenSaved` | (palette only) | `Workspace` |
+| `locus::ShowVariables` | (palette only) | `Workspace` |

@@ -59,6 +59,7 @@ pub(crate) const ACTIONS: &[(Shortcut, &str)] = &[
     (Shortcut::Settings, "actions.settings"),
     (Shortcut::SaveQuery, "sq.act_save"),
     (Shortcut::OpenSaved, "sq.act_open"),
+    (Shortcut::ShowVariables, "vars.act_show"),
 ];
 
 /// What Enter does with an entry.

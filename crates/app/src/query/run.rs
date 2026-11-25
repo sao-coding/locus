@@ -56,27 +56,118 @@ impl Locus {
         if tab.read(cx).busy(cx) || tab.read(cx).ap.applying || sql.trim().is_empty() {
             return;
         }
-        // Placeholders (`:name`, `?`, `$1`, ...) ask for values first.
-        let phs = locus_core::params::detect(&sql, conn.kind);
-        if !phs.is_empty() {
-            if stmts.len() > 1 {
+        self.run_prepared(tab, conn, sql, stmts, None, window, cx);
+    }
+
+    /// The run after the script is picked: client commands (`@set`, `@unset`,
+    /// `@echo`) and `${var}` text substitution first, then `:name` placeholders
+    /// (bound, never pasted). What the Production gate, the audit and the driver
+    /// see is the statement after the substitution.
+    ///
+    /// `given` is the Run dialog's answer: parameter values by name, and no
+    /// dialog again. Without it, an undefined `${var}` or a placeholder opens the dialog.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn run_prepared(
+        &mut self,
+        tab: Entity<QueryTab>,
+        conn: SavedConnection,
+        raw: String,
+        raw_stmts: Vec<String>,
+        given: Option<std::collections::HashMap<String, locus_core::params::ParamValue>>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        use locus_core::{params, vars};
+        let prep = vars::prepare(&raw, &tab.read(cx).bind.vars);
+        // `@set` / `@unset` stay for the tab, even when the run is not sent.
+        tab.update(cx, |t, _| {
+            t.bind.vars = prep.vars.clone();
+            t.completion.lock().vars = prep.vars.keys().cloned().collect();
+            t.bind.echoes.clear();
+        });
+        if !prep.errors.is_empty() {
+            crate::shell::toast::show(
+                t!("vars.bad_command", line = prep.errors[0].as_str()).to_string(),
+                cx,
+            );
+            return;
+        }
+        let sql = prep.sql.clone();
+        if sql.trim().is_empty() {
+            // Only commands: nothing to send; `@echo` shows in Messages.
+            if prep.had_commands {
+                tab.update(cx, |t, cx| {
+                    t.out.echoes = prep.echoes.clone();
+                    t.out.active = t.out.results.len();
+                    cx.notify();
+                });
+                crate::shell::toast::show(t!("vars.done", n = prep.vars.len()).to_string(), cx);
+            }
+            return;
+        }
+        // The statements of the picked text without the command lines.
+        let stmts = if raw_stmts.is_empty() {
+            Vec::new()
+        } else if prep.had_commands || prep.sql != raw {
+            db_core::sql::split_statements(&sql)
+                .into_iter()
+                .map(|r| sql[r].to_string())
+                .collect()
+        } else {
+            raw_stmts.clone()
+        };
+        let opts = crate::settings::get(cx).param_opts();
+        let phs = params::detect_with(&sql, conn.kind, &opts);
+        if given.is_none() && (!phs.is_empty() || !prep.undefined.is_empty()) {
+            if !phs.is_empty() && stmts.len() > 1 {
                 crate::shell::toast::show(t!("qp.one_statement").to_string(), cx);
                 return;
             }
-            self.open_params(tab, conn, sql, phs, window, cx);
+            self.open_params(tab, conn, raw, raw_stmts, phs, prep.undefined, window, cx);
             return;
         }
-        self.gate_run(
-            tab,
-            conn,
-            sql.clone(),
-            sql,
-            stmts,
-            Vec::new(),
-            Vec::new(),
-            window,
-            cx,
-        );
+        let echoes = prep.echoes;
+        match given {
+            Some(values) if !phs.is_empty() => {
+                if stmts.len() > 1 {
+                    crate::shell::toast::show(t!("qp.one_statement").to_string(), cx);
+                    return;
+                }
+                let (send, bound) = params::bind(&sql, &phs, &values);
+                let written = params::names(&phs)
+                    .iter()
+                    .filter_map(|n| {
+                        values
+                            .get(n)
+                            .map(|v| locus_core::history::HistParam::from_value(n, v))
+                    })
+                    .collect();
+                self.gate_run(
+                    tab,
+                    conn,
+                    sql,
+                    send,
+                    Vec::new(),
+                    bound,
+                    written,
+                    echoes,
+                    window,
+                    cx,
+                );
+            }
+            _ => self.gate_run(
+                tab,
+                conn,
+                sql.clone(),
+                sql,
+                stmts,
+                Vec::new(),
+                Vec::new(),
+                echoes,
+                window,
+                cx,
+            ),
+        }
     }
 
     /// Every run goes through the Production gate (lock, confirmation, audit).
@@ -92,6 +183,7 @@ impl Locus {
         stmts: Vec<String>,
         bound: Vec<db_core::Param>,
         written: Vec<locus_core::history::HistParam>,
+        echoes: Vec<String>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -101,6 +193,7 @@ impl Locus {
             std::rc::Rc::new(move |wb, window, cx| {
                 tab.update(cx, |t, _| {
                     t.bind.bound = bound.clone();
+                    t.bind.echoes = echoes.clone();
                     t.bind.hist_written =
                         (!written.is_empty()).then(|| (shown.clone(), written.clone()));
                 });
@@ -249,6 +342,7 @@ impl Locus {
         let slot = conn.as_ref().map(|c| self.pool.slot(c));
         *tab.read(cx).completion.lock() = crate::query::completion::Target {
             conn_id: conn,
+            vars: tab.read(cx).bind.vars.keys().cloned().collect(),
             slot,
         };
     }

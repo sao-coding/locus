@@ -48,6 +48,7 @@ impl QueryTab {
             return;
         }
         self.begin_run(&sql, stmts, &conn, &slot, window, cx);
+        self.out.echoes = std::mem::take(&mut self.bind.echoes);
         let password = match password {
             Ok(p) => p,
             Err(e) => {
@@ -186,6 +187,7 @@ impl QueryTab {
         self.out.results.clear();
         self.ui_on_run(window, cx);
         self.out.messages.clear();
+        self.out.echoes.clear();
         self.out.active = 0;
         self.trace.stmts = stmts;
         self.trace.open_stmt = None;

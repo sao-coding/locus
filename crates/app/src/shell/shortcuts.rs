@@ -59,6 +59,8 @@ pub(crate) enum Shortcut {
     TxMode,
     /// Palette: save the editor text (or selection) as a saved query.
     SaveQuery,
+    /// Palette: the client-side variables of the tab (`@set`, `${name}`).
+    ShowVariables,
     /// Palette: the Saved tab (queries and snippets).
     OpenSaved,
 }
@@ -244,6 +246,7 @@ impl Locus {
             Shortcut::TxMode => self.tx_toggle_mode(window, cx),
             Shortcut::SaveQuery => self.save_query_dialog(window, cx),
             Shortcut::OpenSaved => self.open_saved(window, cx),
+            Shortcut::ShowVariables => self.show_variables(window, cx),
         }
         cx.notify();
         true

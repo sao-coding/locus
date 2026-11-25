@@ -627,6 +627,16 @@ sp:
   d_idle: 分頁查詢會佔著伺服器游標，閒置這麼久後釋放。
   d_auto_plan: 單句 SELECT 執行完後，在背景跑一般 EXPLAIN（不會用 ANALYZE），計畫分頁就會有內容。僅限 MySQL 與 PostgreSQL。
   d_count: 在背景計算分頁 SELECT 的總列數，顯示「共 N 列」。
+  param_enabled: "查詢參數"
+  d_param_enabled: "執行含參數（:name、? 等）的陳述式前先詢問值。關閉：陳述式照原樣送出。"
+  param_colon: "參數前綴  :name"
+  d_param_colon: "冒號後接名稱（如 :id）視為參數。"
+  param_at: "參數前綴  @name"
+  d_param_at: "也將 @name 視為參數。MySQL / MariaDB 與 SQL Server：同一份指令碼用 SET @x =、@x :=、INTO @x、DECLARE @x 設定或宣告的 @name 仍是工作階段變數。PostgreSQL：只有 @ 後面緊接名稱才算，運算子「@ x」不算。Oracle：行首的 @檔案 是指令碼呼叫。SQLite 一律把 @name 視為參數。"
+  param_dollar: "參數前綴  $name"
+  d_param_dollar: "也將 $name 視為參數。PostgreSQL 的 $1 與 $tag$ 引號維持原意。SQLite 一律把 $name 視為參數。"
+  param_anon: "匿名參數  ?"
+  d_param_anon: "? 視為參數（MySQL、SQLite、SQL Server）。PostgreSQL 的 ? 是運算子，不算參數。"
   no_match: "沒有符合「%{q}」的設定"
   k_space: 切換 Space
   k_copy: 複製選取的儲存格
@@ -1089,7 +1099,10 @@ act:
   oracle_type: "請輸入 %{name} 以確認。階段會立刻在伺服器上結束。"
 qp:
   title: 查詢參數
-  hint: "參數值以繫結參數送出，不會貼進 SQL 文字。按 Enter 執行。"
+  hint: "參數值以繫結值送出，不會貼進 SQL 文字。"
+  hint_vars: "變數 ${name} 會以文字貼進 SQL，並保留在此分頁。按 Enter 執行，按 Esc 取消。"
+  kind_var: 變數
+  kind_param: 參數
   run: 執行
   one_statement: 參數一次只能搭配一個陳述式。請選取單一陳述式後再執行。
   type_tip: "點一下切換類型：文字、數字、日期、NULL"
@@ -1295,3 +1308,14 @@ upd:
   not_ready: "更新尚未下載完成。"
   cannot_write: "Locus 無法在這個資料夾中取代自己（%{msg}）。請從發行頁面下載新版本。"
   updated: "已更新到 Locus %{v}。"
+vars:
+  act_show: "顯示變數"
+  title: "變數"
+  hint: "變數是文字：陳述式中的 ${name} 會在檢查與執行前換成其值。用 @set name = value 定義。"
+  empty: "尚無變數。在編輯器寫下 @set name = value 並執行。"
+  new_name: "新名稱"
+  new_value: "值"
+  delete: "刪除變數"
+  bad_name: "變數名稱只能含字母、數字與 _。"
+  bad_command: "不是有效的指令：%{line}"
+  done: "變數：此分頁已定義 %{n} 個。"
