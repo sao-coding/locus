@@ -26,7 +26,7 @@ snapshot and a fresh resolve breaks the build.
 cargo fmt --all; cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-Record user-visible changes with `knope document-change` (`patch` fix, `minor` feature, `major` breaking; while 0.x, `minor` may break things).
+Record user-visible changes with `knope document-change` (`patch` fix, `minor` feature, `major` breaking; while 0.x, `minor` may break things; a `minor` changeset bumps 0.x.y to 0.(x+1).0, which version.yml asks knope for, since knope alone would bump only the patch).
 
 ## Releasing
 

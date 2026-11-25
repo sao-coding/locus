@@ -58,7 +58,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B release
-          knope prepare-release
+          # Knope treats `minor` as a patch bump while the version is 0.x (0.1.2 -> 0.1.3); here a
+          # minor changeset (a feature) bumps the minor version (0.1.2 -> 0.2.0) as it would from 1.0.
+          args=()
+          cur=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          IFS=. read -r major minor _ <<< "${cur%%-*}"
+          if [ "$major" = 0 ] && grep -qlE '^default:[[:space:]]*minor' .changeset/*.md; then
+            args=(--override-version "0.$((minor + 1)).0")
+          fi
+          knope prepare-release "${args[@]}"
           # knope bumps Cargo.toml only; release.yml builds with --locked, so Cargo.lock must follow.
           cargo update --workspace
           git add Cargo.lock
