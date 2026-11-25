@@ -28,6 +28,24 @@ space:
   name: 名稱
   icon: 圖示
   icon_none: 顏色圓點
+  icons:
+    folder: 資料夾
+    star: 星號
+    heart: 愛心
+    globe: 地球
+    drive: 硬碟
+    inbox: 收件匣
+    dashboard: 儀表板
+    book: 書本
+    bot: 機器人
+    building: 大樓
+    calendar: 日曆
+    cpu: 處理器
+    network: 網路
+    terminal: 終端機
+    bell: 鈴鐺
+    map: 地圖
+    palette: 調色盤
   colors:
     p0: 淡粉紅
     p1: 玫瑰

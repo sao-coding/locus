@@ -28,6 +28,24 @@ space:
   name: 名称
   icon: 图标
   icon_none: 颜色圆点
+  icons:
+    folder: 文件夹
+    star: 星标
+    heart: 爱心
+    globe: 地球
+    drive: 硬盘
+    inbox: 收件箱
+    dashboard: 仪表盘
+    book: 书本
+    bot: 机器人
+    building: 大楼
+    calendar: 日历
+    cpu: 处理器
+    network: 网络
+    terminal: 终端
+    bell: 铃铛
+    map: 地图
+    palette: 调色板
   colors:
     p0: 淡粉红
     p1: 玫瑰

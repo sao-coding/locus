@@ -16,6 +16,19 @@ macro_rules! glyphs {
 
 const GLYPHS: &[(&str, &str)] = glyphs![
     "analysis",
+    "database",
+    "layers",
+    "eye",
+    "table-properties",
+    "list-ordered",
+    "square-function",
+    "workflow",
+    "zap",
+    "shapes",
+    "puzzle",
+    "users",
+    "package",
+    "calendar-clock",
     "bar-chart",
     "message",
     "caret-down",
@@ -74,6 +87,32 @@ const GLYPHS: &[(&str, &str)] = glyphs![
     "warn",
     "x",
 ];
+
+/// The glyph of a database object kind: group folders, leaf rows and palette results.
+pub fn object_glyph(kind: db_core::DbObjectKind) -> &'static str {
+    use db_core::DbObjectKind as K;
+    match kind {
+        K::Table => "table",
+        K::View => "eye",
+        K::MaterializedView => "table-properties",
+        K::Index => "key-round",
+        K::Sequence => "list-ordered",
+        K::Function => "square-function",
+        K::Procedure => "workflow",
+        K::Package => "package",
+        K::Trigger => "zap",
+        K::Event => "calendar-clock",
+        K::Synonym => "link",
+        K::Type => "shapes",
+        K::Extension => "puzzle",
+        _ => "script",
+    }
+}
+
+/// [`object_glyph`] as an icon.
+pub fn object_icon(kind: db_core::DbObjectKind) -> Icon {
+    icon(object_glyph(kind))
+}
 
 /// The Locus mark (colour, gradients). A GPUI `svg()` is a one-colour mask, so the mark is
 /// drawn with `img()`: resvg rasterises it once and the image cache keeps it.

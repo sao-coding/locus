@@ -28,6 +28,24 @@ space:
   name: Name
   icon: Icon
   icon_none: Colour dot
+  icons:
+    folder: Folder
+    star: Star
+    heart: Heart
+    globe: Globe
+    drive: Drive
+    inbox: Inbox
+    dashboard: Dashboard
+    book: Book
+    bot: Bot
+    building: Building
+    calendar: Calendar
+    cpu: CPU
+    network: Network
+    terminal: Terminal
+    bell: Bell
+    map: Map
+    palette: Palette
   colors:
     p0: Blush
     p1: Rose

@@ -34,6 +34,11 @@ pub const SPACE_ICONS: &[(&str, IconName)] = &[
     ("building", IconName::Building2),
     ("calendar", IconName::Calendar),
     ("cpu", IconName::Cpu),
+    ("network", IconName::Network),
+    ("terminal", IconName::SquareTerminal),
+    ("bell", IconName::Bell),
+    ("map", IconName::Map),
+    ("palette", IconName::Palette),
 ];
 
 // ---- geometry (8 px grid) ------------------------------------------------------------
@@ -69,8 +74,11 @@ const SWATCH: f32 = 24.0;
 const SWATCH_DOT: f32 = 20.0;
 /// The selection ring overhangs the 24 px cell by this much (28 px: dot, 2 px gap, 2 px ring).
 const RING_OUT: f32 = 2.0;
-/// Icon grid: eight equal cells across the card, a 28 px button centred in each.
-const ICON_COLS: f32 = 8.0;
+/// Icon grid: six columns of 36 px cells with 8 px gaps fill the card width exactly (the
+/// colour dot plus 17 icons make three full rows); the glyph is 18 px.
+const ICON_COLS: usize = 6;
+const ICON_CELL: f32 = (INNER_W - (ICON_COLS as f32 - 1.0) * scale::S2) / ICON_COLS as f32;
+const ICON_GLYPH: f32 = 18.0;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Drag {
@@ -763,39 +771,38 @@ impl Locus {
         let s = &self.spaces[si];
         let theme = cx.theme().clone();
         let accent = s.accent(cx);
+        // Selected: the accent ring of the colour swatches (2 px) on a faint accent wash.
         let button = |id: ElementId, selected: bool, glyph: AnyElement| {
             div()
-                .w(px(INNER_W / ICON_COLS))
+                .id(id)
+                .size(px(ICON_CELL))
+                .rounded_md()
                 .flex()
+                .items_center()
                 .justify_center()
-                .child(
-                    div()
-                        .id(id)
-                        .size(px(scale::H_CONTROL))
-                        .rounded_md()
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .cursor_pointer()
-                        .hover(|st| st.bg(theme.muted))
-                        .when(selected, |d| {
-                            d.bg(theme.muted).border_1().border_color(theme.border)
-                        })
-                        .child(glyph),
-                )
+                .cursor_pointer()
+                .border_2()
+                .border_color(if selected {
+                    accent
+                } else {
+                    gpui::transparent_black()
+                })
+                .when(selected, |d| d.bg(accent.opacity(0.12)))
+                .when(!selected, |d| d.hover(|st| st.bg(theme.muted)))
+                .child(glyph)
         };
-        let mut icons = h_flex().w(px(INNER_W)).flex_wrap().gap_y(px(scale::S2));
+        let gap = px(scale::S2);
+        let mut icons = h_flex().w(px(INNER_W)).flex_wrap().gap(gap);
         icons = icons.child(
             button(
-                "icon-none".into(),
+                "icon-none-cell".into(),
                 s.icon.is_none(),
                 div()
-                    .size(px(10.))
+                    .size(px(ICON_GLYPH - 4.0))
                     .rounded_full()
                     .bg(accent)
                     .into_any_element(),
             )
-            .id("icon-none-cell")
             .tooltip(tip(t!("space.icon_none").into_owned()))
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.spaces[si].icon = None;
@@ -806,16 +813,17 @@ impl Locus {
         for (ii, (key, icon)) in SPACE_ICONS.iter().enumerate() {
             let selected = s.icon.as_deref() == Some(*key);
             let k = key.to_string();
+            let name = format!("space.icons.{key}");
             icons = icons.child(
                 button(
-                    ("space-icon", ii).into(),
+                    ("space-icon-cell", ii).into(),
                     selected,
                     Icon::new(icon.clone())
-                        .small()
+                        .size(px(ICON_GLYPH))
                         .text_color(accent)
                         .into_any_element(),
                 )
-                .id(("space-icon-cell", ii))
+                .tooltip(tip(t!(&name).into_owned()))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.spaces[si].icon = Some(k.clone());
                     this.schedule_save(cx);

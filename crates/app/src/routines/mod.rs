@@ -283,7 +283,7 @@ impl QueryTab {
             .border_b_1()
             .border_color(t.ln)
             .child(
-                Icon::new(IconName::SquareTerminal)
+                crate::shell::icons::icon("script")
                     .xsmall()
                     .text_color(t.tx3),
             )
