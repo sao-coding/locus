@@ -1180,6 +1180,13 @@ exp2:
   copy_html: HTML 表格
 
 redis2:
+  revert: 還原
+  modified: 已修改
+  unsaved_first: "有未儲存的變更：請先儲存或還原。"
+  discard_title: 捨棄未儲存的變更？
+  discard_body: "%{key} 有未儲存的變更，開啟其他鍵會捨棄這些變更。"
+  discard: 捨棄
+  revert_tip: 還原為已載入的值
   deleted: "已刪除 %{n} 個 key"
   key_name: Key 名稱
   new_key: "新增 %{ty} key"

@@ -92,6 +92,34 @@ impl RedisTab {
         cx.notify();
     }
 
+    /// A click on another key: asks first when the open string has unsaved changes.
+    fn request_key(&mut self, key: String, window: &mut Window, cx: &mut Context<Self>) {
+        let dirty = self
+            .detail
+            .as_ref()
+            .is_some_and(|d| d.read(cx).is_dirty(cx) && d.read(cx).key_name() != key);
+        if !dirty {
+            return self.open_key(key, window, cx);
+        }
+        // The list already moved its highlight to the clicked key: put it back until confirmed.
+        let cur = self.key.clone();
+        self.browser.update(cx, |b, cx| b.select(cur, cx));
+        let me = cx.entity().downgrade();
+        let name = self.key.clone().unwrap_or_default();
+        confirm(
+            window,
+            cx,
+            t!("redis2.discard_title").into_owned(),
+            t!("redis2.discard_body", key = name).into_owned(),
+            t!("redis2.discard").into_owned(),
+            true,
+            Rc::new(move |window, cx| {
+                let key = key.clone();
+                let _ = me.update(cx, |this, cx| this.open_key(key, window, cx));
+            }),
+        );
+    }
+
     fn close_key(&mut self, cx: &mut Context<Self>) {
         self.detail = None;
         self.key = None;
@@ -102,7 +130,7 @@ impl RedisTab {
 
     fn on_browser(&mut self, ev: &RedisEvent, window: &mut Window, cx: &mut Context<Self>) {
         match ev {
-            RedisEvent::OpenKey { key, .. } => self.open_key(key.clone(), window, cx),
+            RedisEvent::OpenKey { key, .. } => self.request_key(key.clone(), window, cx),
             RedisEvent::Locked => cx.emit(RedisEvent::Locked),
             RedisEvent::Status => cx.emit(RedisEvent::Status),
             RedisEvent::KeyChanged => {

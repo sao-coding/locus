@@ -90,12 +90,9 @@ pub fn plan_edit(key: &[u8], e: &CellEdit) -> Result<EditPlan, String> {
                 ])
             }
         }
-        CellEdit::ListElem { index, value } => EditPlan::one(c(&[
-            b"LSET",
-            key,
-            index.to_string().as_bytes(),
-            value,
-        ])),
+        CellEdit::ListElem { index, value } => {
+            EditPlan::one(c(&[b"LSET", key, index.to_string().as_bytes(), value]))
+        }
         CellEdit::ZsetScore { member, score } => {
             let v = parse_score(score).ok_or_else(|| format!("not a number: {score}"))?;
             // XX: only update an existing member, never re-create one removed meanwhile.

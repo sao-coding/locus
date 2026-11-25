@@ -1180,6 +1180,13 @@ exp2:
   copy_html: HTML 表格
 
 redis2:
+  revert: 还原
+  modified: 已修改
+  unsaved_first: "有未保存的更改：请先保存或还原。"
+  discard_title: 放弃未保存的更改？
+  discard_body: "%{key} 有未保存的更改，打开其他键会放弃这些更改。"
+  discard: 放弃
+  revert_tip: 还原为已载入的值
   deleted: "已删除 %{n} 个键"
   key_name: 键名
   new_key: "新增 %{ty} 键"
