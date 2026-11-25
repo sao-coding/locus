@@ -39,7 +39,7 @@ const CATS: &[(Cat, &str, &str)] = &[
     (Cat::Queries, "sp.cat_queries", "table"),
     (Cat::Production, "sp.cat_production", "lock"),
     (Cat::Shortcuts, "sp.cat_shortcuts", "query"),
-    (Cat::About, "sp.cat_about", "link"),
+    (Cat::About, "sp.cat_about", "info"),
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -65,6 +65,7 @@ enum Ctl {
     /// Shown in About, not through `DEFS`.
     UpdateCheck,
     UpdateDownload,
+    UpdateBeta,
 }
 
 /// (category, label key, description key, control)
@@ -459,6 +460,24 @@ impl SettingsPage {
                     ),
                 ]
             }
+            // Stored either way: the default depends on the build (on for an RC).
+            Ctl::UpdateBeta => {
+                let on = s.update_beta();
+                vec![
+                    c!(
+                        "upd-beta-on".into(),
+                        t!("settings.count_on").into_owned(),
+                        on,
+                        |s: &mut Settings| s.update_beta = Some(true)
+                    ),
+                    c!(
+                        "upd-beta-off".into(),
+                        t!("settings.count_off").into_owned(),
+                        !on,
+                        |s: &mut Settings| s.update_beta = Some(false)
+                    ),
+                ]
+            }
             Ctl::Count => {
                 let nc = s.no_count;
                 vec![
@@ -814,7 +833,14 @@ impl SettingsPage {
                 t!("upd.auto_download").into_owned(),
                 t!("upd.auto_download_note").into_owned(),
             );
-            let hay = format!("{lu} {la} {la_d} {ld} {ld_d} {}", Self::cat_name(cat));
+            let (lb, lb_d) = (
+                t!("upd.beta").into_owned(),
+                t!("upd.beta_note").into_owned(),
+            );
+            let hay = format!(
+                "{lu} {la} {la_d} {ld} {ld_d} {lb} {lb_d} {}",
+                Self::cat_name(cat)
+            );
             if let Some(u) =
                 crate::update::entity(cx).filter(|_| !searching || matches_query(&hay, q))
             {
@@ -825,6 +851,8 @@ impl SettingsPage {
                 if self_updating {
                     let ctl = self.controls(Ctl::UpdateDownload, cx);
                     rows.push(self.row(2004, ld, ld_d, ctl, cx));
+                    let ctl = self.controls(Ctl::UpdateBeta, cx);
+                    rows.push(self.row(2005, lb, lb_d, ctl, cx));
                 }
             }
         } else {

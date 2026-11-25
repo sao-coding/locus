@@ -74,6 +74,8 @@ pub(crate) struct Updates {
     pending: Option<PathBuf>,
     /// Online actions allowed (the real data folder).
     online: bool,
+    /// Test versions are offered (`Settings::update_beta`, kept in step with the settings).
+    beta: bool,
 }
 
 struct UpdatesGlobal(Entity<Updates>);
@@ -87,6 +89,7 @@ pub(crate) fn init(load: bool, auto: bool, cx: &mut App) -> Entity<Updates> {
     } else {
         State::default()
     };
+    let beta = crate::settings::get(cx).update_beta();
     let e = cx.new(|_| Updates {
         status: Status::Idle,
         state,
@@ -94,7 +97,24 @@ pub(crate) fn init(load: bool, auto: bool, cx: &mut App) -> Entity<Updates> {
         dl: Dl::Idle,
         pending: None,
         online: auto,
+        beta,
     });
+    // Turning "Receive test versions" on or off asks again: the answer depends on it.
+    cx.observe_global::<crate::settings::AppSettings>(|cx| {
+        let beta = crate::settings::get(cx).update_beta();
+        if let Some(u) = entity(cx) {
+            u.update(cx, |u, cx| {
+                if u.beta != beta {
+                    u.beta = beta;
+                    if u.online {
+                        u.check(true, cx);
+                    }
+                    cx.notify();
+                }
+            });
+        }
+    })
+    .detach();
     cx.set_global(UpdatesGlobal(e.clone()));
     cx.on_app_quit(|cx| {
         if let Some(u) = entity(cx) {
@@ -134,7 +154,7 @@ pub(crate) fn entity(cx: &App) -> Option<Entity<Updates>> {
 impl Updates {
     /// The newer release known, if any.
     pub fn available(&self) -> Option<&Release> {
-        self.state.available(update::CURRENT)
+        self.state.available(update::CURRENT, self.beta)
     }
 
     /// The release the status bar points at (newer and not dismissed).
@@ -170,10 +190,19 @@ impl Updates {
         }
         self.status = Status::Checking;
         cx.notify();
-        let task = cx.background_executor().spawn(async { update::check() });
+        let beta = self.beta;
+        let task = cx
+            .background_executor()
+            .spawn(async move { update::check(beta) });
         cx.spawn(async move |this, cx| {
             let result = task.await;
-            let _ = this.update(cx, |u, cx| u.finish(result, manual, cx));
+            let _ = this.update(cx, |u, cx| {
+                u.finish(result, manual, cx);
+                // The switch changed while asking: ask again with the new choice.
+                if u.beta != beta && u.online {
+                    u.check(true, cx);
+                }
+            });
         })
         .detach();
     }

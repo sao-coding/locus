@@ -1278,6 +1278,8 @@ upd:
   toast: "Locus %{v} 已推出：請至「設定 › 關於」查看。"
   auto_download: "自動下載更新"
   auto_download_note: "在背景下載新版本並檢查簽章；只有在你選擇「重新啟動並更新」時才會安裝。"
+  beta: "接收測試版 (Beta)"
+  beta_note: "在正式版推出前，也提供候選版本。測試版測試較少，可能有問題；關閉後只等正式版。"
   download_update: "下載並更新"
   downloading: "正在下載 Locus %{v}…"
   downloading_pct: "正在下載 Locus %{v}… %{p}%"
