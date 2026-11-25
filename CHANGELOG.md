@@ -1,4 +1,24 @@
 # Changelog
+## 0.2.0 (2026-11-25)
+
+### Features
+
+- Releases now include an installer, `locus-<version>-windows-x64-setup.exe`: per-user install with a Start menu entry and an uninstaller, next to the portable exe.
+- Result tabs of a multi-statement run are named after the table a SELECT reads (schema dropped, duplicates numbered, full statement in the tooltip). The result grid gets an off-white body in the light theme and optional subtle zebra striping (Settings → Appearance).
+- Redesigned Space colour picker: one to three colours on a soft hue / saturation pad (two or three tint the window as a gradient), nine preset swatches, an intensity slider, and a per-Space light / dark / follow-the-app choice. Spaces saved before keep their colour.
+- SQL Server connections, through the built-in sidecar on Microsoft's go-mssqldb: scripts with `GO` batches, streamed result sets, bound parameters, transactions, and a schema browser with tables, views, columns, primary and foreign keys. Cancel and timeout stop only the running statement on the server and keep the connection and an open transaction; when the server ends the transaction itself (`XACT_ABORT ON`, deadlock) the tab says so. Object kinds, DDL, routines, the structure editor and the activity view are not there yet for SQL Server.
+- Settings › About has a "Receive test versions (beta)" switch: on, release candidates are offered as well; off, only stable releases. It is on by default in a test version and off in a stable one. On/off settings are now switches, and the About entry in Settings has a new icon.
+- Locus now checks GitHub for a new release about once a day and shows it in the status bar; Settings › About has the details, a "Check now" button and an off switch.
+- Locus can update itself: a new version is downloaded in the background, its minisign signature checked, and installed when you pick "Restart and update" (installer copies run the new setup silently, portable copies swap the exe). Scoop copies are still updated with `scoop update`.
+
+### Fixes
+
+- SQL editor autocomplete: Tab accepts the highlighted suggestion (Tab still indents when no popup is open), and accepting replaces the word being typed (including the rest of the identifier and the quotes of a quoted name) instead of inserting the whole item after it.
+- Release downloads now come with minisign signatures (`*.minisig`); the public key is `minisign.pub` in the repository.
+- The Oracle helper (sidecar) now reports its protocol and build first; Locus refuses one from another build before it connects, and skips an outdated `sidecar.exe` next to `locus.exe` in favour of the built-in copy.
+- Clicks and drags on the Space popover no longer reach what is under it (the sidebar edge, tabs).
+- The "+n" result overflow button now matches the tab height and size, and its menu uses the normal row size with the row count right-aligned.
+
 ## 0.1.2 (2026-11-24)
 
 ### Fixes
