@@ -21,8 +21,12 @@ use std::time::Duration;
 
 /// GitHub repository (owner/name) the releases come from.
 pub const REPO: &str = "sao-coding/locus";
-/// The running build.
-pub const CURRENT: &str = env!("CARGO_PKG_VERSION");
+/// The running build: the release version (`LOCUS_VERSION`, set by release.yml, so an RC knows
+/// it is `0.2.0-rc.1` and not `0.2.0`), else the `Cargo.toml` version (local builds).
+pub const CURRENT: &str = match option_env!("LOCUS_VERSION") {
+    Some(v) => v,
+    None => env!("CARGO_PKG_VERSION"),
+};
 /// Minimum time between two automatic checks.
 pub const CHECK_EVERY: Duration = Duration::from_secs(20 * 60 * 60);
 const TIMEOUT: Duration = Duration::from_secs(15);
@@ -365,6 +369,17 @@ mod tests {
         // The feed has no pre-release flag: the -rc version keeps stable builds away from it.
         assert_eq!(pick(&listed, "0.1.2").unwrap().version, "0.1.3");
         assert_eq!(pick(&listed, "0.2.0-rc.0").unwrap().version, "0.2.0-rc.1");
+    }
+
+    /// `LOCUS_VERSION` (release builds) may only add a pre-release suffix to Cargo.toml's.
+    #[test]
+    fn current_is_the_cargo_version_with_an_optional_suffix() {
+        let v = Version::parse(CURRENT).unwrap();
+        let cargo = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+        assert_eq!(
+            (v.major, v.minor, v.patch),
+            (cargo.major, cargo.minor, cargo.patch)
+        );
     }
 
     #[test]
