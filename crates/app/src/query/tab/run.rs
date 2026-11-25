@@ -490,6 +490,7 @@ impl QueryTab {
                 rows,
                 error,
                 params,
+                mcp_client: None,
             }));
         }
         let truncated = self.out.truncated;

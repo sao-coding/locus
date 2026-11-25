@@ -61,6 +61,7 @@ impl Locus {
             .when(editor_info, |h| {
                 h.child(div().text_color(t.tx3).child(limit))
             })
+            .children(self.render_mcp_status(cx))
             .children(self.update_hint(col, cx))
             .child(
                 h_flex()

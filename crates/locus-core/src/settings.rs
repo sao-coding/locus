@@ -69,7 +69,16 @@ pub struct Settings {
     /// Offer test versions (RCs) too; missing = whether this build is one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub update_beta: Option<bool>,
+    /// Built-in MCP server on 127.0.0.1 (default off).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub mcp_enabled: bool,
+    /// Its port; missing = [`MCP_DEFAULT_PORT`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mcp_port: Option<u16>,
 }
+
+/// Port of the MCP server unless the user picks another.
+pub const MCP_DEFAULT_PORT: u16 = 7781;
 
 impl Settings {
     /// Whether the automatic update check is on (missing = on).

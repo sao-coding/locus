@@ -101,6 +101,7 @@ impl Locus {
                         return;
                     }
                     this.conns = list;
+                    this.sync_mcp_conns(cx);
                     // Settings changed: the next Run opens a new connection.
                     this.pool.retire(&c.id);
                     this.prod_conn_closed(&c.id, cx);
@@ -276,6 +277,7 @@ impl Locus {
             return;
         }
         self.conns = list;
+        self.sync_mcp_conns(cx);
         self.pool.retire(id);
         self.prod_conn_closed(id, cx);
         for s in &mut self.spaces {

@@ -487,6 +487,7 @@ mod tests {
             icon: None,
             read_only: false,
             ssh: None,
+            mcp: None,
         };
         let d = AnyDriver::connect(
             &tokio::runtime::Handle::current(),
@@ -539,6 +540,7 @@ mod wiring_tests {
             icon: None,
             read_only: false,
             ssh: None,
+            mcp: None,
         };
         let o = c.options("pw".into());
         assert_eq!((o.port, o.database.as_deref()), (1521, Some("ORCLPDB1")));

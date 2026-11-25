@@ -91,6 +91,11 @@ grid while the query is still running, and cancelling really stops the query on 
 - Export CSV, xlsx, JSON, SQL INSERT, Markdown and HTML, including streaming the full result
   from the server
 
+**AI tools (MCP)**
+- Built-in MCP server on `127.0.0.1` for Claude Code, Cursor and other clients (off by default,
+  token required); per-connection Off / Read-only / Read-write, Production writes ask you first.
+  See [docs/mcp.md](docs/mcp.md)
+
 **Administration**
 - Server activity: sessions, kill a query, server variables
 - Redis: key browser, a viewer for each value type, command window
@@ -203,7 +208,8 @@ More in [CONTRIBUTING.md](CONTRIBUTING.md). A map of the source is in [docs/READ
 ## Privacy
 
 Locus has no telemetry, no account, no update check and no network traffic of its own. It only
-connects to the databases and SSH hosts you configure. Passwords go to the Windows Credential
+connects to the databases and SSH hosts you configure; the optional MCP server (off by default)
+listens on 127.0.0.1 only. Passwords go to the Windows Credential
 Manager, never to a file. Query history and audit logs stay in `%APPDATA%\Locus` on your
 machine, and result data is never written there. The only other file Locus writes is the Oracle
 helper in `%LOCALAPPDATA%\Locus\sidecar\`.

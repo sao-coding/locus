@@ -122,6 +122,18 @@ pub fn delete(conn_id: &str) -> Result<(), CredError> {
     delete_target(&target(conn_id))
 }
 
+/// Target of the MCP server's bearer token.
+const MCP_TOKEN_TARGET: &str = "Locus/mcp/token";
+
+/// The MCP server's bearer token, `Ok(None)` when none was made yet.
+pub fn read_mcp_token() -> Result<Option<String>, CredError> {
+    read_target(MCP_TOKEN_TARGET)
+}
+
+pub fn write_mcp_token(token: &str) -> Result<(), CredError> {
+    write_target(MCP_TOKEN_TARGET, "mcp", token)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

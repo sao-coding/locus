@@ -119,6 +119,7 @@ async fn sqlite_params() {
         icon: None,
         read_only: false,
         ssh: None,
+        mcp: None,
     };
     let rt = tokio::runtime::Handle::current();
     let d = AnyDriver::connect(&rt, &c, String::new(), Default::default())

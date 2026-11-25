@@ -13,6 +13,7 @@ mod dev;
 mod diagram;
 mod history;
 mod import;
+mod mcp;
 mod palette;
 mod panels;
 mod prod;

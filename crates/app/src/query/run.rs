@@ -205,6 +205,8 @@ impl Locus {
             self.confirm_end_tx(open, then, window, cx);
             return false;
         }
+        // Closing: stop the MCP server (its running queries are cancelled).
+        self.mcp.update(cx, |m, _| m.shutdown());
         if !self.any_busy(cx) {
             return true;
         }
