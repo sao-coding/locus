@@ -544,6 +544,38 @@ const STRIP_MENU_W: f32 = 596.0;
 /// Narrowest the row filter gets.
 const FILTER_MIN_W: f32 = 160.0;
 
+/// One row of the all-results menu, sized like the shell's context-menu rows: a fixed icon
+/// column for the check, the name, and the row count right-aligned in a muted colour.
+fn overflow_row(label: String, count: Option<String>, on: bool) -> PopupMenuItem {
+    PopupMenuItem::element(move |_, cx| {
+        let t = crate::shell::theme::tokens(cx);
+        h_flex()
+            .w_full()
+            .min_w(px(220.))
+            .px(px(S2))
+            .h(px(H_ROW - 4.))
+            .gap(px(S4))
+            .items_center()
+            .text_size(px(TX_BASE))
+            .child(
+                div()
+                    .flex_none()
+                    .w(px(16.))
+                    .h(px(16.))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .children(on.then(|| crate::shell::icons::icon("check").size(px(14.)))),
+            )
+            .child(div().flex_1().min_w_0().truncate().child(label.clone()))
+            .children(
+                count
+                    .clone()
+                    .map(|c| div().flex_none().text_color(t.tx4).child(c)),
+            )
+    })
+}
+
 fn pane_footer(text: String, cx: &App) -> impl IntoElement {
     let t = crate::shell::theme::tokens(cx);
     h_flex()
@@ -807,31 +839,28 @@ impl QueryTab {
         }
         if fit.hidden > 0 {
             left = left.child(
+                // Same height and padding as a tab, tab-label font, 14 px chevron; the default
+                // button size keeps the menu at the normal row size.
                 Button::new("tabs-more")
                     .ghost()
-                    .xsmall()
                     .flex_none()
+                    .h(px(H_ROW + S2))
+                    .min_w(px(28.))
+                    .px(px(S5))
+                    .rounded(px(0.))
                     .child(
                         h_flex()
                             .items_center()
                             .gap(px(S2))
-                            .child(
-                                div()
-                                    .relative()
-                                    .top(px(0.75))
-                                    .child(crate::shell::icons::icon("chevron-down").size(px(12.))),
-                            )
-                            .child(div().text_size(px(TX_XS)).child(format!("+{}", fit.hidden))),
+                            .text_size(px(TX_BASE))
+                            .child(crate::shell::icons::icon("chevron-down").size(px(14.)))
+                            .child(format!("+{}", fit.hidden)),
                     )
                     .tooltip(t!("results.all_results").to_string())
                     .dropdown_menu(move |mut menu, _, _| {
                         for (act, label, count, on) in list.clone() {
                             let me = me.clone();
-                            let text = match count {
-                                Some(c) => format!("{label}  ·  {c}"),
-                                None => label,
-                            };
-                            menu = menu.item(PopupMenuItem::new(text).checked(on).on_click(
+                            menu = menu.item(overflow_row(label, count, on).on_click(
                                 move |_, _, cx| {
                                     let _ = me.update(cx, |this, cx| this.do_strip_act(act, cx));
                                 },
