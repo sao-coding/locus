@@ -116,6 +116,9 @@ Get-FileHash .\locus-<版本>-windows-x64.exe -Algorithm SHA256
 
 # 用 GitHub CLI 验证构建来源
 gh attestation verify .\locus-<版本>-windows-x64.exe --repo sao-coding/locus
+
+# minisign 签名（公钥也在仓库的 minisign.pub）
+minisign -Vm .\locus-<版本>-windows-x64.exe -P RWRDNREpYa8EZ59rUGsAnTVNIMjNfUWhciyq6SgS2MpNZvMGj0yVAZ0s
 ```
 
 设置、已保存的连接和历史都在 `%APPDATA%\Locus`。删掉这个文件夹就等于重置。Oracle 辅助程序是唯一放在它之外的文件（`%LOCALAPPDATA%\Locus\sidecar\`），想完全移除请一并删除。
