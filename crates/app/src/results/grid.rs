@@ -767,14 +767,32 @@ impl TableDelegate for ResultGrid {
             && *ec == c
         {
             // Context `CellEdit` (for user keymaps); Esc is handled by the shell (`esc_step`).
+            // The editor fills the whole cell box (the table's selection frame covers the same rect) and
+            // insets its text by `cell padding - border`, so the text does not move when editing starts.
+            let pad = gpui_kit::component::Size::default().table_cell_padding();
+            let (pl, pr) =
+                super::cellbox::editor_padding(f32::from(pad.left), f32::from(pad.right));
             return div()
                 .key_context("CellEdit")
-                .size_full()
+                .absolute()
+                .inset_0()
+                .flex()
+                .items_center()
+                .border_1()
+                // The border is only there to take the same room as the table's selection frame, which
+                // paints the visible one over it.
+                .border_color(gpui_kit::Hsla::default())
+                .pl(px(pl))
+                .pr(px(pr))
                 .child(
                     Input::new(input)
                         .bordered(false)
                         .focus_bordered(false)
-                        .appearance(false),
+                        .appearance(false)
+                        // The input's own padding and 32 px height would stack on the cell's.
+                        .p_0()
+                        .h_auto()
+                        .w_full(),
                 )
                 .into_any_element();
         }
@@ -819,6 +837,9 @@ impl TableDelegate for ResultGrid {
             .group("fk-cell")
             .relative()
             .size_full()
+            // One line box centred in the row; the editor centres the same way.
+            .flex()
+            .items_center()
             .when(edited, |d| d.bg(theme.warning.opacity(0.22)))
             .when(in_range, |d| d.bg(tk.sel))
             // One cell: the table draws its own active-cell frame; ours only marks a range end.
