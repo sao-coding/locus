@@ -292,6 +292,7 @@ pub fn db_badge(kind: DbKind, mariadb: bool, cx: &App) -> (&'static str, Hsla) {
         (DbKind::Mysql, false) => ("My", d[1]),
         (DbKind::Postgres, _) => ("Pg", d[2]),
         (DbKind::Oracle, _) => ("Or", d[3]),
+        (DbKind::SqlServer, _) => ("Ms", d[5]),
         (DbKind::Sqlite, _) => ("Sq", d[4]),
         (DbKind::Redis, _) => ("Re", d[6]),
     }

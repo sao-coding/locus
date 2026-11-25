@@ -18,7 +18,7 @@
 
 A database client for Windows that stays smooth. GPU-rendered, written in Rust, one small exe.
 
-Locus talks to MySQL / MariaDB, PostgreSQL, SQLite, Redis and Oracle. Results stream into the
+Locus talks to MySQL / MariaDB, PostgreSQL, SQLite, Redis, Oracle and SQL Server. Results stream into the
 grid while the query is still running, and cancelling really stops the query on the server.
 
 <p align="center">
@@ -63,7 +63,7 @@ grid while the query is still running, and cancelling really stops the query on 
 - Command palette (`Ctrl+K`), query history, light / dark / system theme, English, 简体中文 and 繁體中文
 
 **Connections**
-- MySQL / MariaDB, PostgreSQL, SQLite and Redis connect directly from Rust; Oracle goes through
+- MySQL / MariaDB, PostgreSQL, SQLite, SQL Server and Redis connect directly from Rust; Oracle goes through
   a small Go helper (`sidecar.exe`, built into `locus.exe`)
 - SSH tunnels; passwords are stored in the Windows Credential Manager
 - Production protection: read-only by default, timed unlock, audit log

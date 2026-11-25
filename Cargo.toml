@@ -6,6 +6,7 @@ members = [
     "crates/db-core",
     "crates/db-mysql",
     "crates/db-postgres",
+    "crates/db-sqlserver",
     "crates/db-sqlite",
     "crates/db-redis",
     "crates/db-sidecar-client",
@@ -26,6 +27,7 @@ repository = "https://github.com/sao-coding/locus"
 db-core = { path = "crates/db-core" }
 db-mysql = { path = "crates/db-mysql" }
 db-postgres = { path = "crates/db-postgres" }
+db-sqlserver = { path = "crates/db-sqlserver" }
 db-sqlite = { path = "crates/db-sqlite" }
 db-redis = { path = "crates/db-redis" }
 db-sidecar-client = { path = "crates/db-sidecar-client" }

@@ -50,8 +50,7 @@ pub fn dialect_of(kind: DbKind) -> Option<Dialect> {
         DbKind::Mysql => Some(Dialect::Mysql),
         DbKind::Postgres => Some(Dialect::Postgres),
         DbKind::Oracle => Some(Dialect::Oracle),
-        DbKind::Sqlite => None,
-        DbKind::Redis => None,
+        DbKind::Sqlite | DbKind::SqlServer | DbKind::Redis => None,
     }
 }
 

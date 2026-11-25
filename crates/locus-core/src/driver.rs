@@ -14,6 +14,7 @@ pub enum AnyDriver {
     Mysql(MysqlDriver),
     Postgres(db_postgres::PgDriver),
     Oracle(SidecarDriver),
+    SqlServer(db_sqlserver::MssqlDriver),
     Sqlite(db_sqlite::SqliteDriver),
 }
 
@@ -359,6 +360,9 @@ impl AnyDriver {
                 DbKind::Postgres => db_postgres::PgDriver::connect(&rt, opts)
                     .await
                     .map(AnyDriver::Postgres),
+                DbKind::SqlServer => db_sqlserver::MssqlDriver::connect(&rt, opts)
+                    .await
+                    .map(AnyDriver::SqlServer),
                 DbKind::Sqlite => db_sqlite::SqliteDriver::connect(path, read_only)
                     .await
                     .map(AnyDriver::Sqlite),
@@ -399,6 +403,8 @@ impl AnyDriver {
             AnyDriver::Postgres(d) => d.set_read_only(on),
             AnyDriver::Sqlite(d) => d.set_read_only(on),
             AnyDriver::Oracle(_) => {}
+            // No session-wide read-only switch: the classifier is the guard.
+            AnyDriver::SqlServer(_) => {}
         }
     }
 
@@ -416,6 +422,7 @@ impl AnyDriver {
             AnyDriver::Mysql(d) => Ok(Box::new(d.session().await?)),
             AnyDriver::Postgres(d) => Ok(Box::new(d.session().await?)),
             AnyDriver::Oracle(d) => Ok(Box::new(d.session().await?)),
+            AnyDriver::SqlServer(d) => Ok(Box::new(d.session().await?)),
             AnyDriver::Sqlite(d) => Ok(Box::new(d.session().await?)),
         }
     }
@@ -425,6 +432,7 @@ impl AnyDriver {
             AnyDriver::Mysql(d) => d,
             AnyDriver::Postgres(d) => d,
             AnyDriver::Oracle(d) => d,
+            AnyDriver::SqlServer(d) => d,
             AnyDriver::Sqlite(d) => d,
         }
     }

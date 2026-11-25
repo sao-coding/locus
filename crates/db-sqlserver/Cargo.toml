@@ -1,0 +1,21 @@
+[package]
+name = "db-sqlserver"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+parking_lot.workspace = true
+db-core.workspace = true
+tokio.workspace = true
+futures-util.workspace = true
+tiberius = { version = "=0.13.0", default-features = false, features = ["tds73", "native-tls", "chrono"] }
+tokio-util = { version = "=0.7.20", features = ["compat"] }
+chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+tokio.workspace = true
+
+[lints]
+workspace = true

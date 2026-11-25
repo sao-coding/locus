@@ -26,6 +26,9 @@ pub enum DbKind {
     Oracle,
     /// A file: the path is in `database`; no host, user or password.
     Sqlite,
+    /// Microsoft SQL Server, in process (`db-sqlserver`).
+    #[serde(rename = "sqlserver")]
+    SqlServer,
     /// Not SQL: own views (`crates/app/src/redis`). `database` holds the DB index (0-15), `user` the ACL user.
     Redis,
 }
@@ -36,6 +39,7 @@ impl DbKind {
             DbKind::Mysql => 3306,
             DbKind::Postgres => 5432,
             DbKind::Oracle => 1521,
+            DbKind::SqlServer => 1433,
             DbKind::Sqlite => 0,
             DbKind::Redis => 6379,
         }
@@ -286,6 +290,7 @@ pub fn parse_url(url: &str) -> Option<(SavedConnection, String)> {
         "mysql" | "mariadb" => DbKind::Mysql,
         "postgres" | "postgresql" => DbKind::Postgres,
         "oracle" => DbKind::Oracle,
+        "sqlserver" | "mssql" => DbKind::SqlServer,
         "redis" | "rediss" => DbKind::Redis,
         _ => return None,
     };

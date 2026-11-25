@@ -18,7 +18,7 @@
 
 Windows 上不卡頓的資料庫工具。GPU 繪製、Rust 撰寫、一個小小的執行檔。
 
-Locus 支援 MySQL / MariaDB、PostgreSQL、SQLite、Redis 和 Oracle。查詢還在跑的時候，結果就已經串流進表格；取消查詢會真的讓伺服器停止。
+Locus 支援 MySQL / MariaDB、PostgreSQL、SQLite、Redis、Oracle 和 SQL Server。查詢還在跑的時候，結果就已經串流進表格；取消查詢會真的讓伺服器停止。
 
 <p align="center">
   <picture>
@@ -58,7 +58,7 @@ Locus 支援 MySQL / MariaDB、PostgreSQL、SQLite、Redis 和 Oracle。查詢�
 - 指令面板（`Ctrl+K`）、查詢歷史、亮色 / 暗色 / 跟隨系統主題、English、简体中文與繁體中文
 
 **連線**
-- MySQL / MariaDB、PostgreSQL、SQLite、Redis 由 Rust 直接連線；Oracle 透過一個小型 Go 輔助程式（`sidecar.exe`，已內建於 `locus.exe`）
+- MySQL / MariaDB、PostgreSQL、SQLite、SQL Server、Redis 由 Rust 直接連線；Oracle 透過一個小型 Go 輔助程式（`sidecar.exe`，已內建於 `locus.exe`）
 - SSH 通道；密碼存在 Windows 認證管理員
 - Production 保護：預設唯讀、限時解鎖、稽核日誌
 

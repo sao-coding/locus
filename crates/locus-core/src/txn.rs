@@ -41,6 +41,7 @@ pub enum Engine {
     Postgres,
     Sqlite,
     Oracle,
+    SqlServer,
 }
 
 impl Engine {
@@ -50,6 +51,7 @@ impl Engine {
             AnyDriver::Postgres(_) => Engine::Postgres,
             AnyDriver::Sqlite(_) => Engine::Sqlite,
             AnyDriver::Oracle(_) => Engine::Oracle,
+            AnyDriver::SqlServer(_) => Engine::SqlServer,
         }
     }
 
@@ -64,7 +66,8 @@ impl Engine {
                     )
             }
             Engine::Oracle => matches!(c.kind, StatementKind::Ddl | StatementKind::Grant),
-            Engine::Postgres | Engine::Sqlite => false,
+            // SQL Server: DDL is transactional.
+            Engine::Postgres | Engine::Sqlite | Engine::SqlServer => false,
         }
     }
 }

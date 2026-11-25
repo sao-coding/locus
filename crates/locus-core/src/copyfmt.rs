@@ -28,6 +28,7 @@ pub enum Dialect {
     Postgres,
     Oracle,
     Sqlite,
+    SqlServer,
 }
 
 pub struct Table {
@@ -213,7 +214,7 @@ pub fn sql_literal(v: &Value, numeric: bool, d: Dialect) -> String {
     match v {
         Value::Null => "NULL".into(),
         Value::Hex(h) => match d {
-            Dialect::Mysql => format!("0x{h}"),
+            Dialect::Mysql | Dialect::SqlServer => format!("0x{h}"),
             Dialect::Postgres => format!("'\\x{h}'"),
             Dialect::Oracle => format!("HEXTORAW('{h}')"),
             Dialect::Sqlite => format!("X'{h}'"),

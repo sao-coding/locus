@@ -197,7 +197,9 @@ impl QueryTab {
             match conn.kind {
                 locus_core::store::DbKind::Postgres => db_core::sql::SqlDialect::Postgres,
                 locus_core::store::DbKind::Oracle => db_core::sql::SqlDialect::Oracle,
-                locus_core::store::DbKind::Sqlite => db_core::sql::SqlDialect::Sqlite,
+                locus_core::store::DbKind::Sqlite | locus_core::store::DbKind::SqlServer => {
+                    db_core::sql::SqlDialect::Sqlite
+                }
                 _ => db_core::sql::SqlDialect::Mysql,
             },
             conn.env == locus_core::store::Env::Prod,

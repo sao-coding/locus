@@ -52,6 +52,7 @@ pub const ENGINES: &[(DbKind, &str, &str, f32)] = &[
     (DbKind::Mysql, "MySQL / MariaDB", "M", 0.55),
     (DbKind::Postgres, "PostgreSQL", "P", 0.62),
     (DbKind::Oracle, "Oracle", "O", 0.02),
+    (DbKind::SqlServer, "SQL Server", "S", 0.0),
     (DbKind::Sqlite, "SQLite", "S", 0.58),
     (DbKind::Redis, "Redis", "R", 0.0),
 ];
@@ -654,6 +655,7 @@ impl ConnForm {
             DbKind::Oracle => t!("conn.service"),
             DbKind::Postgres => t!("conn.database_pg"),
             DbKind::Mysql => t!("conn.database"),
+            DbKind::SqlServer => t!("conn.database"),
             DbKind::Sqlite => t!("sqlite.file"),
             DbKind::Redis => t!("redis.db_index"),
         };

@@ -77,7 +77,7 @@ impl Locus {
             DbKind::Mysql => Some(Engine::Mysql),
             DbKind::Postgres => Some(Engine::Postgres),
             DbKind::Sqlite => Some(Engine::Sqlite),
-            DbKind::Oracle | DbKind::Redis => None,
+            DbKind::Oracle | DbKind::SqlServer | DbKind::Redis => None,
         }
     }
 
@@ -105,7 +105,7 @@ impl Locus {
                 return;
             }
             DbKind::Sqlite => Engine::Sqlite,
-            DbKind::Oracle | DbKind::Redis => {
+            DbKind::Oracle | DbKind::SqlServer | DbKind::Redis => {
                 crate::shell::toast::show(t!("explain.unsupported_engine").to_string(), cx);
                 return;
             }
@@ -182,7 +182,7 @@ impl Locus {
             DbKind::Mysql => Engine::Mysql,
             DbKind::Postgres => Engine::Postgres,
             DbKind::Sqlite => Engine::Sqlite,
-            DbKind::Oracle | DbKind::Redis => return,
+            DbKind::Oracle | DbKind::SqlServer | DbKind::Redis => return,
         };
         let stmt = entry.sql.trim().trim_end_matches(';').trim().to_string();
         if stmt.is_empty()
