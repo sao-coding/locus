@@ -104,11 +104,16 @@ impl Locus {
                                 .text_size(px(TX_SM))
                                 .child(format!("${{{name}}}")),
                         )
-                        .child(div().flex_1().min_w_0().child(Input::new(&inputs[i])))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .child(Input::new(&inputs[i]).h(px(H_CONTROL))),
+                        )
                         .child(
                             Button::new(("var-del", i))
-                                .h(px(H_ROW))
-                                .w(px(H_ROW))
+                                .h(px(H_CONTROL))
+                                .w(px(H_CONTROL))
                                 .icon(crate::shell::icons::icon("trash").size(px(14.)))
                                 .tooltip(t!("vars.delete").to_string())
                                 .on_click(move |_, window, cx| {
@@ -134,12 +139,43 @@ impl Locus {
                     .text_color(t.tx3)
                     .child(t!("vars.empty").into_owned())
             });
+            let (add_btn, tab_add, me_add, nn) =
+                (save.clone(), tab.clone(), me.clone(), new_name.clone());
             let add = h_flex()
                 .gap(px(S4))
                 .items_center()
-                .child(div().w(px(W_NAME)).flex_none().child(Input::new(&new_name)))
-                .child(div().flex_1().min_w_0().child(Input::new(&new_value)))
-                .child(div().w(px(H_ROW)).flex_none());
+                .child(
+                    div()
+                        .w(px(W_NAME))
+                        .flex_none()
+                        .child(Input::new(&new_name).h(px(H_CONTROL))),
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .child(Input::new(&new_value).h(px(H_CONTROL))),
+                )
+                .child(
+                    Button::new("var-add")
+                        .h(px(H_CONTROL))
+                        .w(px(H_CONTROL))
+                        .icon(crate::shell::icons::icon("plus").size(px(14.)))
+                        .tooltip(t!("vars.add").to_string())
+                        .on_click(move |_, window, cx| {
+                            let name = nn.read(cx).value().trim().to_string();
+                            if !name.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                                add_btn(window, cx);
+                                return;
+                            }
+                            add_btn(window, cx);
+                            let (tab, me) = (tab_add.clone(), me_add.clone());
+                            window.defer(cx, move |window, cx| {
+                                let _ = me
+                                    .update(cx, |this, cx| this.open_vars_dialog(tab, window, cx));
+                            });
+                        }),
+                );
             let save_btn = save_btn.clone();
             let body = v_flex()
                 .gap(px(S5))

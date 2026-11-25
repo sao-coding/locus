@@ -1315,6 +1315,7 @@ vars:
   new_name: "New name"
   new_value: "Value"
   delete: "Delete variable"
+  add: "Add variable"
   bad_name: "A variable name has letters, digits and _ only."
   bad_command: "Not a valid command: %{line}"
   done: "Variables: %{n} defined for this tab."

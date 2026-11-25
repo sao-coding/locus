@@ -1316,6 +1316,7 @@ vars:
   new_name: "新名稱"
   new_value: "值"
   delete: "刪除變數"
+  add: "新增變數"
   bad_name: "變數名稱只能含字母、數字與 _。"
   bad_command: "不是有效的指令：%{line}"
   done: "變數：此分頁已定義 %{n} 個。"

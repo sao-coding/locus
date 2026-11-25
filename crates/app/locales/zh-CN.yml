@@ -1316,6 +1316,7 @@ vars:
   new_name: "新名称"
   new_value: "值"
   delete: "删除变量"
+  add: "添加变量"
   bad_name: "变量名只能含字母、数字与 _。"
   bad_command: "不是有效的命令：%{line}"
   done: "变量：此标签页已定义 %{n} 个。"

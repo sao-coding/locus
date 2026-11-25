@@ -223,16 +223,17 @@ fn param_rows(
                         .child(label),
                 )
                 .child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .child(Input::new(&inputs[i]).disabled(!is_var && ty == ParamType::Null)),
+                    div().flex_1().min_w_0().child(
+                        Input::new(&inputs[i])
+                            .h(px(H_CONTROL))
+                            .disabled(!is_var && ty == ParamType::Null),
+                    ),
                 )
                 .child(if is_var {
                     div().w(px(W_TYPE)).flex_none().into_any_element()
                 } else {
                     Button::new(("qp-type", i))
-                        .h(px(H_ROW))
+                        .h(px(H_CONTROL))
                         .w(px(W_TYPE))
                         .label(t!(ty.label_key()).to_string())
                         .tooltip(t!("qp.type_tip").to_string())
