@@ -253,6 +253,15 @@ impl Mcp {
         if !self.token.is_empty() {
             return Ok(());
         }
+        // Test hook of dev builds (live MCP checks): a known token, never saved.
+        #[cfg(feature = "dev")]
+        if let Some(t) = std::env::var("LOCUS_MCP_TOKEN")
+            .ok()
+            .filter(|t| !t.is_empty())
+        {
+            self.token = t;
+            return Ok(());
+        }
         if self.disk
             && let Some(t) = locus_core::creds::read_mcp_token()
                 .map_err(|e| format!("token could not be read: {e}"))?

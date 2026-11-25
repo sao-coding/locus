@@ -143,6 +143,11 @@ impl Entry {
     }
 }
 
+/// The error text that marks a cancelled run (in the current language).
+pub fn cancelled_text() -> String {
+    t!("state.cancelled").into_owned()
+}
+
 fn is_cancel_text(s: &str) -> bool {
     crate::settings::LANGUAGES
         .iter()

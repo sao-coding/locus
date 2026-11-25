@@ -277,7 +277,7 @@ async fn read_write_and_read_only_paths() {
         json!({"connection": "dev1", "sql": "SELECT * FROM nope"}),
     )
     .await
-    .unwrap();
+    .unwrap_err();
     assert!(e.starts_with("error: ") && e.contains("nope"), "{e}");
     // History entries carry the client; Busy / Idle pairs.
     let ev = f.host.events.lock();
@@ -602,5 +602,45 @@ async fn http_endpoint_checks_and_serves() {
             .await
             .is_err()
     );
+    let _ = std::fs::remove_file(&f.path);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_cancelled_call_sends_nothing_and_shows_as_cancelled() {
+    let f = fixture(1).await;
+    let ct = tokio_util::sync::CancellationToken::new();
+    ct.cancel();
+    let call = Call {
+        client: "test-client",
+        ct: &ct,
+    };
+    let e = f
+        .core
+        .run_sql(
+            &args(json!({"connection": "devdb", "sql": "DELETE FROM t"})),
+            &call,
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(e, "cancelled by the client");
+    let h = f
+        .host
+        .events
+        .lock()
+        .iter()
+        .find_map(|e| match e {
+            Event::History(h) => Some(h.clone()),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(h.status(), locus_core::history::Status::Cancelled);
+    let n = tool(
+        &f.core,
+        "run_sql",
+        json!({"connection": "devdb", "sql": "SELECT COUNT(*) AS n FROM t"}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(n, "n\n1\n(1 row)");
     let _ = std::fs::remove_file(&f.path);
 }

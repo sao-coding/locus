@@ -11,9 +11,12 @@ use locus_core::store::McpAccess;
 /// Monospace chip used for the URL, the token and the snippets.
 fn mono_chip(text: String, cx: &App) -> Div {
     let t = crate::shell::theme::tokens(cx);
+    // Same height as the buttons beside it (2 rem, like `Button`).
     div()
+        .h_8()
+        .flex()
+        .items_center()
         .px(px(S4))
-        .py(px(S1))
         .rounded(px(R_SM))
         .bg(t.hv)
         .font_family(cx.theme().mono_font_family.clone())

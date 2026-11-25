@@ -31,7 +31,7 @@ simplelog.workspace = true
 gpui-kit = { workspace = true, features = ["test-support"] }
 
 [features]
-# Test and bench hooks (LOCUS_KEYLOG, LOCUS_DEMO_ENV, LOCUS_UNLOCK_SECS, bench scenes). Never in release builds.
+# Test and bench hooks (LOCUS_KEYLOG, LOCUS_DEMO_ENV, LOCUS_UNLOCK_SECS, LOCUS_MCP_TOKEN, bench scenes). Never in release builds.
 dev = ["locus-core/dev"]
 
 [build-dependencies]

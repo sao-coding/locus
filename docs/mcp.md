@@ -132,5 +132,7 @@ Results are compact text, not JSON per row:
 - A footer: `(3 rows)`, or `(200 of 18,342 rows shown, truncated)`. Rows past the shown ones
   are counted up to 100,000 more, then reading stops (`100,200+`).
 
-For a 200-row, 5-column result this is roughly a third of the tokens the same rows cost as
-JSON objects (`[{"id":1,"name":…}, …]`), because the column names are sent once.
+Measured on 200 rows of a real table, the same rows as JSON objects
+(`[{"id":1,"name":…}, …]`) cost about 2.3 times the tokens for five ASCII columns and about
+1.9 times for eight columns with Chinese text, because the column names are sent once and
+there is no quoting.

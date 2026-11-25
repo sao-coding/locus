@@ -266,7 +266,12 @@ impl Locus {
             },
         ));
         let history = cx.new(|_| crate::history::History::new(store.persists()));
-        let mcp = crate::mcp::init(rt.clone(), matches!(store, Store::Disk), cx);
+        // The token goes to Credential Manager only for the real data folder.
+        let mcp = crate::mcp::init(
+            rt.clone(),
+            matches!(store, Store::Disk) && std::env::var_os("LOCUS_DATA_DIR").is_none(),
+            cx,
+        );
         subs.push(cx.observe(&mcp, |_, _, cx| cx.notify()));
         subs.push(cx.subscribe_in(
             &mcp,

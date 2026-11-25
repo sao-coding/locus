@@ -25,6 +25,9 @@ const LIST_CAP: u32 = 2000;
 
 pub type ToolResult = Result<String, String>;
 
+/// Error of a call the client cancelled (or disconnected from).
+const CANCELLED: &str = "cancelled by the client";
+
 /// One open driver per connection and access level, separate from the
 /// app's own pool so MCP never shares a session (or a manual transaction)
 /// with the user's tabs.
@@ -87,7 +90,7 @@ async fn or_cancel<T>(
 ) -> Result<T, String> {
     tokio::select! {
         r = fut => Ok(r),
-        _ = ct.cancelled() => Err("cancelled by the client".into()),
+        _ = ct.cancelled() => Err(CANCELLED.into()),
     }
 }
 
@@ -566,11 +569,20 @@ impl Core {
                     _ => None,
                 });
                 let rows = out.iter().map(StmtOut::rows).sum();
+                let text = exec::render_script(&stmts, &out);
+                let ok = failed.is_none();
                 self.history(&c, call, sql, ms, rows, failed);
-                Ok(exec::render_script(&stmts, &out))
+                // A failed statement makes the call an error (isError), with the same text.
+                if ok { Ok(text) } else { Err(text) }
             }
             Err(e) => {
-                self.history(&c, call, sql, ms, 0, Some(e.clone()));
+                // History shows a cancelled run as Cancelled, not as an error.
+                let shown = if e == CANCELLED {
+                    locus_core::history::cancelled_text()
+                } else {
+                    e.clone()
+                };
+                self.history(&c, call, sql, ms, 0, Some(shown));
                 Err(e)
             }
         }
