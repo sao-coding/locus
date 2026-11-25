@@ -69,3 +69,26 @@ impl SqlEditor {
         }
     }
 }
+
+impl crate::query::tab::QueryTab {
+    /// Tab in the editor: accepts the highlighted completion while the popup is
+    /// open (as Enter does), otherwise does what Tab did before (indent, snippet
+    /// stops). Never accepts during an IME composition.
+    pub fn accept_completion(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        use gpui_kit::component::input::{Enter, IndentInline};
+        let state = self.editor.read(cx).state.clone();
+        let open = state.read(cx).completion_menu_state().open;
+        let composing = state.update(cx, |s, cx| {
+            gpui::EntityInputHandler::marked_text_range(s, window, cx).is_some()
+        });
+        let action: Box<dyn Action> = if open && !composing {
+            Box::new(Enter {
+                secondary: false,
+                shift: false,
+            })
+        } else {
+            Box::new(IndentInline)
+        };
+        window.dispatch_action(action, cx);
+    }
+}

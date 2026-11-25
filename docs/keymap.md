@@ -107,6 +107,7 @@ Generated from the action list
 | `locus::GridExtendLeft` | `shift-left` | `Grid` |
 | `locus::GridExtendRight` | `shift-right` | `Grid` |
 | `locus::GridEdit` | `f2`, `enter` | `Grid` |
+| `locus::AcceptCompletion` | `tab` | `Editor > Input` |
 | `locus::ImportData` | (palette only) | `Workspace` |
 | `locus::ExplainAnalyze` | (palette only) | `Workspace` |
 | `locus::LockAllProd` | (palette only) | `Workspace` |

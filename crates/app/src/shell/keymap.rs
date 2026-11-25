@@ -21,6 +21,8 @@ macro_rules! commands {
                 Space1, Space2, Space3, Space4, Space5, Space6, Space7, Space8, Space9,
                 GridCopy, GridCopyColumns, GridExtendUp, GridExtendDown, GridExtendLeft,
                 GridExtendRight, GridEdit,
+                /// Tab in the SQL editor: accept the highlighted completion (popup open) or indent.
+                AcceptCompletion,
             ]);
         }
 
@@ -60,7 +62,7 @@ macro_rules! commands {
             $(stringify!($name),)* "Escape",
             "Space1", "Space2", "Space3", "Space4", "Space5", "Space6", "Space7", "Space8", "Space9",
             "GridCopy", "GridCopyColumns", "GridExtendUp", "GridExtendDown", "GridExtendLeft",
-            "GridExtendRight", "GridEdit",
+            "GridExtendRight", "GridEdit", "AcceptCompletion",
         ];
     };
 }
