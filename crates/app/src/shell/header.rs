@@ -49,7 +49,7 @@ impl Locus {
                 .flex_shrink(8.)
                 .gap(px(scale::S3))
                 .items_center()
-                .text_size(px(scale::TX_SM))
+                .text_size(px(scale::TX_BASE))
                 .text_color(t.tx3)
                 .whitespace_nowrap()
                 .child(
@@ -125,7 +125,7 @@ impl Locus {
         let tab2 = tab.clone();
         let picker = Button::new("conn-picker")
             .ghost()
-            .xsmall()
+            .small()
             .label(
                 conn.as_ref()
                     .map(|c| c.name.clone())
@@ -153,75 +153,92 @@ impl Locus {
                 menu
             });
 
-        let mut crumb = h_flex()
+        // Priority when the window is narrow: connection and database keep a
+        // readable minimum width; the tab title (already in the tab strip)
+        // gives way first and can shrink to nothing.
+        let database = conn
+            .as_ref()
+            .and_then(|c| c.database.clone())
+            .unwrap_or_else(|| "—".into());
+        let mut source = h_flex()
+            .min_w(px(96.))
+            .flex_shrink(1.)
+            .overflow_hidden()
+            .gap(px(scale::S2))
+            .items_center();
+        if let Some(c) = &conn {
+            source = source.child(self.conn_badge(c, cx));
+        }
+        source = source.child(
+            div()
+                .min_w_0()
+                .overflow_hidden()
+                .text_size(px(scale::TX_BASE))
+                .font_weight(FontWeight::MEDIUM)
+                .text_color(t.tx1)
+                .child(picker),
+        );
+        h_flex()
             .flex_1()
             .min_w_0()
             .overflow_hidden()
-            .gap(px(scale::S4))
-            .items_center();
-        if let Some(c) = &conn {
-            crumb = crumb.child(self.conn_badge(c, cx));
-        }
-        crumb = crumb
-            .child(
-                div()
-                    .min_w_0()
-                    .flex_shrink(2.)
-                    .overflow_hidden()
-                    .text_color(t.tx3)
-                    .child(picker),
-            )
+            .gap(px(scale::S3))
+            .items_center()
+            .child(source)
             .child(chevron())
             .child(
                 h_flex()
-                    .min_w_0()
+                    .id("crumb-db")
+                    .min_w(px(72.))
+                    .flex_shrink(1.)
                     .overflow_hidden()
-                    .flex_shrink(4.)
                     .gap(px(scale::S3))
                     .items_center()
-                    .text_color(t.tx3)
-                    .child(crate::shell::icons::icon("db").size(px(13.)))
+                    .text_size(px(scale::TX_BASE))
+                    .text_color(t.tx2)
+                    .tooltip(tip(database.clone()))
                     .child(
-                        conn.as_ref()
-                            .and_then(|c| c.database.clone())
-                            .unwrap_or_else(|| "—".into()),
-                    ),
+                        crate::shell::icons::icon("db")
+                            .size(px(14.))
+                            .flex_none(),
+                    )
+                    .child(div().min_w_0().truncate().child(database)),
             )
             .child(chevron())
             .child(
                 h_flex()
-                    .min_w(px(140.))
+                    .id("crumb-title")
+                    .min_w_0()
+                    .flex_shrink(20.)
+                    .overflow_hidden()
                     .gap(px(scale::S3))
                     .items_center()
-                    .child(kind_icon(kind).size(px(14.)).text_color(col))
+                    .tooltip(tip(title.clone()))
+                    .child(kind_icon(kind).size(px(14.)).text_color(col).flex_none())
                     .child(
                         div()
                             .min_w_0()
                             .truncate()
-                            .text_size(px(scale::TX_MD))
-                            .line_height(px(scale::H_BADGE))
+                            .text_size(px(scale::TX_BASE))
                             .font_weight(FontWeight::SEMIBOLD)
                             .text_color(t.tx1)
                             .child(title),
                     ),
             )
+            // Unsaved: just the dot; the words live in its tooltip.
             .when(modified, |c| {
                 c.child(
-                    h_flex()
+                    div()
+                        .id("crumb-unsaved")
                         .flex_none()
-                        .gap(px(scale::S3))
+                        .size(px(16.))
+                        .flex()
                         .items_center()
-                        .text_size(px(scale::TX_XS))
-                        .text_color(t.tx3)
-                        .child(div().size(px(6.)).rounded_full().bg(t.acc))
-                        .child(
-                            div()
-                                .line_height(px(scale::H_BADGE))
-                                .child(t!("shell.unsaved").into_owned()),
-                        ),
+                        .justify_center()
+                        .tooltip(tip(t!("shell.unsaved").into_owned()))
+                        .child(div().size(px(7.)).rounded_full().bg(t.acc)),
                 )
-            });
-        crumb
+            })
     }
 
     /// The red Stop button shown while a query runs.

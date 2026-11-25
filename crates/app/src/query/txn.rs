@@ -433,7 +433,7 @@ impl Locus {
         let manual = tr.tx.manual();
         let mode = Button::new("tx-mode")
             .ghost()
-            .xsmall()
+            .small()
             .label(
                 if manual {
                     t!("txn.mode_manual")

@@ -72,12 +72,21 @@ fn body_row(id: impl Into<ElementId>, cx: &App) -> Stateful<Div> {
         .text_color(t.tx1)
 }
 
-fn scroll(id: &'static str, rows: Vec<AnyElement>) -> AnyElement {
+fn scroll(id: &'static str, rows: Vec<AnyElement>, cx: &App) -> AnyElement {
+    let t = crate::shell::theme::tokens(cx);
     div()
         .id(id)
         .size_full()
         .overflow_y_scrollbar()
-        .child(v_flex().w_full().children(rows))
+        .child(
+            v_flex()
+                .w_full()
+                .rounded(px(6.))
+                .border_1()
+                .border_color(t.ln)
+                .overflow_hidden()
+                .children(rows),
+        )
         .into_any_element()
 }
 
@@ -160,7 +169,16 @@ impl QueryTab {
                     .border_color(t.ln)
                     .child(seg(items, cx)),
             )
-            .child(div().flex_1().min_h_0().child(body))
+            .child(
+                // Same left/right inset as the section switcher above, so the
+                // table lines up with the tabs instead of running past them.
+                div()
+                    .flex_1()
+                    .min_h_0()
+                    .px(px(S5))
+                    .py(px(S3))
+                    .child(body),
+            )
             .into_any_element()
     }
 
@@ -208,7 +226,7 @@ impl QueryTab {
                     .into_any_element(),
             );
         }
-        scroll("st-columns", rows)
+        scroll("st-columns", rows, cx)
     }
 
     fn sec_indexes(&self, d: &TableStructure, cx: &App) -> AnyElement {
@@ -235,7 +253,7 @@ impl QueryTab {
                     .into_any_element(),
             );
         }
-        scroll("st-indexes", rows)
+        scroll("st-indexes", rows, cx)
     }
 
     fn fk_rows(
@@ -347,7 +365,7 @@ impl QueryTab {
         incoming_cols[2].0 = t!("structure.col_columns").into_owned();
         rows.push(head_row(&incoming_cols, cx).into_any_element());
         rows.extend(self.fk_rows(&d.referenced_by, true, 10_000, cx));
-        scroll("st-fks", rows)
+        scroll("st-fks", rows, cx)
     }
 
     fn sec_triggers(&self, d: &TableStructure, cx: &mut Context<Self>) -> AnyElement {
@@ -386,7 +404,7 @@ impl QueryTab {
                     .into_any_element(),
             );
         }
-        scroll("st-triggers", rows)
+        scroll("st-triggers", rows, cx)
     }
 
     fn sec_checks(&self, d: &TableStructure, cx: &App) -> AnyElement {
@@ -407,7 +425,7 @@ impl QueryTab {
                     .into_any_element(),
             );
         }
-        scroll("st-checks", rows)
+        scroll("st-checks", rows, cx)
     }
 
     fn render_ddl(&self, _d: &TableStructure, cx: &mut Context<Self>) -> AnyElement {
@@ -428,12 +446,9 @@ impl QueryTab {
                     .child(
                         h_flex()
                             .flex_none()
-                            .px(px(S5))
-                            .py(px(S2))
+                            .pb(px(S2))
                             .gap(px(S4))
                             .items_center()
-                            .border_b_1()
-                            .border_color(t.ln)
                             .child(div().flex_1())
                             .child(
                                 Button::new("st-copy-ddl")
@@ -455,6 +470,10 @@ impl QueryTab {
                         div()
                             .flex_1()
                             .min_h_0()
+                            .rounded(px(6.))
+                            .border_1()
+                            .border_color(t.ln)
+                            .overflow_hidden()
                             .child(Editor::new(&editor).bordered(false).h_full()),
                     )
                     .into_any_element()
