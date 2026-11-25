@@ -134,6 +134,13 @@ func TestErrorAndReady(t *testing.T) {
 	if err != nil || v != Version || d != "mysql" || s != "11.8.5-MariaDB" {
 		t.Fatalf("%v %q %q %v", v, d, s, err)
 	}
+	hv, hb, err := DecodeHello(EncodeHello("0.1.2"))
+	if err != nil || hv != Version || hb != "0.1.2" {
+		t.Fatalf("hello %v %q %v", hv, hb, err)
+	}
+	if _, _, err := DecodeHello([]byte{2}); err == nil {
+		t.Error("short hello frame must fail")
+	}
 	if _, _, _, err := DecodeError([]byte{1}); err == nil {
 		t.Error("short error frame must fail")
 	}

@@ -376,6 +376,33 @@ fn is_kw(t: &Tok, kw: &str) -> bool {
 /// INTERSECT / EXCEPT / MINUS, GROUP BY / HAVING, DISTINCT, aggregates, a
 /// CTE, `FOR UPDATE`, several statements, table functions, `FROM ONLY`.
 pub fn single_table(sql: &str) -> Option<TableRef> {
+    single_table_impl(sql, true)
+}
+
+/// Like [`single_table`] but for naming a result, not for editing it: a select that
+/// aggregates, groups or is `DISTINCT` still reads one table. JOIN, a comma list, a
+/// subquery in FROM, set operations, CTEs and table functions stay `None`.
+pub(crate) fn source_table(sql: &str) -> Option<TableRef> {
+    single_table_impl(sql, false)
+}
+
+/// True when the statement reads from more than one source: a JOIN or a set operation
+/// at any depth, or a CTE.
+pub(crate) fn has_multi_source(sql: &str) -> bool {
+    let Some(toks) = tokenize(sql) else {
+        return true;
+    };
+    ["JOIN", "UNION", "INTERSECT", "EXCEPT", "MINUS", "WITH"]
+        .iter()
+        .any(|k| toks.iter().any(|t| is_kw(t, k)))
+}
+
+/// True when the first token is `SELECT`.
+pub(crate) fn starts_with_select(sql: &str) -> bool {
+    tokenize(sql).is_some_and(|t| t.first().is_some_and(|t| is_kw(t, "SELECT")))
+}
+
+fn single_table_impl(sql: &str, strict: bool) -> Option<TableRef> {
     let mut toks = tokenize(sql)?;
     while toks.last() == Some(&Tok::Punct(b';')) {
         toks.pop();
@@ -404,13 +431,15 @@ pub fn single_table(sql: &str) -> Option<TableRef> {
         match t {
             Tok::Punct(b'(') => depth += 1,
             Tok::Punct(b')') => depth -= 1,
-            _ if is_kw(t, "SELECT") => return None, // scalar subquery
+            _ if strict && is_kw(t, "SELECT") => return None, // scalar subquery
             _ if depth == 0 && is_kw(t, "FROM") => {
                 from = Some(i);
                 break;
             }
-            _ if depth == 0
-                && ["DISTINCT", "DISTINCTROW", "UNIQUE", "INTO"]
+            _ if depth == 0 && is_kw(t, "INTO") => return None,
+            _ if strict
+                && depth == 0
+                && ["DISTINCT", "DISTINCTROW", "UNIQUE"]
                     .iter()
                     .any(|k| is_kw(t, k)) =>
             {
@@ -418,7 +447,8 @@ pub fn single_table(sql: &str) -> Option<TableRef> {
             }
             // An aggregate: its result is not a table column.
             Tok::Word(w)
-                if toks.get(i + 1) == Some(&Tok::Punct(b'('))
+                if strict
+                    && toks.get(i + 1) == Some(&Tok::Punct(b'('))
                     && AGGREGATES.iter().any(|k| w.eq_ignore_ascii_case(k)) =>
             {
                 return None;
@@ -459,7 +489,10 @@ pub fn single_table(sql: &str) -> Option<TableRef> {
         return None; // table function
     }
     const CLAUSE: [&str; 5] = ["WHERE", "ORDER", "LIMIT", "FETCH", "OFFSET"];
-    let is_clause = |t: &Tok| CLAUSE.iter().any(|k| is_kw(t, k));
+    const GROUPING: [&str; 2] = ["GROUP", "HAVING"];
+    let is_clause = |t: &Tok| {
+        CLAUSE.iter().any(|k| is_kw(t, k)) || (!strict && GROUPING.iter().any(|k| is_kw(t, k)))
+    };
     // Optional alias: `AS name` or a bare name that is not a clause keyword.
     if toks.get(i).is_some_and(|t| is_kw(t, "AS")) {
         name(toks.get(i + 1))?;
@@ -475,13 +508,11 @@ pub fn single_table(sql: &str) -> Option<TableRef> {
         Some(_) => return None, // comma, JOIN, GROUP, UNION, hints, ...
     }
     // The rest: nothing that changes what a row is.
-    const FORBIDDEN: [&str; 12] = [
+    const FORBIDDEN: [&str; 10] = [
         "UNION",
         "INTERSECT",
         "EXCEPT",
         "MINUS",
-        "GROUP",
-        "HAVING",
         "JOIN",
         "FROM",
         "INTO",
@@ -494,6 +525,7 @@ pub fn single_table(sql: &str) -> Option<TableRef> {
         match t {
             Tok::Punct(b'(') => depth += 1,
             Tok::Punct(b')') => depth -= 1,
+            _ if depth == 0 && strict && GROUPING.iter().any(|k| is_kw(t, k)) => return None,
             _ if depth == 0 && FORBIDDEN.iter().any(|k| is_kw(t, k)) => return None,
             _ => {}
         }

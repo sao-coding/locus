@@ -22,8 +22,13 @@ pub const ERROR: u8 = 14;
 pub const CANCELLED: u8 = 15;
 pub const AFFECTED: u8 = 16;
 pub const READY: u8 = 20;
+pub const HELLO: u8 = 21;
 
-pub const VERSION: u16 = 1;
+/// Protocol version in the hello and ready frames. 2: the hello frame.
+pub const VERSION: u16 = 2;
+/// The build the hello frame must report: the workspace version, which
+/// `sidecar/build.ps1` stamps into the sidecar too.
+pub const BUILD: &str = env!("CARGO_PKG_VERSION");
 const NULL_LEN: u32 = 0xFFFF_FFFF;
 /// The sidecar refuses larger frames from the host.
 pub const MAX_OUTBOUND: usize = 64 << 20;
@@ -238,6 +243,56 @@ pub fn decode_error(p: &[u8]) -> DbError {
     }
 }
 
+/// What the hello frame says: the sidecar's protocol and build.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HelloInfo {
+    pub protocol: u16,
+    pub build: String,
+}
+
+pub fn decode_hello(p: &[u8]) -> Result<HelloInfo, DbError> {
+    let mut c = Cursor(p);
+    let (protocol, build) = (|| Some((c.u16()?, c.str()?)))().ok_or_else(|| bad("hello"))?;
+    Ok(HelloInfo { protocol, build })
+}
+
+/// Checks the first frame a sidecar sent: it must be a hello frame with this
+/// host's protocol and build. Anything else comes from a sidecar older than
+/// protocol 2 (which starts with ready or error).
+pub fn check_first_frame(t: u8, payload: &[u8]) -> Result<HelloInfo, DbError> {
+    if t != HELLO {
+        return Err(DbError::new(
+            ErrorKind::Internal,
+            format!(
+                "the sidecar is older than this Locus {BUILD} (no hello frame, protocol 1); \
+                 rebuild it with sidecar/build.ps1 or remove it"
+            ),
+        ));
+    }
+    let h = decode_hello(payload)?;
+    if h.protocol != VERSION || h.build != BUILD {
+        return Err(DbError::new(
+            ErrorKind::Internal,
+            format!(
+                "the sidecar is build {} (protocol {}), this Locus {BUILD} needs protocol \
+                 {VERSION}; rebuild it with sidecar/build.ps1 or remove it",
+                h.build, h.protocol
+            ),
+        ));
+    }
+    Ok(h)
+}
+
+/// The first complete frame in `b`: type and payload (sync, for the probe).
+pub fn first_frame(b: &[u8]) -> Option<(u8, &[u8])> {
+    let len = u32::from_le_bytes(b.get(..4)?.try_into().ok()?) as usize;
+    if len < 5 {
+        return None;
+    }
+    let t = *b.get(4)?;
+    Some((t, b.get(9..4 + len)?))
+}
+
 /// What the ready frame says about the sidecar.
 #[derive(Clone, Debug)]
 pub struct ReadyInfo {
@@ -365,5 +420,49 @@ mod tests {
             r.extend_from_slice(s.as_bytes());
         }
         assert_eq!(decode_ready(&r).unwrap().server_version, "11.8");
+    }
+
+    fn hello(protocol: u16, build: &str) -> Vec<u8> {
+        let mut p = protocol.to_le_bytes().to_vec();
+        p.extend_from_slice(&(build.len() as u16).to_le_bytes());
+        p.extend_from_slice(build.as_bytes());
+        frame(HELLO, 0, &p)
+    }
+
+    #[test]
+    fn hello_must_match_protocol_and_build() {
+        let ok = hello(VERSION, BUILD);
+        let (t, p) = first_frame(&ok).unwrap();
+        assert_eq!(
+            check_first_frame(t, p).unwrap(),
+            HelloInfo {
+                protocol: VERSION,
+                build: BUILD.into()
+            }
+        );
+
+        for bad in [
+            hello(VERSION + 1, BUILD),
+            hello(VERSION, "0.0.1"),
+            hello(VERSION, "dev"),
+        ] {
+            let (t, p) = first_frame(&bad).unwrap();
+            let e = check_first_frame(t, p).unwrap_err();
+            assert!(e.message.contains("rebuild it"), "{}", e.message);
+        }
+
+        // A protocol 1 sidecar starts with ready (or error), never hello.
+        let old = frame(READY, 0, &1u16.to_le_bytes());
+        let (t, p) = first_frame(&old).unwrap();
+        assert!(
+            check_first_frame(t, p)
+                .unwrap_err()
+                .message
+                .contains("older than")
+        );
+
+        assert!(decode_hello(&[2]).is_err());
+        assert!(first_frame(&ok[..ok.len() - 1]).is_none());
+        assert!(first_frame(&[]).is_none());
     }
 }

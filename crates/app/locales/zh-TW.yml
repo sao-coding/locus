@@ -102,6 +102,8 @@ fmt:
 results:
   result: 結果
   result_n: "結果 %{n}"
+  all_results: 所有結果
+  more_actions: 更多動作
   messages: "訊息（%{n}）"
   waiting: 等待第一批資料…
   note_cancelled: "已取消：顯示取消前收到的 %{n} 列。"
@@ -300,6 +302,7 @@ settings:
   motion: 動畫
   motion_on: 開啟
   motion_off: 減少動態效果
+  stripes: 結果表格交替列底色
   count: 在背景計算分頁查詢的總列數
   count_on: 開啟
   count_off: 關閉
@@ -617,6 +620,7 @@ sp:
   d_theme: 淺色、深色，或跟隨 Windows。
   d_font: 介面與編輯器文字的大小。
   d_motion: 動畫讓你分心時可以關閉。
+  d_stripes: 結果表格的奇偶列用兩種相近的底色，更容易分辨每一列。
   d_material: 視窗背景透出的材質。
   d_translucency: 選了材質時，視窗底色的透明程度。
   d_cap: 結果達到這個列數時，查詢會中止並附上說明。

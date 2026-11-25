@@ -136,6 +136,9 @@ Get-FileHash .\locus-<version>-windows-x64.exe -Algorithm SHA256
 
 # build provenance, with the GitHub CLI
 gh attestation verify .\locus-<version>-windows-x64.exe --repo sao-coding/locus
+
+# minisign signature (the key is also in minisign.pub)
+minisign -Vm .\locus-<version>-windows-x64.exe -P RWRDNREpYa8EZ59rUGsAnTVNIMjNfUWhciyq6SgS2MpNZvMGj0yVAZ0s
 ```
 
 Settings, saved connections and history live in `%APPDATA%\Locus`. Delete the folder to reset. The

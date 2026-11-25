@@ -12,6 +12,8 @@ cargo build --release -p app     # target\release\locus.exe
 cargo test --workspace --lib --bins
 ```
 
+Building the app rebuilds `sidecar\bin\sidecar.exe` by itself when it is missing or stale (its Go sources changed, or its build differs from the workspace version), as long as Go is on `PATH`. `build.ps1` is for building it on its own. CI (`CI` set) and `LOCUS_SIDECAR_BUILD=0` turn this off: the workflows run `build.ps1` themselves.
+
 Unit tests (`cargo test --workspace --lib --bins`) need nothing. The integration tests under `crates/*/tests` need a local MariaDB, Redis and PostgreSQL: set `BENCH_DSN` (`mysql://user:pass@host:port/db`) for MariaDB, `REDIS_URL` for Redis, and `PG_TEST_HOST` / `PG_TEST_PORT` / `PG_TEST_USER` / `PG_TEST_DB` for PostgreSQL (the password comes from the Windows credential `Locus/test/postgres`). Tests whose server is not configured skip or fail with a message naming the missing setting.
 
 `cargo test --workspace --features dev` / `cargo build -p app --features dev` enable the test hooks (`LOCUS_KEYLOG`, `LOCUS_DEMO_ENV`, `LOCUS_UNLOCK_SECS`, and the bench scenes `locus.exe <scene>` used by the local UI scripts). They are compiled out of normal builds; `LOCUS_UNLOCK_SECS` can only shorten the 15-minute Production unlock. Plain `cargo test` needs no feature.
