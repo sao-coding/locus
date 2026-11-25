@@ -7,6 +7,7 @@ use crate::shell::scale::*;
 use crate::shell::seg::{SegItem, seg};
 use crate::shell::*;
 use gpui_kit::component::Disableable as _;
+use gpui_kit::component::switch::Switch;
 use std::rc::Rc;
 
 pub(crate) enum SettingsPageEvent {
@@ -66,6 +67,25 @@ enum Ctl {
     UpdateCheck,
     UpdateDownload,
     UpdateBeta,
+}
+
+impl Ctl {
+    /// On/off settings, drawn as a switch (their `choices` are [on, off]); the others keep
+    /// the segmented control.
+    fn is_toggle(self) -> bool {
+        matches!(
+            self,
+            Ctl::Motion
+                | Ctl::GridStripes
+                | Ctl::Count
+                | Ctl::AutoPlan
+                | Ctl::ConfirmNonprod
+                | Ctl::ProdManualTx
+                | Ctl::UpdateCheck
+                | Ctl::UpdateDownload
+                | Ctl::UpdateBeta
+        )
+    }
 }
 
 /// (category, label key, description key, control)
@@ -642,6 +662,9 @@ impl SettingsPage {
     }
 
     fn controls(&self, ctl: Ctl, cx: &mut Context<Self>) -> AnyElement {
+        if ctl.is_toggle() {
+            return self.switch(ctl, cx);
+        }
         let mut items = Vec::new();
         for ch in self.choices(ctl) {
             let (apply, lang) = (ch.apply.clone(), ch.lang);
@@ -664,6 +687,29 @@ impl SettingsPage {
             ));
         }
         seg(items, cx)
+    }
+
+    /// An on/off setting as a switch: `choices` gives [on, off], in that order.
+    fn switch(&self, ctl: Ctl, cx: &mut Context<Self>) -> AnyElement {
+        let mut ch = self.choices(ctl).into_iter();
+        let (Some(on), Some(off)) = (ch.next(), ch.next()) else {
+            return div().into_any_element();
+        };
+        let (set_on, set_off) = (on.apply, off.apply);
+        let me = cx.entity().downgrade();
+        Switch::new(SharedString::from(format!("sw-{ctl:?}")))
+            .checked(on.on)
+            .color(crate::shell::theme::tokens(cx).acc)
+            .on_change(move |next, _, cx| {
+                let apply = if *next { &set_on } else { &set_off }.clone();
+                let _ = me.update(cx, |this, cx| {
+                    crate::settings::update(cx, |s| apply(s));
+                    this.s = crate::settings::get(cx).clone();
+                    cx.emit(SettingsPageEvent::Changed);
+                    cx.notify();
+                });
+            })
+            .into_any_element()
     }
 
     fn render_cat(
