@@ -24,6 +24,9 @@ pub struct Entry {
     /// wrote it). Empty for a plain statement and for entries from older files.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub params: Vec<HistParam>,
+    /// Sent by this MCP client (its name), not typed in a tab: an MCP badge in History.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mcp_client: Option<String>,
 }
 
 /// One bound value of a statement with placeholders.
@@ -351,6 +354,7 @@ mod tests {
             rows: error.is_none().then_some(1),
             error: error.map(String::from),
             params: Vec::new(),
+            mcp_client: None,
         }
     }
 
@@ -558,6 +562,7 @@ mod tests {
                     rows: error.is_none().then_some(n * 13 % 5000),
                     error,
                     params: Vec::new(),
+                    mcp_client: None,
                 });
             }
         }

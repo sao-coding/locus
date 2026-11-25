@@ -47,6 +47,20 @@ impl Locus {
 
     /// Settings on its About category (the update state lives there).
     pub(crate) fn open_settings_about(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_settings_cat(crate::settings::page::Cat::About, window, cx);
+    }
+
+    /// Settings › MCP (the status-bar MCP item).
+    pub(crate) fn open_settings_mcp(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_settings_cat(crate::settings::page::Cat::Mcp, window, cx);
+    }
+
+    fn open_settings_cat(
+        &mut self,
+        cat: crate::settings::page::Cat,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.open_settings(window, cx);
         let view = self.space().tabs.iter().find_map(|t| {
             let t = t.read(cx);
@@ -56,9 +70,7 @@ impl Locus {
                 .and_then(|v| v.downcast::<SettingsPage>().ok())
         });
         if let Some(v) = view {
-            v.update(cx, |p, cx| {
-                p.show_cat(crate::settings::page::Cat::About, window, cx)
-            });
+            v.update(cx, |p, cx| p.show_cat(cat, window, cx));
         }
     }
 
@@ -163,6 +175,15 @@ impl Locus {
                         SettingsPageEvent::Language(l) => this.set_language(l, window, cx),
                         SettingsPageEvent::Changed => this.apply_settings(window, cx),
                         SettingsPageEvent::RestartToUpdate => this.restart_to_update(window, cx),
+                        SettingsPageEvent::EditConnection(id) => {
+                            let c = this.conns.iter().find(|c| &c.id == id).cloned();
+                            if c.is_some() {
+                                this.open_form(c, window, cx);
+                                if let Some(f) = this.form.clone() {
+                                    f.update(cx, |f, cx| f.show_mcp_page(cx));
+                                }
+                            }
+                        }
                     },
                 );
                 self.tab_subs.push((data.id.clone(), sub));

@@ -83,6 +83,10 @@ Locus 支援 MySQL / MariaDB、PostgreSQL、SQLite、Redis、Oracle 和 SQL Serv
 - 匯入 CSV 與 Excel
 - 匯出 CSV、xlsx、JSON、SQL INSERT、Markdown、HTML，也能從伺服器串流匯出完整結果
 
+**AI 工具（MCP）**
+- 內建 MCP 伺服器，只監聽 `127.0.0.1`，給 Claude Code、Cursor 等用戶端使用（預設關閉，需要權杖）；
+  每個連線可設關閉／唯讀／讀寫，Production 的寫入會先問你。見 [docs/mcp.md](docs/mcp.md)
+
 **管理**
 - 伺服器活動：session 列表、終止查詢、伺服器變數
 - Redis：key 瀏覽器、各型別的檢視器、指令視窗
@@ -171,7 +175,7 @@ cargo test --workspace --lib --bins
 
 ## 隱私
 
-Locus 沒有遙測、沒有帳號、沒有更新檢查，自己也不會產生網路流量。它只會連到你設定的資料庫與 SSH 主機。密碼存進 Windows 認證管理員，不會寫進檔案。查詢歷史和稽核日誌留在你電腦的 `%APPDATA%\Locus`，結果資料不會被寫在那裡。Locus 寫入的唯一其他檔案是 `%LOCALAPPDATA%\Locus\sidecar\` 裡的 Oracle 輔助程式。
+Locus 沒有遙測、沒有帳號、沒有更新檢查，自己也不會產生網路流量。它只會連到你設定的資料庫與 SSH 主機；選用的 MCP 伺服器（預設關閉）只監聽 127.0.0.1。密碼存進 Windows 認證管理員，不會寫進檔案。查詢歷史和稽核日誌留在你電腦的 `%APPDATA%\Locus`，結果資料不會被寫在那裡。Locus 寫入的唯一其他檔案是 `%LOCALAPPDATA%\Locus\sidecar\` 裡的 Oracle 輔助程式。
 
 ## 致謝
 

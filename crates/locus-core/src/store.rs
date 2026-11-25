@@ -71,6 +71,38 @@ impl Env {
     }
 }
 
+/// What the built-in MCP server may do on a connection.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum McpAccess {
+    /// The connection is invisible to MCP clients.
+    Off,
+    /// Reads only: writes and DDL are refused before anything is sent.
+    ReadOnly,
+    /// Reads and writes (Production writes still ask in Locus first).
+    ReadWrite,
+}
+
+impl McpAccess {
+    /// The access a connection has when the user never chose one:
+    /// read-write everywhere except Production, which is read-only.
+    pub fn default_for(env: Env) -> McpAccess {
+        match env {
+            Env::Prod => McpAccess::ReadOnly,
+            Env::Local | Env::Dev | Env::Staging | Env::Team => McpAccess::ReadWrite,
+        }
+    }
+
+    /// Short stable name (`off`, `read-only`, `read-write`) for tool output.
+    pub fn label(self) -> &'static str {
+        match self {
+            McpAccess::Off => "off",
+            McpAccess::ReadOnly => "read-only",
+            McpAccess::ReadWrite => "read-write",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SavedConnection {
     #[serde(default)]
@@ -99,9 +131,20 @@ pub struct SavedConnection {
     /// Jump host the database is reached through (secret in Credential Manager).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ssh: Option<crate::sshcfg::SshConfig>,
+    /// MCP access chosen in the connection dialog; `None` = the default of `env`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mcp: Option<McpAccess>,
 }
 
 impl SavedConnection {
+    /// What MCP clients may do on this connection (Redis has no SQL: always off).
+    pub fn mcp_access(&self) -> McpAccess {
+        if self.kind == DbKind::Redis {
+            return McpAccess::Off;
+        }
+        self.mcp.unwrap_or_else(|| McpAccess::default_for(self.env))
+    }
+
     pub fn options(&self, password: String) -> ConnectOptions {
         ConnectOptions {
             host: self.host.clone(),
@@ -322,6 +365,7 @@ pub fn parse_url(url: &str) -> Option<(SavedConnection, String)> {
         icon: None,
         read_only: false,
         ssh: None,
+        mcp: None,
     };
     let mut c = c;
     if scheme.eq_ignore_ascii_case("rediss") {
@@ -361,6 +405,7 @@ pub fn sqlite_connection(path: &str) -> SavedConnection {
         icon: None,
         read_only: false,
         ssh: None,
+        mcp: None,
     }
 }
 

@@ -164,6 +164,8 @@ pub struct Locus {
     pub(crate) renaming: Option<(Rename, Entity<InputState>, Subscription)>,
     pub(crate) objects: Entity<crate::connections::objects::ObjectTree>,
     pub(crate) history: Entity<crate::history::History>,
+    /// The built-in MCP server (`crate::mcp`).
+    pub(crate) mcp: Entity<crate::mcp::Mcp>,
     pub(crate) saved: Entity<crate::saved::SavedLib>,
     /// Tabs most recently shown, newest first (palette "recent").
     pub(crate) recent: Vec<String>,
@@ -264,6 +266,13 @@ impl Locus {
             },
         ));
         let history = cx.new(|_| crate::history::History::new(store.persists()));
+        let mcp = crate::mcp::init(rt.clone(), matches!(store, Store::Disk), cx);
+        subs.push(cx.observe(&mcp, |_, _, cx| cx.notify()));
+        subs.push(cx.subscribe_in(
+            &mcp,
+            window,
+            |this, _, ev: &crate::mcp::McpEvent, window, cx| this.on_mcp_event(ev, window, cx),
+        ));
         let saved = cx.new(|_| crate::saved::SavedLib::new(store.persists()));
         let welcome_url = cx.new(|cx| {
             InputState::new(window, cx).placeholder(t!("conn.url_placeholder").to_string())
@@ -318,6 +327,7 @@ impl Locus {
             renaming: None,
             objects,
             history,
+            mcp,
             saved,
             recent: Vec::new(),
             completions: Default::default(),
@@ -339,6 +349,8 @@ impl Locus {
             _subs: subs,
         };
         this.init_prod_locks();
+        this.sync_mcp_conns(cx);
+        this.mcp.update(cx, |m, cx| m.apply(cx));
         for sd in &file.spaces {
             let space = this.build_space(sd, window, cx);
             this.spaces.push(space);
@@ -705,6 +717,7 @@ impl Locus {
         self.conns.retain(|x| x.id != c.id);
         self.conns.insert(0, c.clone());
         self.init_prod_locks();
+        self.sync_mcp_conns(cx);
         let s = self.space_mut();
         s.connections.retain(|x| x != &c.id);
         s.connections.insert(0, c.id.clone());

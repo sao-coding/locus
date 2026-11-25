@@ -22,6 +22,12 @@ pub struct Entry<'a> {
     pub keywords: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sql: Option<&'a str>,
+    /// Who sent it when it was not the user: `mcp`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<&'a str>,
+    /// The MCP client name (from its `initialize`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client: Option<&'a str>,
 }
 
 impl<'a> Entry<'a> {
@@ -36,6 +42,8 @@ impl<'a> Entry<'a> {
             reason: None,
             keywords: Vec::new(),
             sql: None,
+            source: None,
+            client: None,
         }
     }
 }

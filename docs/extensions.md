@@ -1,7 +1,7 @@
 # Extension points
 
-Where a new feature can plug into the shell, for example a Git panel or an MCP server / AI
-panel (neither exists yet). Paths are from the repository root.
+Where a new feature can plug into the shell, for example a Git panel or an AI panel (neither
+exists yet; the MCP server does, see below). Paths are from the repository root.
 
 | Hook | Where | How a feature uses it |
 |---|---|---|
@@ -25,17 +25,27 @@ process wrapper as its own crate under `crates/`.
 
 ## MCP server / AI panel
 
-Not implemented. Where it would go:
+The **MCP server** exists ([mcp.md](mcp.md) for users). Where it sits:
 
-- **Server**: a new crate under `crates/` (no GPUI) built on
-  `crates/locus-core`: `store` (saved connections, never passwords in
-  output), `driver` / `pool` (queries), `history`. Every SQL it sends must go
-  through the Production guard: `locus_core::guard::decide` with the
-  connection's `env`, and the audit log (`locus_core::audit`). The app's
-  gate for user-sent SQL is `Locus::gate` in `crates/app/src/prod/mod.rs`;
-  an MCP path needs the same decision, not a bypass.
-- **AI panel**: a feature module `crates/app/src/ai/` registered as a right
-  panel (`PANELS`), palette commands to open it / send the selection, and a
-  settings section (server on / off, allowed connections).
-- **Startup**: the server would be started from `crates/app/src/main.rs`
-  next to the tokio runtime, or as a separate binary of the new crate.
+- **Server**: `crates/mcp` (`locus-mcp`, no GPUI) on `locus-core`: `access` (Off /
+  Read-only / Read-write per connection, then `locus_core::guard::decide` with the
+  connection's `env`), `guard` (Host / Origin / bearer token / body size), `format`
+  (compact TSV), `exec` (statements on a pinned session, 30 s timeout, read-only
+  transaction), `tools` and `server` (rmcp Streamable HTTP, stateless, on 127.0.0.1).
+  Every statement goes to `locus_core::audit` with `source: mcp`. It opens its own
+  `AnyDriver` per connection, never the app's `Pool` sessions.
+- **App side**: `crates/app/src/mcp/`: the `Mcp` entity (start / stop from the settings
+  `mcp_enabled` / `mcp_port`, token in Credential Manager via `locus_core::creds`), the
+  `Host` it gives the server (connections, passwords, confirmations, events),
+  Settings › MCP (`page.rs`, category `Cat::Mcp`) and the status-bar item
+  (`Locus::render_mcp_status`). The Production confirmation is
+  `Locus::open_mcp_confirm` in `crates/app/src/prod/mod.rs` (same dialog parts as the
+  user's confirm). History entries carry `mcp_client` and show an MCP badge.
+- **Per-connection access**: `SavedConnection::mcp` (`None` = default of `env`), the MCP
+  page of the connection dialog (`ConnForm::render_mcp`).
+- **A new tool**: a method on `tools::Core`, a `Tool` in `server::tools()` (keep the
+  description short) and an arm in `Mcp::dispatch`. SQL it sends goes through
+  `Core::admit` (access, Production confirmation, audit).
+
+An **AI panel** inside Locus would be a feature module `crates/app/src/ai/` registered as a
+right panel (`PANELS`), with palette commands to open it / send the selection.

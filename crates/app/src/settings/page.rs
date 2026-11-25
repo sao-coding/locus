@@ -16,6 +16,8 @@ pub(crate) enum SettingsPageEvent {
     Changed,
     /// "Restart and update" in About.
     RestartToUpdate,
+    /// MCP access summary: open this connection's dialog.
+    EditConnection(String),
 }
 
 impl EventEmitter<SettingsPageEvent> for SettingsPage {}
@@ -27,6 +29,8 @@ pub(crate) enum Cat {
     Editor,
     Queries,
     Production,
+    /// The built-in MCP server (`crate::mcp::page`).
+    Mcp,
     Shortcuts,
     /// Logo, name, version and licence. Manual check: Ctrl+, then click "About" in the
     /// left list (last entry); the harness cannot click, so `about_is_in_the_nav` guards it.
@@ -39,6 +43,7 @@ const CATS: &[(Cat, &str, &str)] = &[
     (Cat::Editor, "sp.cat_editor", "query"),
     (Cat::Queries, "sp.cat_queries", "table"),
     (Cat::Production, "sp.cat_production", "lock"),
+    (Cat::Mcp, "sp.cat_mcp", "link"),
     (Cat::Shortcuts, "sp.cat_shortcuts", "query"),
     (Cat::About, "sp.cat_about", "info"),
 ];
@@ -204,6 +209,11 @@ pub(crate) struct SettingsPage {
     _sub: Subscription,
     /// Re-renders About when the update check changes state.
     _upd: Option<Subscription>,
+    /// MCP port box (Settings › MCP).
+    pub(crate) mcp_port: Entity<InputState>,
+    /// Re-renders MCP when the server state changes.
+    _mcp: Option<Subscription>,
+    _mcp_port: Subscription,
 }
 
 impl SettingsPage {
@@ -216,6 +226,20 @@ impl SettingsPage {
                 cx.notify();
             }
         });
+        let mcp_port = cx.new(|cx| {
+            let mut i = InputState::new(window, cx);
+            i.set_value(crate::mcp::Mcp::port(cx).to_string(), window, cx);
+            i
+        });
+        let mcp_sub = cx.subscribe_in(
+            &mcp_port,
+            window,
+            |this: &mut Self, _, ev: &InputEvent, window, cx| {
+                if let InputEvent::PressEnter { .. } = ev {
+                    this.apply_mcp_port(window, cx);
+                }
+            },
+        );
         Self {
             s: crate::settings::get(cx).clone(),
             search,
@@ -225,6 +249,9 @@ impl SettingsPage {
             focus: cx.focus_handle(),
             _sub: sub,
             _upd: crate::update::entity(cx).map(|u| cx.observe(&u, |_, _, cx| cx.notify())),
+            mcp_port,
+            _mcp: crate::mcp::entity(cx).map(|m| cx.observe(&m, |_, _, cx| cx.notify())),
+            _mcp_port: mcp_sub,
         }
     }
 
@@ -625,8 +652,13 @@ impl SettingsPage {
         t!(k).into_owned()
     }
 
+    /// Re-reads the settings after a change made elsewhere on the page.
+    pub(crate) fn reload_settings(&mut self, cx: &App) {
+        self.s = crate::settings::get(cx).clone();
+    }
+
     /// One row "label / description / control".
-    fn row(
+    pub(crate) fn row(
         &self,
         id: usize,
         label: String,
@@ -841,6 +873,8 @@ impl SettingsPage {
                     cx,
                 ));
             }
+        } else if cat == Cat::Mcp {
+            rows = self.mcp_rows(q, cx);
         } else if cat == Cat::About {
             let line = |id: usize, label: String, v: &'static str| {
                 let val = div().text_color(t.tx2).child(v);

@@ -42,6 +42,8 @@ pub(crate) struct ProdState {
     unlocked: HashMap<String, Unlock>,
     ticker: Option<Task<()>>,
     ticker_alive: bool,
+    /// The MCP confirmation shown now (its request id).
+    pub(crate) mcp_open: Option<u64>,
 }
 
 fn alpha(mut c: Hsla, a: f32) -> Hsla {
@@ -539,6 +541,103 @@ impl Locus {
                     }
                     false
                 })
+        });
+    }
+
+    /// A Production write requested by an MCP client: Allow runs it, Deny / closing /
+    /// 60 s without an answer refuses it. The `slot` answers the waiting request;
+    /// dropping it (dialog gone) is a Deny.
+    pub(crate) fn open_mcp_confirm(
+        &mut self,
+        conn: SavedConnection,
+        client: String,
+        sql: String,
+        info: WriteInfo,
+        slot: Rc<std::cell::RefCell<crate::mcp::Slot>>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let id = slot.borrow().id;
+        self.prod.mcp_open = Some(id);
+        let db = conn.database.clone().unwrap_or_else(|| "—".into());
+        let maria = self
+            .conn_version(&conn.id)
+            .is_some_and(|v| v.contains("MariaDB"));
+        let g = Gated {
+            tab: None,
+            conn,
+            classified: Vec::new(),
+            preview: sql,
+            go: Rc::new(|_, _, _| {}),
+        };
+        let secs = locus_mcp::tools::CONFIRM_TIMEOUT.as_secs();
+        window.open_pop_dialog(cx, move |dialog, _, cx| {
+            let t = crate::shell::theme::tokens(cx);
+            let answer = |slot: &Rc<std::cell::RefCell<crate::mcp::Slot>>, yes: bool| {
+                if let Some(tx) = slot.borrow_mut().reply.take() {
+                    let _ = tx.send(yes);
+                }
+            };
+            let mut body = v_flex()
+                .gap(px(S5))
+                .child(confirm_target(&g, maria, &db, cx))
+                .child(warn_box(
+                    "warn",
+                    t!(
+                        "mcp.confirm_body",
+                        client = client.clone(),
+                        n = info.count.to_string(),
+                        kws = keywords_text(&info)
+                    )
+                    .into_owned(),
+                    t,
+                    cx,
+                ));
+            if info.missing_where {
+                body = body.child(warn_box(
+                    "warn",
+                    t!("prod.confirm_no_where").into_owned(),
+                    t,
+                    cx,
+                ));
+            }
+            let (s1, s2) = (slot.clone(), slot.clone());
+            body = body
+                .child(sql_preview(&g.preview, t, cx))
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(t.tx3)
+                        .child(t!("mcp.confirm_timeout", n = secs.to_string()).into_owned()),
+                )
+                .child(
+                    h_flex()
+                        .gap(px(S4))
+                        .child(div().flex_1())
+                        .child(
+                            Button::new("mcp-deny")
+                                .h(px(H_ROW))
+                                .label(t!("mcp.deny").into_owned())
+                                .on_click(move |_, window, cx| {
+                                    answer(&s1, false);
+                                    window.close_dialog(cx);
+                                }),
+                        )
+                        .child(danger_button(
+                            "mcp-allow",
+                            t!("mcp.allow").into_owned(),
+                            true,
+                            t,
+                            move |_, window, cx| {
+                                answer(&s2, true);
+                                window.close_dialog(cx);
+                            },
+                        )),
+                );
+            dialog
+                .title(t!("mcp.confirm_title").into_owned())
+                .w(px(W_DLG_M))
+                .child(body)
         });
     }
 

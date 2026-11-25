@@ -49,6 +49,7 @@ fn conn(kind: DbKind, host: &str, port: u16, user: &str, db: Option<String>) -> 
         icon: None,
         read_only: false,
         ssh: None,
+        mcp: None,
     }
 }
 

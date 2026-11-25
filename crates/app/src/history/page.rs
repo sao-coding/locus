@@ -599,6 +599,23 @@ impl HistoryPage {
                             .text_color(gcol)
                             .child(crate::shell::icons::icon(glyph).size(px(13.))),
                     )
+                    .children(e.mcp_client.as_ref().map(|client| {
+                        // Sent by an MCP client, not typed in a tab.
+                        div()
+                            .id(("hmcp", pos))
+                            .flex_none()
+                            .px(px(S3))
+                            .py(px(1.))
+                            .rounded(px(4.))
+                            .bg(t.acc.opacity(0.14))
+                            .text_color(t.acc_text)
+                            .text_size(px(TX_XS))
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .tooltip(crate::shell::tip(
+                                t!("mcp.history_tip", client = client.clone()).into_owned(),
+                            ))
+                            .child("MCP")
+                    }))
                     .child(
                         div()
                             .flex_1()
@@ -665,8 +682,13 @@ impl HistoryPage {
             (Status::Cancelled, _) => t!("hp.cancelled").into_owned(),
             _ => e.rows.map(locus_core::fmt::rows).unwrap_or_default(),
         };
+        let via = e
+            .mcp_client
+            .as_ref()
+            .map(|c| format!(" · MCP: {c}"))
+            .unwrap_or_default();
         let info = format!(
-            "{} · {} · {}{}{}",
+            "{} · {} · {}{}{}{via}",
             locus_core::history::format_time(e.at),
             conn.as_ref()
                 .map(|c| c.name.clone())

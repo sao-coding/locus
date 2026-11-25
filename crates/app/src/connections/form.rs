@@ -45,6 +45,8 @@ enum Page {
     Ssh,
     Tls,
     Appearance,
+    /// MCP access of this connection.
+    Mcp,
 }
 
 /// Engines the form offers: kind, label, badge letter, badge hue.
@@ -132,6 +134,8 @@ pub struct ConnForm {
     tls: Tls,
     kind: DbKind,
     env: locus_core::store::Env,
+    /// MCP access; `None` = the default of `env`.
+    mcp: Option<locus_core::store::McpAccess>,
     read_only: bool,
     color: Option<String>,
     icon: Option<String>,
@@ -230,6 +234,7 @@ impl ConnForm {
             picker,
             kind,
             env: e.map(|c| c.env).unwrap_or_default(),
+            mcp: e.and_then(|c| c.mcp),
             read_only: e.is_some_and(|c| c.read_only),
             color,
             page: Page::General,
@@ -329,6 +334,9 @@ impl ConnForm {
             self.page = Page::General;
         }
         if new == DbKind::Sqlite && self.page == Page::Tls {
+            self.page = Page::General;
+        }
+        if new == DbKind::Redis && self.page == Page::Mcp {
             self.page = Page::General;
         }
         self.kind = new;
@@ -590,6 +598,7 @@ impl ConnForm {
             env: self.env,
             read_only: self.kind == DbKind::Sqlite && self.read_only,
             ssh,
+            mcp: self.mcp,
         };
         cx.notify();
         Some((c, password))
@@ -1220,12 +1229,21 @@ impl ConnForm {
                 t!("conn.page_appearance").into_owned(),
                 Page::Appearance,
                 cx,
-            ));
+            ))
+            .when(self.kind != DbKind::Redis, |v| {
+                v.child(tab(
+                    "page-mcp",
+                    t!("mcp.form_page").into_owned(),
+                    Page::Mcp,
+                    cx,
+                ))
+            });
         let page = match self.page {
             Page::General => self.render_general(cx),
             Page::Ssh => self.ssh.render(cx),
             Page::Tls => self.render_tls(cx),
             Page::Appearance => self.render_appearance(cx),
+            Page::Mcp => self.render_mcp(cx),
         };
         let url = v_flex()
             .gap(px(S3))
@@ -1326,6 +1344,78 @@ impl ConnForm {
 }
 
 impl ConnForm {
+    /// Opens the MCP page (Settings › MCP › Edit).
+    pub fn show_mcp_page(&mut self, cx: &mut Context<Self>) {
+        if self.kind != DbKind::Redis {
+            self.page = Page::Mcp;
+            cx.notify();
+        }
+    }
+
+    /// MCP access: Off / Read-only / Read-write, with the default of the
+    /// environment marked, and what each means.
+    fn render_mcp(&self, cx: &mut Context<Self>) -> AnyElement {
+        use locus_core::store::{Env, McpAccess};
+        let t = crate::shell::theme::tokens(cx);
+        let default = McpAccess::default_for(self.env);
+        let cur = self.mcp.unwrap_or(default);
+        let mut items = Vec::new();
+        for (i, a) in [McpAccess::Off, McpAccess::ReadOnly, McpAccess::ReadWrite]
+            .into_iter()
+            .enumerate()
+        {
+            let l = cx.listener(move |this, _: &ClickEvent, _, cx| {
+                // Picking the default again keeps following the environment.
+                this.mcp = (a != McpAccess::default_for(this.env)).then_some(a);
+                cx.notify();
+            });
+            let mut label = crate::mcp::page::access_label(a);
+            if a == default {
+                label = t!("mcp.default_mark", label = label).into_owned();
+            }
+            items.push(SegItem::new(
+                SharedString::from(format!("conn-mcp-{i}")),
+                label,
+                cur == a,
+                Rc::new(move |e, w, cx| l(e, w, cx)),
+            ));
+        }
+        let desc = match (cur, self.env == Env::Prod) {
+            (McpAccess::Off, _) => "mcp.form_off",
+            (McpAccess::ReadOnly, _) => "mcp.form_ro",
+            (McpAccess::ReadWrite, false) => "mcp.form_rw",
+            (McpAccess::ReadWrite, true) => "mcp.form_rw_prod",
+        };
+        let warn = cur == McpAccess::ReadWrite && self.env == Env::Prod;
+        v_flex()
+            .gap(px(S3))
+            .child(
+                div()
+                    .text_size(px(TX_SM))
+                    .text_color(t.tx2)
+                    .child(t!("mcp.form_label").into_owned()),
+            )
+            .child(
+                div()
+                    .text_size(px(TX_SM))
+                    .text_color(t.tx3)
+                    .whitespace_normal()
+                    .child(t!("mcp.form_help").into_owned()),
+            )
+            .child(seg(items, cx))
+            .child(
+                div()
+                    .p(px(S4))
+                    .rounded(px(R_MD))
+                    .bg(if warn { t.red.opacity(0.10) } else { t.hv })
+                    .text_size(px(TX_SM))
+                    .text_color(if warn { t.red_text } else { t.tx2 })
+                    .whitespace_normal()
+                    .child(t!(desc).into_owned()),
+            )
+            .into_any_element()
+    }
+
     /// Environment: five-way segmented control, with a note for Production.
     fn render_env(&self, cx: &mut Context<Self>) -> AnyElement {
         use locus_core::store::Env;

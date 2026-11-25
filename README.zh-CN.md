@@ -83,6 +83,10 @@ Locus 支持 MySQL / MariaDB、PostgreSQL、SQLite、Redis、Oracle 和 SQL Serv
 - 导入 CSV 与 Excel
 - 导出 CSV、xlsx、JSON、SQL INSERT、Markdown、HTML，也能从服务器流式导出完整结果
 
+**AI 工具（MCP）**
+- 内置 MCP 服务器，只监听 `127.0.0.1`，供 Claude Code、Cursor 等客户端使用（默认关闭，需要令牌）；
+  每个连接可设关闭／只读／读写，Production 的写入会先问你。见 [docs/mcp.md](docs/mcp.md)
+
 **管理**
 - 服务器活动：会话列表、终止查询、服务器变量
 - Redis：key 浏览器、各类型的查看器、命令窗口
@@ -171,7 +175,7 @@ cargo test --workspace --lib --bins
 
 ## 隐私
 
-Locus 没有遥测、没有账号、没有更新检查，自己也不会产生网络流量。它只会连接你配置的数据库与 SSH 主机。密码保存到 Windows 凭据管理器，不会写入文件。查询历史和审计日志保存在你电脑的 `%APPDATA%\Locus`，结果数据不会写在那里。Locus 写入的唯一其他文件是 `%LOCALAPPDATA%\Locus\sidecar\` 里的 Oracle 辅助程序。
+Locus 没有遥测、没有账号、没有更新检查，自己也不会产生网络流量。它只会连接你配置的数据库与 SSH 主机；可选的 MCP 服务器（默认关闭）只监听 127.0.0.1。密码保存到 Windows 凭据管理器，不会写入文件。查询历史和审计日志保存在你电脑的 `%APPDATA%\Locus`，结果数据不会写在那里。Locus 写入的唯一其他文件是 `%LOCALAPPDATA%\Locus\sidecar\` 里的 Oracle 辅助程序。
 
 ## 致谢
 

@@ -15,6 +15,7 @@ parking_lot.workspace = true
 db-core.workspace = true
 er-diagram.workspace = true
 locus-core.workspace = true
+locus-mcp.workspace = true
 lsp-types = { version = "=0.97.0", features = ["proposed"] }
 anyhow = "=1.0.104"
 gpui-kit.workspace = true
