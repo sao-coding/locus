@@ -93,6 +93,12 @@ pub const GRID_DEFAULTS: &[(&str, &str)] = &[
     ("enter", "GridEdit"),
 ];
 
+/// The SQL editor's own key, bound in `Editor > Input` (the editor wrapper around
+/// gpui-kit's input, so a deeper context than the input's own Tab = indent): Tab
+/// accepts the highlighted completion while the popup is open and indents otherwise.
+pub const EDITOR: &str = "Editor > Input";
+pub const EDITOR_DEFAULTS: &[(&str, &str)] = &[("tab", "AcceptCompletion")];
+
 /// Every default as (context, keystrokes, action name without namespace),
 /// in the order they are bound.
 pub fn default_bindings() -> Vec<(String, String, String)> {
@@ -113,6 +119,9 @@ pub fn default_bindings() -> Vec<(String, String, String)> {
     }
     for (k, a) in GRID_DEFAULTS {
         out.push((GRID.to_string(), k.to_string(), a.to_string()));
+    }
+    for (k, a) in EDITOR_DEFAULTS {
+        out.push((EDITOR.to_string(), k.to_string(), a.to_string()));
     }
     out
 }
@@ -331,7 +340,10 @@ mod tests {
     fn defaults_are_mirrored() {
         let d = default_bindings();
         let n = DEFAULTS.len() + 9 * 4;
-        assert_eq!(d.len(), n * (1 + MIRRORED.len()) + GRID_DEFAULTS.len());
+        assert_eq!(
+            d.len(),
+            n * (1 + MIRRORED.len()) + GRID_DEFAULTS.len() + EDITOR_DEFAULTS.len()
+        );
         assert!(
             d.iter()
                 .any(|(c, k, a)| c == "Workspace > Input" && k == "ctrl-enter" && a == "Run")

@@ -405,6 +405,14 @@ impl QueryTab {
                             resizable_panel().size(editor_size).child(
                                 div()
                                     .key_context("Editor")
+                                    .on_action(cx.listener(
+                                        |this,
+                                         _: &crate::shell::keymap::act::AcceptCompletion,
+                                         w,
+                                         cx| {
+                                            this.accept_completion(w, cx);
+                                        },
+                                    ))
                                     .size_full()
                                     .child(Editor::new(&editor).bordered(false).h_full()),
                             ),

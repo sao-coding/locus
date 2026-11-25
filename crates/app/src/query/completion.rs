@@ -300,6 +300,88 @@ impl SqlCompletions {
     }
 }
 
+fn is_quote(c: char) -> bool {
+    matches!(c, '"' | '`')
+}
+
+/// The text an accepted completion replaces, as byte offsets in the text it was
+/// computed from.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Span {
+    /// Start of the replaced range: the opening quote if there is one, else the word.
+    start: usize,
+    /// Start of the word (after the opening quote); the typed prefix is `word_start..cursor`.
+    word_start: usize,
+    /// End of the word (rest of the identifier right of the cursor).
+    word_end: usize,
+    /// End of the replaced range: the closing quote too, if it follows the word.
+    end: usize,
+    /// The identifier quote the user opened (`"` or a backtick).
+    quote: Option<char>,
+}
+
+/// The word being completed around `cursor` (a char boundary in `text`): from the
+/// start of the identifier to the cursor, and on to the end of the identifier if
+/// the cursor is mid-word. A quote just before the word that opens a quoted name
+/// (an even number of the same quote earlier on the line) belongs to the range,
+/// and so does the closing quote right after it.
+fn replace_span(text: &str, cursor: usize) -> Span {
+    let before = &text[..cursor];
+    let word_start = before
+        .char_indices()
+        .rev()
+        .take_while(|(_, c)| is_word(*c))
+        .last()
+        .map_or(cursor, |(i, _)| i);
+    let word_end = cursor
+        + text[cursor..]
+            .char_indices()
+            .find(|(_, c)| !is_word(*c))
+            .map_or(text.len() - cursor, |(i, _)| i);
+    let quote = before[..word_start].chars().next_back().filter(|q| {
+        let line = &before[..word_start - q.len_utf8()];
+        let line = line.rsplit('\n').next().unwrap_or("");
+        is_quote(*q) && line.matches(*q).count() % 2 == 0
+    });
+    match quote {
+        Some(q) => Span {
+            start: word_start - q.len_utf8(),
+            word_start,
+            word_end,
+            end: word_end + text[word_end..].starts_with(q) as usize * q.len_utf8(),
+            quote,
+        },
+        None => Span {
+            start: word_start,
+            word_start,
+            word_end,
+            end: word_end,
+            quote,
+        },
+    }
+}
+
+/// The text inserted for `label`: wrapped in the user's quote when `wrap` is set.
+fn replacement(label: &str, wrap: Option<char>) -> String {
+    match wrap {
+        Some(q) => format!("{q}{label}{q}"),
+        None => label.to_string(),
+    }
+}
+
+/// Whether an item is a plain name that takes the quotes the user opened (not a
+/// keyword, a snippet, or an FK suggestion that brings its own quotes and ON).
+fn wraps_in_quote(i: &CompletionItem, fk_on: &str) -> bool {
+    !matches!(
+        i.kind,
+        Some(CompletionItemKind::KEYWORD | CompletionItemKind::SNIPPET)
+    ) && !i
+        .detail
+        .as_deref()
+        .is_some_and(|d| d.starts_with("FK ") || d == fk_on)
+        && !i.label.contains(is_quote)
+}
+
 /// What the cursor position expects when nothing is typed yet.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Expect {
@@ -468,19 +550,22 @@ impl CompletionProvider for SqlCompletions {
             .map(|r| window[r].to_string())
             .unwrap_or_default();
         let before = &window[..cur];
-        let before_stmt = range
-            .map(|r| &window[r.start.min(cur)..cur])
-            .unwrap_or(before)
-            .to_string();
-        let prefix: String = before
-            .chars()
-            .rev()
-            .take_while(|c| is_word(*c))
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev()
-            .collect();
-        let rest = &before[..before.len() - prefix.len()];
+        let span = replace_span(&window, cur);
+        let prefix = window[span.word_start..cur].to_string();
+        let rest = &window[..span.start];
+        // The statement up to the cursor without the opening quote, so the position
+        // logic below sees `prefix` where the user typed `"prefix`.
+        let before_stmt = {
+            let b = range
+                .map(|r| &window[r.start.min(cur)..cur])
+                .unwrap_or(before);
+            match span.quote {
+                Some(q) if b.len() > prefix.len() && b[..b.len() - prefix.len()].ends_with(q) => {
+                    format!("{}{prefix}", &b[..b.len() - prefix.len() - q.len_utf8()])
+                }
+                _ => b.to_string(),
+            }
+        };
         // A space typed on its own opens the menu only where a table or condition is
         // expected (after JOIN / ON); a manual invoke (Ctrl+Space) always does.
         if context.trigger_kind == lsp_types::CompletionTriggerKind::TRIGGER_CHARACTER
@@ -493,20 +578,28 @@ impl CompletionProvider for SqlCompletions {
         let qualifier = rest.strip_suffix('.').map(|r| {
             r.chars()
                 .rev()
-                .take_while(|c| is_word(*c) || *c == '`')
+                .take_while(|c| is_word(*c) || is_quote(*c))
                 .collect::<Vec<_>>()
                 .into_iter()
                 .rev()
                 .collect::<String>()
         });
-        // Snippets by prefix (not after `alias.`), replacing the typed word.
-        let snippets: Vec<CompletionItem> = if qualifier.is_some() {
+        let qualifier = qualifier.map(|q| unquote(&q));
+        // What an accepted item replaces (absolute offsets in the document).
+        let at = |rel: usize| text.offset_to_position(start + rel);
+        let edit_range = lsp_types::Range {
+            start: at(span.start),
+            end: at(span.end),
+        };
+        let quote = span.quote;
+        // Snippets by prefix (not after `alias.` or inside quotes), replacing the typed word.
+        let snippets: Vec<CompletionItem> = if qualifier.is_some() || quote.is_some() {
             Vec::new()
         } else {
             let all = snippet_store().lock().clone();
             let range = lsp_types::Range {
-                start: text.offset_to_position(offset - prefix.len()),
-                end: text.offset_to_position(offset),
+                start: at(span.word_start),
+                end: at(span.word_end),
             };
             saved::matching(&all, &prefix)
                 .into_iter()
@@ -525,6 +618,15 @@ impl CompletionProvider for SqlCompletions {
         let with_snippets = move |mut items: Vec<CompletionItem>| {
             // Foreign-key suggestions after JOIN / ON stay first: that is what was asked for.
             let fk_on = t!("sq.fk_on").into_owned();
+            for i in &mut items {
+                if i.text_edit.is_none() {
+                    let wrap = quote.filter(|_| wraps_in_quote(i, &fk_on));
+                    i.text_edit = Some(lsp_types::CompletionTextEdit::Edit(lsp_types::TextEdit {
+                        range: edit_range,
+                        new_text: replacement(&i.label, wrap),
+                    }));
+                }
+            }
             let lead = items
                 .iter()
                 .take_while(|i| {
@@ -594,5 +696,113 @@ mod expect_tests {
         v.sort_by_key(|i| rank(Expect::Tables, i));
         let names: Vec<_> = v.iter().map(|i| i.label.as_str()).collect();
         assert_eq!(names, ["orders", "v_sales", "public", "SELECT"]);
+    }
+}
+
+#[cfg(test)]
+mod accept_tests {
+    use super::*;
+
+    /// Accepts `label` at the `|` in `doc` the way the editor applies the item's
+    /// edit: returns the new text with `|` where the cursor ends up.
+    fn accept(doc: &str, label: &str) -> String {
+        accept_as(doc, label, true)
+    }
+
+    fn accept_as(doc: &str, label: &str, ident: bool) -> String {
+        let cursor = doc.find('|').expect("a | marks the cursor");
+        let text = doc.replacen('|', "", 1);
+        let s = replace_span(&text, cursor);
+        let new = replacement(label, s.quote.filter(|_| ident));
+        format!("{}{new}|{}", &text[..s.start], &text[s.end..])
+    }
+
+    #[::core::prelude::v1::test]
+    fn replaces_the_typed_prefix_not_appends() {
+        assert_eq!(
+            accept("SELECT * FROM stu|", "student"),
+            "SELECT * FROM student|"
+        );
+        assert_eq!(accept("stu|", "student"), "student|");
+        assert_eq!(accept("|", "student"), "student|");
+        assert_eq!(accept("SELECT |", "student"), "SELECT student|");
+    }
+
+    #[::core::prelude::v1::test]
+    fn mid_word_takes_the_rest_of_the_identifier() {
+        assert_eq!(accept("FROM st|ud WHERE", "student"), "FROM student| WHERE");
+        assert_eq!(accept("FROM stu|dent2", "student"), "FROM student|");
+    }
+
+    #[::core::prelude::v1::test]
+    fn mixed_case_prefix_is_replaced() {
+        assert_eq!(accept("FROM StU|", "student"), "FROM student|");
+    }
+
+    #[::core::prelude::v1::test]
+    fn quoted_identifiers_keep_their_quotes() {
+        assert_eq!(accept("FROM \"boo|", "booking"), "FROM \"booking\"|");
+        assert_eq!(accept("FROM \"boo|\"", "booking"), "FROM \"booking\"|");
+        assert_eq!(accept("FROM \"bo|ok\"", "booking"), "FROM \"booking\"|");
+        assert_eq!(accept("FROM `boo|", "booking"), "FROM `booking`|");
+        assert_eq!(accept("FROM `boo|`", "booking"), "FROM `booking`|");
+        assert_eq!(accept("FROM \"|", "my table"), "FROM \"my table\"|");
+    }
+
+    #[::core::prelude::v1::test]
+    fn closing_quote_is_not_an_opening_one() {
+        // `"a"` is complete; the cursor after it is not inside a quote.
+        assert_eq!(accept("FROM \"a\" b|", "bar"), "FROM \"a\" bar|");
+        assert_eq!(accept("SELECT \"a\"|", "x"), "SELECT \"a\"x|");
+        // Quote count is per line.
+        assert_eq!(
+            accept("SELECT \"a\n\"bo|", "booking"),
+            "SELECT \"a\n\"booking\"|"
+        );
+    }
+
+    #[::core::prelude::v1::test]
+    fn qualified_names_replace_only_the_last_part() {
+        assert_eq!(accept("booking.bo|", "booking_id"), "booking.booking_id|");
+        assert_eq!(
+            accept("\"booking\".\"bo|", "booking_id"),
+            "\"booking\".\"booking_id\"|"
+        );
+        assert_eq!(accept("`db`.`bo|`", "booking"), "`db`.`booking`|");
+        assert_eq!(accept("s.na|", "name"), "s.name|");
+        assert_eq!(accept("s.|", "name"), "s.name|");
+    }
+
+    #[::core::prelude::v1::test]
+    fn keywords_and_fk_items_are_not_quoted() {
+        let kw = item("GROUP BY".into(), CompletionItemKind::KEYWORD, None);
+        assert!(!wraps_in_quote(&kw, "fk"));
+        let fk = item(
+            "\"a\" ON x".into(),
+            CompletionItemKind::CLASS,
+            Some("FK a".into()),
+        );
+        assert!(!wraps_in_quote(&fk, "fk"));
+        let col = item("id".into(), CompletionItemKind::FIELD, None);
+        assert!(wraps_in_quote(&col, "fk"));
+        assert_eq!(accept_as("FROM \"gr|", "GROUP BY", false), "FROM GROUP BY|");
+    }
+
+    #[::core::prelude::v1::test]
+    fn multibyte_text_stays_on_char_boundaries() {
+        assert_eq!(
+            accept("SELECT '學生' FROM 學|", "學生表"),
+            "SELECT '學生' FROM 學生表|"
+        );
+        assert_eq!(accept("學生 FROM st|", "student"), "學生 FROM student|");
+        assert_eq!(accept("FROM \"學|\"", "學生表"), "FROM \"學生表\"|");
+        assert_eq!(accept("FROM 學|生", "學生表"), "FROM 學生表|");
+        assert_eq!(accept("é.stu|", "student"), "é.student|");
+    }
+
+    #[::core::prelude::v1::test]
+    fn end_of_document_and_blank_cursor() {
+        assert_eq!(accept("SELECT\nstu|", "student"), "SELECT\nstudent|");
+        assert_eq!(accept("a\n|", "SELECT"), "a\nSELECT|");
     }
 }
