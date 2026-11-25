@@ -36,6 +36,8 @@ pub enum RedisEvent {
     /// The key in the details pane changed (`None` = nothing); persisted in the tab spec.
     Selected(Option<String>),
     DbChanged(u8),
+    /// The key list was resized: the shell saves the width.
+    ListWidth,
     /// Context-menu action on a key of the list.
     KeyAction {
         key: String,
@@ -69,6 +71,21 @@ pub fn health(conn_id: &str) -> Option<Health> {
 
 pub fn set_health(conn_id: &str, f: impl FnOnce(&mut Health)) {
     f(HEALTH.lock().entry(conn_id.to_string()).or_default());
+}
+
+/// Width of the key list, shared by all Redis tabs and saved in spaces.json.
+pub const LIST_W_MIN: f32 = 220.;
+pub const LIST_W_MAX: f32 = 640.;
+/// Bits of 340.0_f32.
+static LIST_W: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0x43aa_0000);
+
+pub fn list_width() -> f32 {
+    f32::from_bits(LIST_W.load(Ordering::Relaxed))
+}
+
+pub fn set_list_width(w: f32) {
+    let w = if w.is_finite() { w } else { 340. };
+    LIST_W.store(w.clamp(LIST_W_MIN, LIST_W_MAX).to_bits(), Ordering::Relaxed);
 }
 
 /// Everything a view needs to talk to one connection and DB index.

@@ -472,11 +472,13 @@ impl Browser {
             .child(lead)
             .child(
                 div()
+                    .id(("redis-key-name", ix))
                     .flex_1()
                     .min_w_0()
                     .truncate()
                     .text_size(px(TX_BASE))
                     .text_color(if r.is_folder { t.tx2 } else { t.tx })
+                    .tooltip(tip(r.path.clone()))
                     .child(r.label.clone()),
             )
             .when(r.is_folder, |d| {

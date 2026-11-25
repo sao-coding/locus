@@ -6,8 +6,9 @@ use super::info::{InfoPage, SlowLog};
 use super::key::KeyView;
 use super::*;
 
-/// Width of the key browser pane.
-const LEFT_W: f32 = 340.;
+/// The key browser pane is `list_width()` wide (dragged by its edge); the details keep at least this much.
+const DETAIL_MIN_W: f32 = 360.;
+const EDGE_W: f32 = 5.;
 const PANEL_H: f32 = 300.;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -26,6 +27,8 @@ pub struct RedisTab {
     console: Option<Entity<Console>>,
     info: Option<Entity<InfoPage>>,
     slow: Option<Entity<SlowLog>>,
+    /// Dragging the list edge: (pointer x, list width) at the press.
+    drag: Option<(f32, f32)>,
     focus: FocusHandle,
     _subs: Vec<Subscription>,
 }
@@ -47,6 +50,7 @@ impl RedisTab {
             console: None,
             info: None,
             slow: None,
+            drag: None,
             focus: cx.focus_handle(),
             _subs: vec![sub],
         };
@@ -130,7 +134,7 @@ impl RedisTab {
                     });
                 }
             }
-            RedisEvent::Selected(_) | RedisEvent::MetaChanged(_) => {}
+            RedisEvent::Selected(_) | RedisEvent::MetaChanged(_) | RedisEvent::ListWidth => {}
         }
     }
 
@@ -181,8 +185,32 @@ impl RedisTab {
     }
 }
 
+impl RedisTab {
+    /// The list width as drawn: the saved one, but the details pane keeps room in a narrow window.
+    fn left_width(window: &Window) -> f32 {
+        let room = f32::from(window.viewport_size().width) - DETAIL_MIN_W - EDGE_W;
+        list_width().min(room.max(LIST_W_MIN))
+    }
+
+    fn on_drag(&mut self, ev: &MouseMoveEvent, cx: &mut Context<Self>) {
+        let Some((x0, w0)) = self.drag else { return };
+        if ev.pressed_button != Some(MouseButton::Left) {
+            return self.end_drag(cx);
+        }
+        set_list_width(w0 + f32::from(ev.position.x) - x0);
+        cx.notify();
+    }
+
+    fn end_drag(&mut self, cx: &mut Context<Self>) {
+        if self.drag.take().is_some() {
+            cx.emit(RedisEvent::ListWidth);
+            cx.notify();
+        }
+    }
+}
+
 impl Render for RedisTab {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let t = crate::shell::theme::tokens(cx);
         let count = self.browser.read(cx).dbsize();
         let main: AnyElement = match &self.detail {
@@ -216,6 +244,7 @@ impl Render for RedisTab {
                 .into_any_element(),
         };
         let panel = self.panel;
+        let dragging = self.drag.is_some();
         let toggle = |id: &'static str, label: String, which: Panel, cx: &mut Context<Self>| {
             let on = panel == Some(which);
             div()
@@ -271,14 +300,46 @@ impl Render for RedisTab {
             .id("redis-tab")
             .track_focus(&self.focus)
             .size_full()
+            .on_mouse_move(cx.listener(|this, ev: &MouseMoveEvent, _, cx| this.on_drag(ev, cx)))
+            .on_mouse_up(
+                MouseButton::Left,
+                cx.listener(|this, _, _, cx| this.end_drag(cx)),
+            )
             .child(
                 div()
                     .flex_none()
-                    .w(px(LEFT_W))
+                    .w(px(Self::left_width(window)))
                     .h_full()
-                    .border_r_1()
-                    .border_color(t.ln)
+                    .overflow_hidden()
                     .child(self.browser.clone()),
+            )
+            // The draggable edge: a hairline centred in a wider hit area. `occlude` keeps the
+            // press (and the cursor) from reaching what is under it.
+            .child(
+                div()
+                    .id("redis-list-edge")
+                    .flex_none()
+                    .w(px(EDGE_W))
+                    .h_full()
+                    .flex()
+                    .justify_center()
+                    .occlude()
+                    .cursor(CursorStyle::ResizeLeftRight)
+                    .group("redis-edge")
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|this, ev: &MouseDownEvent, _, cx| {
+                            this.drag = Some((f32::from(ev.position.x), list_width()));
+                            cx.notify();
+                        }),
+                    )
+                    .child(
+                        div()
+                            .w(px(1.))
+                            .h_full()
+                            .bg(if dragging { t.tx4 } else { t.ln })
+                            .group_hover("redis-edge", |d| d.bg(t.tx4)),
+                    ),
             )
             .child(
                 v_flex()

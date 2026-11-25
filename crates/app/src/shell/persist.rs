@@ -31,6 +31,7 @@ impl Locus {
             sidebar_width: self.sidebar_width,
             right_panel: self.right_panel,
             right_width: self.right_width,
+            redis_list_width: crate::redis::list_width(),
         }
     }
 

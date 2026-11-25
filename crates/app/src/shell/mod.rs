@@ -294,6 +294,7 @@ impl Locus {
                 }
             },
         ));
+        crate::redis::set_list_width(file.redis_list_width);
         let mut this = Self {
             store,
             conns,
@@ -960,6 +961,7 @@ fn first_run_file(conns: &[SavedConnection], initial_sql: &str) -> SpacesFile {
         sidebar: SidebarMode::Full,
         sidebar_width: locus_core::spaces::default_sidebar_width(),
         right_width: locus_core::spaces::default_right_width(),
+        redis_list_width: locus_core::spaces::default_redis_list_width(),
         right_panel: None,
     }
 }
