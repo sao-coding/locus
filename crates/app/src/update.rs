@@ -12,7 +12,7 @@
 //! - A Scoop copy belongs to Scoop: it only gets the command.
 use gpui_kit::*;
 use locus_core::update::{self, Install, Release, State};
-use locus_core::update_install::{self as inst, Progress};
+use locus_core::update_install::{self as inst, DlError, Progress};
 use rust_i18n::t;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -48,8 +48,21 @@ pub(crate) enum Dl {
     },
     Failed {
         version: String,
-        msg: String,
+        err: DlError,
     },
+}
+
+impl Dl {
+    /// Failed for good: a release without a signature can only be installed by hand.
+    pub fn unsigned(&self) -> bool {
+        matches!(
+            self,
+            Dl::Failed {
+                err: DlError::Unsigned,
+                ..
+            }
+        )
+    }
 }
 
 pub(crate) struct Updates {
@@ -247,9 +260,9 @@ impl Updates {
                         }
                         Dl::Ready { version, path }
                     }
-                    Err(msg) => {
-                        log::info!("update download failed: {msg}");
-                        Dl::Failed { version, msg }
+                    Err(err) => {
+                        log::info!("update download failed: {err}");
+                        Dl::Failed { version, err }
                     }
                 };
                 cx.notify();
@@ -315,9 +328,11 @@ impl Updates {
             (_, Some(_), Dl::Ready { version, .. }) => {
                 t!("upd.ready", v = version.clone()).into_owned()
             }
-            (_, Some(_), Dl::Failed { msg, .. }) => {
-                t!("upd.dl_failed", msg = msg.clone()).into_owned()
-            }
+            (_, Some(_), Dl::Failed { version, err }) => match err {
+                DlError::Unsigned => t!("upd.unsigned", v = version.clone()).into_owned(),
+                DlError::BadSignature(e) => t!("upd.bad_signature", msg = e.clone()).into_owned(),
+                DlError::Failed(e) => t!("upd.dl_failed", msg = e.clone()).into_owned(),
+            },
             (Status::Checking, _, _) => t!("upd.checking").into_owned(),
             (_, Some(r), _) => t!("upd.available", v = r.version.clone()).into_owned(),
             (Status::Failed(e), None, _) => t!("upd.failed", msg = e.clone()).into_owned(),

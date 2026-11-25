@@ -865,7 +865,12 @@ impl SettingsPage {
                 }
                 None => {
                     use crate::update::Dl;
-                    match ur.dl_for_available() {
+                    let dl = ur.dl_for_available();
+                    // Unsigned releases can only be installed by hand: no retry, the release
+                    // page becomes the main action.
+                    let by_hand = dl.unsigned();
+                    match dl {
+                        _ if by_hand => {}
                         Dl::Ready { .. } => {
                             ctl = ctl.child(
                                 Button::new("upd-restart")
@@ -896,12 +901,14 @@ impl SettingsPage {
                     }
                     // The release page: notes, and the files for doing it by hand.
                     let url = r.url.clone();
-                    ctl = ctl.child(
-                        Button::new("upd-open")
-                            .ghost()
-                            .label(t!("upd.release_page").into_owned())
-                            .on_click(move |_, _, cx| cx.open_url(&url)),
-                    );
+                    let open = Button::new("upd-open")
+                        .label(t!("upd.release_page").into_owned())
+                        .on_click(move |_, _, cx| cx.open_url(&url));
+                    ctl = ctl.child(if by_hand {
+                        open.primary()
+                    } else {
+                        open.ghost()
+                    });
                 }
             }
             if hinted {

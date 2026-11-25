@@ -1279,6 +1279,8 @@ upd:
   downloading_pct: "正在下载 Locus %{v}… %{p}%"
   ready: "Locus %{v} 已下载并通过验证，重新启动即可更新。"
   dl_failed: "下载失败：%{msg}"
+  unsigned: "Locus %{v} 已发布，但这个版本没有签名，无法自动更新，请从发布页面下载。"
+  bad_signature: "下载的文件没有通过签名检查，已删除（%{msg}）。"
   retry: "重试"
   restart: "重新启动并更新"
   release_page: "发布页面"

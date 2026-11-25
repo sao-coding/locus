@@ -1278,6 +1278,8 @@ upd:
   downloading_pct: "Downloading Locus %{v}… %{p}%"
   ready: "Locus %{v} is downloaded and verified. Restart to update."
   dl_failed: "The download failed: %{msg}"
+  unsigned: "Locus %{v} is available, but this release is not signed, so it can't update itself. Download it from the release page."
+  bad_signature: "The downloaded file did not pass the signature check and was deleted (%{msg})."
   retry: "Try again"
   restart: "Restart and update"
   release_page: "Release page"

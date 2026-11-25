@@ -1279,6 +1279,8 @@ upd:
   downloading_pct: "正在下載 Locus %{v}… %{p}%"
   ready: "Locus %{v} 已下載並通過驗證，重新啟動即可更新。"
   dl_failed: "下載失敗：%{msg}"
+  unsigned: "Locus %{v} 已推出，但這個版本沒有簽章，無法自動更新，請從發行頁面下載。"
+  bad_signature: "下載的檔案沒有通過簽章檢查，已刪除（%{msg}）。"
   retry: "重試"
   restart: "重新啟動並更新"
   release_page: "發行頁面"

@@ -85,12 +85,34 @@ fn release_url(version: &str, file: &str) -> String {
     format!("https://github.com/{REPO}/releases/download/v{version}/{file}")
 }
 
+/// Why a download did not give a file to install. The UI words each kind itself.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DlError {
+    /// The release has no `.minisig` (made before releases were signed): by hand only.
+    Unsigned,
+    /// The file does not match its signature, or the signature is not from the release key.
+    BadSignature(String),
+    /// Network or disk; worth trying again.
+    Failed(String),
+}
+
+impl std::fmt::Display for DlError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DlError::Unsigned => f.write_str("the release has no signature"),
+            DlError::BadSignature(e) | DlError::Failed(e) => f.write_str(e),
+        }
+    }
+}
+
 /// Downloads and checks the file that updates `install` to `version`; returns its path. A file
 /// already downloaded and still valid is reused. Blocking (network): call it off the UI thread.
-pub fn download(version: &str, install: Install, progress: &Progress) -> Result<PathBuf, String> {
-    let name = asset_name(version, install).ok_or("this copy is updated by its package manager")?;
-    let dir = updates_dir().ok_or("LOCALAPPDATA is not set")?;
-    std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+pub fn download(version: &str, install: Install, progress: &Progress) -> Result<PathBuf, DlError> {
+    let failed = |e: String| DlError::Failed(e);
+    let name = asset_name(version, install)
+        .ok_or_else(|| failed("this copy is updated by its package manager".into()))?;
+    let dir = updates_dir().ok_or_else(|| failed("LOCALAPPDATA is not set".into()))?;
+    std::fs::create_dir_all(&dir).map_err(|e| failed(format!("{}: {e}", dir.display())))?;
     let target = dir.join(&name);
     let sig_path = dir.join(format!("{name}.minisig"));
     if let (Ok(data), Ok(sig)) = (std::fs::read(&target), std::fs::read_to_string(&sig_path))
@@ -108,30 +130,28 @@ pub fn download(version: &str, install: Install, progress: &Progress) -> Result<
         &agent,
         &release_url(version, &format!("{name}.minisig")),
         "*/*",
-    )? {
+    )
+    .map_err(failed)?
+    {
         (200, body) => body,
-        (404, _) => {
-            return Err(
-                "this release has no signature (it was made before releases were \
-                        signed); download it from the release page"
-                    .into(),
-            );
-        }
-        (s, _) => return Err(format!("GitHub answered {s} for the signature")),
+        (404, _) => return Err(DlError::Unsigned),
+        (s, _) => return Err(failed(format!("GitHub answered {s} for the signature"))),
     };
 
     let part = dir.join(format!("{name}.part"));
-    let result = fetch(&agent, &release_url(version, &name), &part, progress).and_then(|()| {
-        let data = std::fs::read(&part).map_err(|e| e.to_string())?;
-        verify(&data, &sig, &name, version)
-    });
+    let result = fetch(&agent, &release_url(version, &name), &part, progress)
+        .map_err(failed)
+        .and_then(|()| {
+            let data = std::fs::read(&part).map_err(|e| failed(e.to_string()))?;
+            verify(&data, &sig, &name, version).map_err(DlError::BadSignature)
+        });
     if let Err(e) = result {
         let _ = std::fs::remove_file(&part);
         return Err(e);
     }
-    std::fs::write(&sig_path, &sig).map_err(|e| e.to_string())?;
+    std::fs::write(&sig_path, &sig).map_err(|e| failed(e.to_string()))?;
     let _ = std::fs::remove_file(&target);
-    std::fs::rename(&part, &target).map_err(|e| e.to_string())?;
+    std::fs::rename(&part, &target).map_err(|e| failed(e.to_string()))?;
     Ok(target)
 }
 
@@ -378,6 +398,6 @@ V10Pnj5QHOIWziHSusDZjSnoODyKZ+w0/Mtwbul60OyJ+hOGAn3WO75QF/3t6x7LLFf9xH4/AsGqcdim
     #[ignore = "network"]
     fn update_download_unsigned_live() {
         let e = download("0.1.2", Install::Portable, &Progress::default()).unwrap_err();
-        assert!(e.contains("no signature"), "{e}");
+        assert_eq!(e, DlError::Unsigned);
     }
 }
