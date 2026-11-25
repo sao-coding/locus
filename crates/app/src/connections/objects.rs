@@ -810,7 +810,11 @@ impl ObjectTree {
             .hover(|s| s.bg(theme.background.opacity(0.5)))
             .when(!*connected, |r| r.opacity(0.55))
             .child(chevron(*open))
-            .child(Icon::new(IconName::HardDrive).xsmall())
+            .child(
+                crate::shell::icons::icon("server")
+                    .xsmall()
+                    .text_color(theme.muted_foreground),
+            )
             .child(
                 div()
                     .flex_1()
@@ -873,7 +877,7 @@ impl ObjectTree {
             .hover(|s| s.bg(theme.background.opacity(0.5)))
             .child(chevron(*open))
             .child(
-                Icon::new(IconName::Folder)
+                crate::shell::icons::icon("layers")
                     .xsmall()
                     .text_color(theme.muted_foreground),
             )
@@ -958,10 +962,10 @@ impl ObjectTree {
                     })),
             )
             .child(
-                Icon::new(if obj.kind == ObjectKind::View {
-                    IconName::Eye
+                crate::shell::icons::icon(if obj.kind == ObjectKind::View {
+                    "eye"
                 } else {
-                    IconName::LayoutDashboard
+                    "table"
                 })
                 .xsmall()
                 .text_color(theme.muted_foreground),
@@ -976,7 +980,7 @@ impl ObjectTree {
                         Button::new(("structure", ix))
                             .ghost()
                             .xsmall()
-                            .icon(IconName::LayoutDashboard)
+                            .icon(crate::shell::icons::icon("table-properties"))
                             .tooltip(t!("structure.open").to_string())
                             .on_click(cx.listener(move |t, _, _, cx| {
                                 cx.stop_propagation();
@@ -1233,21 +1237,6 @@ pub fn kind_label(kind: DbObjectKind) -> String {
     };
     let key = format!("objects.kinds.{k}");
     t!(&key).into_owned()
-}
-
-fn kind_icon(kind: DbObjectKind) -> IconName {
-    match kind {
-        DbObjectKind::Table => IconName::LayoutDashboard,
-        DbObjectKind::View | DbObjectKind::MaterializedView => IconName::Eye,
-        DbObjectKind::Index => IconName::Search,
-        DbObjectKind::Sequence => IconName::SortAscending,
-        DbObjectKind::Procedure
-        | DbObjectKind::Function
-        | DbObjectKind::Package
-        | DbObjectKind::Type => IconName::SquareTerminal,
-        DbObjectKind::Trigger | DbObjectKind::Event => IconName::Bell,
-        _ => IconName::File,
-    }
 }
 
 const TREE_CAP: u32 = 1000;
@@ -1563,7 +1552,7 @@ impl ObjectTree {
                 .hover(|s| s.bg(theme.background.opacity(0.5)))
                 .child(chevron(*open))
                 .child(
-                    Icon::new(IconName::Folder)
+                    crate::shell::icons::object_icon(*kind)
                         .xsmall()
                         .text_color(theme.muted_foreground),
                 )
@@ -1596,13 +1585,9 @@ impl ObjectTree {
                 .hover(|s| s.bg(theme.background.opacity(0.5)))
                 .child(chevron(*open))
                 .child(
-                    Icon::new(if *info {
-                        IconName::Info
-                    } else {
-                        IconName::User
-                    })
-                    .xsmall()
-                    .text_color(theme.muted_foreground),
+                    crate::shell::icons::icon(if *info { "info" } else { "users" })
+                        .xsmall()
+                        .text_color(theme.muted_foreground),
                 )
                 .child(
                     div().flex_1().min_w_0().truncate().child(
@@ -1752,7 +1737,7 @@ impl ObjectTree {
             .hover(|st| st.bg(theme.background.opacity(0.5)))
             .child(div().w(px(12.)).flex_none())
             .child(
-                Icon::new(kind_icon(*kind))
+                crate::shell::icons::object_icon(*kind)
                     .xsmall()
                     .text_color(theme.muted_foreground),
             )
@@ -1791,7 +1776,7 @@ impl ObjectTree {
                     Button::new(("entry-src", ix))
                         .ghost()
                         .xsmall()
-                        .icon(IconName::SquareTerminal)
+                        .icon(crate::shell::icons::icon("script"))
                         .tooltip(t!("routines.edit_source").to_string())
                         .flex_none()
                         .on_click(cx.listener(move |_, _, _, cx| {

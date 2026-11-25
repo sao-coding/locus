@@ -852,7 +852,7 @@ impl Locus {
                     let mut s = PalItem::new(
                         Group::Schemas,
                         schema.clone(),
-                        "folder",
+                        "layers",
                         Target::Schema {
                             conn: cid.clone(),
                             schema: schema.clone(),
@@ -862,7 +862,7 @@ impl Locus {
                     objects.push(s);
                     for o in &cc.objects[schema] {
                         let (g, icon) = if o.kind == ObjectKind::View {
-                            (Group::Views, "table")
+                            (Group::Views, "eye")
                         } else {
                             (Group::Tables, "table")
                         };
