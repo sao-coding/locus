@@ -68,6 +68,16 @@ fn main() {
     if scene.is_some() {
         attach_console();
     }
+    // Started by the updater (`update::Updates::install_pending`, or the installer with pid 0):
+    // let the version that just quit finish first.
+    let after_update = match args.get(1).map(String::as_str) {
+        Some("--after-update") => {
+            let pid = args.get(2).and_then(|p| p.parse().ok()).unwrap_or(0);
+            update::wait_for_previous(pid);
+            true
+        }
+        _ => false,
+    };
 
     init_logging();
     let settings = locus_core::settings::Settings::load();
@@ -153,6 +163,12 @@ fn main() {
             for n in locus_core::datafile::take_notices() {
                 shell::toast::show(
                     rust_i18n::t!("dataerr.datafile", file = n.file, backup = n.backup).to_string(),
+                    cx,
+                );
+            }
+            if after_update {
+                shell::toast::show(
+                    rust_i18n::t!("upd.updated", v = locus_core::update::CURRENT).to_string(),
                     cx,
                 );
             }

@@ -56,3 +56,12 @@ Name: "{autodesktop}\Locus"; Filename: "{app}\locus.exe"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\locus.exe"; Description: "{cm:LaunchProgram,Locus}"; Flags: nowait postinstall skipifsilent
+; Locus's own updater runs the setup with /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /RELAUNCH=1
+; while it quits ("Restart and update"): start the new version when done.
+Filename: "{app}\locus.exe"; Parameters: "--after-update 0"; Flags: nowait runasoriginaluser; Check: RelaunchAfterUpdate
+
+[Code]
+function RelaunchAfterUpdate: Boolean;
+begin
+  Result := WizardSilent and (ExpandConstant('{param:RELAUNCH|0}') = '1');
+end;

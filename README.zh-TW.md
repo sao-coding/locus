@@ -123,7 +123,7 @@ minisign -Vm .\locus-<版本>-windows-x64.exe -P RWRDNREpYa8EZ59rUGsAnTVNIMjNfUW
 
 設定、已儲存的連線和歷史都在 `%APPDATA%\Locus`。刪掉這個資料夾就等於重設。Oracle 輔助程式是唯一放在它之外的檔案（`%LOCALAPPDATA%\Locus\sidecar\`），想完全移除請一併刪除。
 
-Locus 大約每天向 GitHub 查一次有沒有新版本（只送出 `User-Agent: Locus/<版本>`），有的話顯示在狀態列，不會自動下載任何東西。可以在「設定 › 關於」關閉。
+Locus 大約每天向 GitHub 查一次有沒有新版本（只送出 `User-Agent: Locus/<版本>`），有的話顯示在狀態列。新版本會在背景下載，只有在你選擇「重新啟動並更新」時才安裝，而且只有 minisign 簽章來自 `minisign.pub` 這把金鑰時才會安裝。用 Scoop 安裝的話交給 `scoop update`。兩者都可以在「設定 › 關於」切換。
 
 ## 快捷鍵
 

@@ -53,4 +53,5 @@ pub mod tabfit;
 pub mod tunnel;
 pub mod txn;
 pub mod update;
+pub mod update_install;
 pub mod viewer;

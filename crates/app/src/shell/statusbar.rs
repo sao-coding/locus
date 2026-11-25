@@ -82,7 +82,18 @@ impl Locus {
     /// "Locus x.y.z available" when the update check found a newer release that was not
     /// dismissed; opens Settings › About.
     fn update_hint(&self, accent: Hsla, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let r = crate::update::entity(cx)?.read(cx).hint()?.clone();
+        let u = crate::update::entity(cx)?;
+        let (r, ready) = {
+            let u = u.read(cx);
+            let r = u.hint()?.clone();
+            let ready = matches!(u.dl_for_available(), crate::update::Dl::Ready { .. });
+            (r, ready)
+        };
+        let text = if ready {
+            t!("upd.hint_ready", v = r.version)
+        } else {
+            t!("upd.hint", v = r.version)
+        };
         let t = crate::shell::theme::tokens(cx);
         Some(
             h_flex()
@@ -98,7 +109,7 @@ impl Locus {
                         .size(px(12.))
                         .text_color(accent),
                 )
-                .child(t!("upd.hint", v = r.version).into_owned())
+                .child(text.into_owned())
                 .on_click(cx.listener(|this, _, window, cx| this.open_settings_about(window, cx)))
                 .into_any_element(),
         )
