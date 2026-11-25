@@ -23,6 +23,8 @@ name = "prepare-release"
 
 [[workflows.steps]]
 type = "PrepareRelease"
+# Only changesets go into CHANGELOG.md: each PR title would otherwise appear as a second entry.
+ignore_conventional_commits = true
 
 [[workflows.steps]]
 type = "Command"
@@ -37,3 +39,5 @@ name = "release"
 
 [[workflows.steps]]
 type = "PrepareRelease"
+# Only changesets go into CHANGELOG.md: each PR title would otherwise appear as a second entry.
+ignore_conventional_commits = true
