@@ -1025,7 +1025,7 @@ impl KeyView {
                 .unwrap_or_default(),
             Body::Set { rows, .. } => rows
                 .get(ix)
-                .map(|v| (String::new(), core::cell_text(v, 400), false, true))
+                .map(|v| (String::new(), core::cell_text(v, 400), true, true))
                 .unwrap_or_default(),
             Body::Zset { rows } => rows
                 .get(ix)
@@ -1142,7 +1142,8 @@ impl KeyView {
                     .min_w_0()
                     .text_color(t.tx),
             )
-            .when(editable, |d| {
+            // A set row has no dialog to open: its member is edited in the cell.
+            .when(editable && !matches!(self.body, Body::Set { .. }), |d| {
                 d.child(
                     ib(
                         ("redis-edit", ix),
