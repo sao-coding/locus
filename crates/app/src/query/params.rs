@@ -67,10 +67,8 @@ impl Locus {
         let first = inputs
             .iter()
             .find(|i| i.read(cx).value().is_empty())
-            .or(inputs.first());
-        if let Some(first) = first {
-            first.read(cx).focus_handle(cx).focus(window, cx);
-        }
+            .or(inputs.first())
+            .cloned();
         let me = cx.entity().downgrade();
         // Collects the values; `None` while a Number row does not parse.
         let collect: Collect = {
@@ -166,6 +164,12 @@ impl Locus {
                     false
                 })
         });
+        // After the dialog took the focus for itself.
+        if let Some(first) = first {
+            window.defer(cx, move |window, cx| {
+                first.read(cx).focus_handle(cx).focus(window, cx)
+            });
+        }
     }
 }
 
