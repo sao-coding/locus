@@ -118,8 +118,32 @@ pub(crate) async fn spawn_proc(
     );
 
     let mut buf = Vec::new();
+    // The hello frame comes before the sidecar reads its settings, so a
+    // sidecar of another build is stopped before it connects anywhere.
     let hello = timeout(HANDSHAKE_TIMEOUT, proto::read_frame(&mut stdout, &mut buf)).await;
-    let failure = match hello {
+    let mismatch = match hello {
+        Ok(Ok(Some((t, _)))) => proto::check_first_frame(t, &buf).err(),
+        Ok(Ok(None)) => Some(DbError::new(
+            ErrorKind::Internal,
+            "the sidecar exited before its hello frame",
+        )),
+        Ok(Err(e)) => Some(DbError::new(
+            ErrorKind::Internal,
+            format!("sidecar handshake failed: {e}"),
+        )),
+        Err(_) => Some(DbError::new(
+            ErrorKind::Connect,
+            "the sidecar did not start in time",
+        )),
+    };
+    if let Some(mut e) = mismatch {
+        let _ = child.kill().await;
+        e.message = format!("{}: {}", exe.display(), e.message);
+        return Err(e);
+    }
+
+    let ready = timeout(HANDSHAKE_TIMEOUT, proto::read_frame(&mut stdout, &mut buf)).await;
+    let failure = match ready {
         Ok(Ok(Some((proto::READY, _)))) => match proto::decode_ready(&buf) {
             Ok(info) => {
                 let (exit_tx, exit_rx) = watch::channel(false);
@@ -167,6 +191,57 @@ pub(crate) async fn spawn_proc(
         let _ = child.kill().await;
     }
     Err(failure)
+}
+
+/// How long `sidecar --hello` may take (a first start can wait for a virus scan).
+const PROBE_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Runs `exe --hello` and checks that it is this host's protocol and build.
+/// Gives the sidecar no connection settings or credentials; a protocol 1
+/// sidecar, which ignores `--hello`, stops at once on the missing host.
+pub(crate) fn probe(exe: &Path) -> Result<proto::HelloInfo, DbError> {
+    use std::io::Read;
+    let mut cmd = std::process::Command::new(exe);
+    cmd.arg("--hello")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    for v in [
+        "SIDECAR_DRIVER",
+        "SIDECAR_HOST",
+        "SIDECAR_PORT",
+        "SIDECAR_USER",
+        "SIDECAR_PASSWORD",
+        "SIDECAR_DATABASE",
+        "SIDECAR_TLS",
+    ] {
+        cmd.env_remove(v);
+    }
+    #[cfg(windows)]
+    std::os::windows::process::CommandExt::creation_flags(&mut cmd, 0x0800_0000);
+    let fail = |e: &dyn std::fmt::Display| {
+        DbError::new(
+            ErrorKind::Internal,
+            format!("{}: cannot check the sidecar: {e}", exe.display()),
+        )
+    };
+    let mut child = cmd.spawn().map_err(|e| fail(&e))?;
+    let mut out = child.stdout.take().ok_or_else(|| fail(&"no stdout"))?;
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let mut b = Vec::new();
+        let _ = (&mut out).take(64 << 10).read_to_end(&mut b);
+        let _ = tx.send(b);
+    });
+    let bytes = rx.recv_timeout(PROBE_TIMEOUT);
+    let _ = child.kill();
+    let _ = child.wait();
+    let bytes = bytes.map_err(|_| fail(&"no answer to --hello"))?;
+    let (t, p) = proto::first_frame(&bytes).ok_or_else(|| fail(&"no hello frame"))?;
+    proto::check_first_frame(t, p).map_err(|mut e| {
+        e.message = format!("{}: {}", exe.display(), e.message);
+        e
+    })
 }
 
 async fn writer(mut stdin: tokio::process::ChildStdin, mut rx: mpsc::UnboundedReceiver<Out>) {
