@@ -172,12 +172,7 @@ impl QueryTab {
             .child(
                 // Same left/right inset as the section switcher above, so the
                 // table lines up with the tabs instead of running past them.
-                div()
-                    .flex_1()
-                    .min_h_0()
-                    .px(px(S5))
-                    .py(px(S3))
-                    .child(body),
+                div().flex_1().min_h_0().px(px(S5)).py(px(S3)).child(body),
             )
             .into_any_element()
     }

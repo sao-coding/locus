@@ -197,11 +197,7 @@ impl Locus {
                     .text_size(px(scale::TX_BASE))
                     .text_color(t.tx2)
                     .tooltip(tip(database.clone()))
-                    .child(
-                        crate::shell::icons::icon("db")
-                            .size(px(14.))
-                            .flex_none(),
-                    )
+                    .child(crate::shell::icons::icon("db").size(px(14.)).flex_none())
                     .child(div().min_w_0().truncate().child(database)),
             )
             .child(chevron())
