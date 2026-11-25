@@ -66,6 +66,9 @@ pub struct Settings {
     /// Download a release found in the background, ready to install on restart (default on).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub update_download: Option<bool>,
+    /// Offer test versions (RCs) too; missing = whether this build is one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub update_beta: Option<bool>,
 }
 
 impl Settings {
@@ -77,6 +80,12 @@ impl Settings {
     /// Whether a release found is downloaded by itself (missing = on).
     pub fn update_download(&self) -> bool {
         self.update_download.unwrap_or(true)
+    }
+
+    /// Whether test versions (RCs) are offered (missing = on for an RC build, off otherwise).
+    pub fn update_beta(&self) -> bool {
+        self.update_beta
+            .unwrap_or_else(crate::update::current_is_prerelease)
     }
 }
 

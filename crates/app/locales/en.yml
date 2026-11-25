@@ -1277,6 +1277,8 @@ upd:
   toast: "Locus %{v} is available: see Settings › About."
   auto_download: "Download updates automatically"
   auto_download_note: "A new version is downloaded and its signature checked in the background; it is installed only when you choose Restart and update."
+  beta: "Receive test versions (beta)"
+  beta_note: "Also offer release candidates before the stable release. They are tested less and may have problems; turn this off to wait for the stable version."
   download_update: "Download and update"
   downloading: "Downloading Locus %{v}…"
   downloading_pct: "Downloading Locus %{v}… %{p}%"

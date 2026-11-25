@@ -38,6 +38,7 @@ const GLYPHS: &[(&str, &str)] = glyphs![
     "format",
     "gear",
     "history",
+    "info",
     "key-round",
     "link",
     "lock",

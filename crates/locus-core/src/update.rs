@@ -5,7 +5,8 @@
 //! - Where: `api.github.com/repos/{REPO}/releases`. Without signing in the API allows 60
 //!   requests an hour per address (shared by everyone behind one NAT), so on 403 / 429 the
 //!   releases feed (`releases.atom`, a page, not the API) gives the same answer.
-//! - Channel: a stable build sees stable releases only; an RC build (`0.2.0-rc.1`) sees RCs too.
+//! - Channel: stable releases only, or test versions (RCs, `0.2.0-rc.1`) too when
+//!   `Settings::update_beta` is on (default: on for an RC build, off for a stable one).
 //!   Versions compare by SemVer, so `0.2.0-rc.1` < `0.2.0`.
 //! - When: after start, if the automatic check is on (`Settings::update_check`) and the last one
 //!   is more than [`CHECK_EVERY`] ago; or by hand (Settings › About). `update.json` keeps the time
@@ -45,6 +46,16 @@ impl Release {
     fn semver(&self) -> Option<Version> {
         Version::parse(&self.version).ok()
     }
+
+    /// A test version (`0.2.0-rc.1`).
+    pub fn is_prerelease(&self) -> bool {
+        self.semver().is_some_and(|v| !v.pre.is_empty())
+    }
+}
+
+/// Whether this build is itself a test version: then test versions are offered by default.
+pub fn current_is_prerelease() -> bool {
+    Version::parse(CURRENT).is_ok_and(|v| !v.pre.is_empty())
 }
 
 /// How this copy got onto the machine, judged by where `locus.exe` is.
@@ -136,12 +147,14 @@ impl State {
         now < self.last_check || now - self.last_check >= CHECK_EVERY.as_secs()
     }
 
-    /// The release to offer: the one found, if it is newer than `current`.
-    pub fn available(&self, current: &str) -> Option<&Release> {
+    /// The release to offer: the one found, if it is newer than `current` (and not a test
+    /// version when `beta` is off: one found before the switch was turned off).
+    pub fn available(&self, current: &str, beta: bool) -> Option<&Release> {
         let cur = Version::parse(current).ok()?;
-        self.found
-            .as_ref()
-            .filter(|r| r.semver().is_some_and(|v| v > cur))
+        self.found.as_ref().filter(|r| {
+            r.semver()
+                .is_some_and(|v| v > cur && (beta || v.pre.is_empty()))
+        })
     }
 
     /// Whether the status bar should point at `r` (not dismissed).
@@ -165,16 +178,15 @@ struct Listed {
     prerelease: bool,
 }
 
-/// The newest of `listed` that this build's channel sees and that is newer than `current`.
-fn pick(listed: &[Listed], current: &str) -> Option<Release> {
+/// The newest of `listed` that is newer than `current`; test versions only with `beta`.
+fn pick(listed: &[Listed], current: &str, beta: bool) -> Option<Release> {
     let cur = Version::parse(current).ok()?;
-    let rc_channel = !cur.pre.is_empty();
     listed
         .iter()
         .filter_map(|l| {
             let v = Version::parse(l.tag.strip_prefix('v').unwrap_or(&l.tag)).ok()?;
             let pre = l.prerelease || !v.pre.is_empty();
-            (v > cur && (rc_channel || !pre)).then_some((v, l))
+            (v > cur && (beta || !pre)).then_some((v, l))
         })
         .max_by(|a, b| a.0.cmp(&b.0))
         .map(|(v, l)| Release {
@@ -270,9 +282,9 @@ pub(crate) fn get(agent: &ureq::Agent, url: &str, accept: &str) -> Result<(u16, 
     Ok((status, body))
 }
 
-/// Asks GitHub. `Ok(None)`: this build is the newest its channel sees. Blocking (network):
-/// call it off the UI thread.
-pub fn check() -> Result<Option<Release>, String> {
+/// Asks GitHub. `Ok(None)`: this build is the newest there is (test versions count only with
+/// `beta`). Blocking (network): call it off the UI thread.
+pub fn check(beta: bool) -> Result<Option<Release>, String> {
     let agent = agent();
     let api = format!("https://api.github.com/repos/{REPO}/releases?per_page=30");
     let listed = match get(&agent, &api, "application/vnd.github+json") {
@@ -288,7 +300,7 @@ pub fn check() -> Result<Option<Release>, String> {
             feed(&agent).map_err(|_| e)?
         }
     };
-    Ok(pick(&listed, CURRENT))
+    Ok(pick(&listed, CURRENT, beta))
 }
 
 fn feed(agent: &ureq::Agent) -> Result<Vec<Listed>, String> {
@@ -312,31 +324,41 @@ mod tests {
     }
 
     #[test]
-    fn stable_builds_see_only_stable_releases() {
+    fn without_beta_only_stable_releases() {
         let listed = [
             l("v0.1.2", false),
             l("v0.1.3", false),
             l("v0.2.0-rc.1", true),
             l("v0.1.1", false),
         ];
-        assert_eq!(pick(&listed, "0.1.2").unwrap().version, "0.1.3");
-        assert_eq!(pick(&listed, "0.1.3"), None);
+        assert_eq!(pick(&listed, "0.1.2", false).unwrap().version, "0.1.3");
+        assert_eq!(pick(&listed, "0.1.3", false), None);
         // A tag GitHub marks pre-release is skipped even without -rc.
-        assert_eq!(pick(&[l("v0.1.4", true)], "0.1.3"), None);
+        assert_eq!(pick(&[l("v0.1.4", true)], "0.1.3", false), None);
+        // An RC build with beta off waits for the stable release.
+        let listed = [l("v0.2.0-rc.2", true)];
+        assert_eq!(pick(&listed, "0.2.0-rc.1", false), None);
+        let listed = [l("v0.2.0-rc.2", true), l("v0.2.0", false)];
+        assert_eq!(pick(&listed, "0.2.0-rc.1", false).unwrap().version, "0.2.0");
     }
 
     #[test]
-    fn rc_builds_see_rcs_and_stable() {
+    fn with_beta_test_versions_too() {
         let listed = [l("v0.2.0-rc.1", true), l("v0.2.0-rc.2", true)];
-        assert_eq!(pick(&listed, "0.2.0-rc.1").unwrap().version, "0.2.0-rc.2");
+        assert_eq!(
+            pick(&listed, "0.2.0-rc.1", true).unwrap().version,
+            "0.2.0-rc.2"
+        );
+        // A stable build that opted in.
+        assert_eq!(pick(&listed, "0.1.2", true).unwrap().version, "0.2.0-rc.2");
         let listed = [l("v0.2.0-rc.2", true), l("v0.2.0", false)];
-        assert_eq!(pick(&listed, "0.2.0-rc.1").unwrap().version, "0.2.0");
+        assert_eq!(pick(&listed, "0.2.0-rc.1", true).unwrap().version, "0.2.0");
     }
 
     #[test]
     fn odd_tags_are_ignored() {
         let listed = [l("nightly", false), l("v0.9", false), l("0.1.5", false)];
-        let r = pick(&listed, "0.1.2").unwrap();
+        let r = pick(&listed, "0.1.2", true).unwrap();
         assert_eq!(r.version, "0.1.5");
         assert!(r.url.ends_with("/releases/tag/0.1.5"));
     }
@@ -349,7 +371,7 @@ mod tests {
         ]"#;
         let listed = parse_api(body).unwrap();
         assert_eq!(listed.len(), 1);
-        assert_eq!(pick(&listed, "0.1.2").unwrap().version, "0.1.3");
+        assert_eq!(pick(&listed, "0.1.2", true).unwrap().version, "0.1.3");
         assert!(parse_api("{\"message\":\"API rate limit exceeded\"}").is_err());
     }
 
@@ -366,9 +388,12 @@ mod tests {
             listed.iter().map(|l| l.tag.as_str()).collect::<Vec<_>>(),
             ["v0.1.3", "v0.2.0-rc.1"]
         );
-        // The feed has no pre-release flag: the -rc version keeps stable builds away from it.
-        assert_eq!(pick(&listed, "0.1.2").unwrap().version, "0.1.3");
-        assert_eq!(pick(&listed, "0.2.0-rc.0").unwrap().version, "0.2.0-rc.1");
+        // The feed has no pre-release flag: the -rc version alone keeps it from beta-off copies.
+        assert_eq!(pick(&listed, "0.1.2", false).unwrap().version, "0.1.3");
+        assert_eq!(
+            pick(&listed, "0.2.0-rc.0", true).unwrap().version,
+            "0.2.0-rc.1"
+        );
     }
 
     /// `LOCUS_VERSION` (release builds) may only add a pre-release suffix to Cargo.toml's.
@@ -395,12 +420,20 @@ mod tests {
             version: "0.1.3".into(),
             url: "u".into(),
         });
-        assert!(s.available("0.1.2").is_some());
-        assert!(s.available("0.1.3").is_none(), "already updated");
-        let r = s.available("0.1.2").cloned().unwrap();
+        assert!(s.available("0.1.2", false).is_some());
+        assert!(s.available("0.1.3", false).is_none(), "already updated");
+        let r = s.available("0.1.2", false).cloned().unwrap();
         assert!(s.should_hint(&r));
         s.dismissed = Some("0.1.3".into());
         assert!(!s.should_hint(&r));
+        // A test version found earlier is not offered once beta is turned off.
+        let rc = s.found.replace(Release {
+            version: "0.2.0-rc.1".into(),
+            url: "u".into(),
+        });
+        assert!(s.available("0.1.2", true).is_some());
+        assert!(s.available("0.1.2", false).is_none());
+        s.found = rc;
 
         let json = serde_json::to_string(&s).unwrap();
         assert_eq!(serde_json::from_str::<State>(&json).unwrap(), s);
@@ -439,7 +472,7 @@ mod tests {
     #[test]
     #[ignore = "network"]
     fn update_check_live() {
-        let r = check();
+        let r = check(true);
         println!("{r:?}");
         assert!(r.is_ok(), "{r:?}");
     }
@@ -451,6 +484,6 @@ mod tests {
         let listed = feed(&agent()).unwrap();
         println!("{listed:?}");
         assert!(listed.iter().any(|l| l.tag == "v0.1.0"), "{listed:?}");
-        assert!(pick(&listed, "0.0.1").is_some());
+        assert!(pick(&listed, "0.0.1", false).is_some());
     }
 }

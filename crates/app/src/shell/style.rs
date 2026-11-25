@@ -386,6 +386,7 @@ fn extend_glass_frame(_on: bool) {}
 /// Dialogs read the same token for their body, so open them with `open_pop_dialog`.
 pub(crate) fn root_backdrop(glass: bool, cx: &mut App) {
     use gpui_kit::component::ThemeToken;
+    let off_track = super::theme::tokens(cx).tx3.opacity(0.45);
     let th = gpui_kit::component::Theme::global_mut(cx);
     let c = if glass {
         gpui_kit::transparent_black()
@@ -393,6 +394,10 @@ pub(crate) fn root_backdrop(glass: bool, cx: &mut App) {
         th.colors.background
     };
     th.tokens.background = ThemeToken::from(c);
+    // The switch thumb falls back to that token (dark or see-through): keep it white, on an
+    // off track dark enough to show it in the light theme too.
+    th.tokens.switch_thumb = ThemeToken::from(gpui_kit::white());
+    th.tokens.switch = ThemeToken::from(off_track);
 }
 
 /// `open_dialog` with the popup surface (`pop` at the popup alpha) as the dialog body.
