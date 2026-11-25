@@ -22,6 +22,7 @@ pub mod sql;
 mod stream;
 pub mod struct_sql;
 pub mod structure;
+pub mod tabname;
 
 pub use batch::{Batch, BatchBuilder, Cell, ResultSet};
 pub use catalog::{

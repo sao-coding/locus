@@ -21,6 +21,11 @@ pub struct Pal {
     pub ed: u32,
     pub panel: u32,
     pub pop: u32,
+    /// Result grid: an ink colour laid over the card at `grid_a` (body) and `grid_alt_a`
+    /// (alternate rows). Translucent so the Space colour of the card still shows.
+    pub grid: u32,
+    pub grid_a: f32,
+    pub grid_alt_a: f32,
 }
 
 pub const DARK: Pal = Pal {
@@ -39,6 +44,9 @@ pub const DARK: Pal = Pal {
     ed: 0x1b1917,
     panel: 0x1f1c1a,
     pop: 0x272320,
+    grid: 0xfff4e6,
+    grid_a: 0.0,
+    grid_alt_a: 0.028,
 };
 
 pub const LIGHT: Pal = Pal {
@@ -57,6 +65,9 @@ pub const LIGHT: Pal = Pal {
     ed: 0xfdfcfa,
     panel: 0xf2ede6,
     pop: 0xffffff,
+    grid: 0x3c2814,
+    grid_a: 0.02,
+    grid_alt_a: 0.04,
 };
 
 fn lin(c: u8) -> f64 {
@@ -125,6 +136,42 @@ mod tests {
             }
         }
         assert!(bad.is_empty(), "below 4.5 : 1: {bad:#?}");
+    }
+
+    fn blend(over: u32, a: f32, under: u32) -> u32 {
+        let ch = |s: u32| {
+            let (o, u) = (((over >> s) & 0xff) as f32, ((under >> s) & 0xff) as f32);
+            (o * a + u * (1.0 - a)).round() as u32
+        };
+        (ch(16) << 16) | (ch(8) << 8) | ch(0)
+    }
+
+    #[test]
+    fn grid_rows_keep_text_readable_and_stripes_subtle() {
+        for (n, p) in [("dark", &DARK), ("light", &LIGHT)] {
+            // The table paints `grid` on two nested layers, the alternate rows add `grid_alt_a`.
+            let body = blend(p.grid, p.grid_a, blend(p.grid, p.grid_a, p.main));
+            let alt = blend(p.grid, p.grid_alt_a, body);
+            for (tn, t) in [("tx", p.tx), ("tx2", p.tx2), ("tx3", p.tx3), ("tx4", p.tx4)] {
+                for (sn, s) in [("body", body), ("alt", alt)] {
+                    assert!(
+                        contrast(t, s) >= 4.5,
+                        "{n} {tn} on {sn}: {:.2}",
+                        contrast(t, s)
+                    );
+                }
+            }
+            // Rows tell apart (> 1.02 : 1) but stay a hint (< 1.15 : 1).
+            let r = contrast(body, alt);
+            assert!((1.02..1.15).contains(&r), "{n} stripe contrast {r:.3}");
+        }
+        // The light body is off-white, not the card white.
+        let body = blend(
+            LIGHT.grid,
+            LIGHT.grid_a,
+            blend(LIGHT.grid, LIGHT.grid_a, LIGHT.main),
+        );
+        assert!(contrast(body, 0xffffff) > 1.05);
     }
 
     #[test]

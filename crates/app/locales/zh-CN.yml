@@ -102,6 +102,8 @@ fmt:
 results:
   result: 结果
   result_n: "结果 %{n}"
+  all_results: 所有结果
+  more_actions: 更多操作
   messages: "消息（%{n}）"
   waiting: 等待第一批数据…
   note_cancelled: "已取消：显示取消前收到的 %{n} 行。"
@@ -300,6 +302,7 @@ settings:
   motion: 动画
   motion_on: 开启
   motion_off: 减少动态效果
+  stripes: 结果表格交替行底色
   count: 在后台统计分页查询的总行数
   count_on: 开启
   count_off: 关闭
@@ -617,6 +620,7 @@ sp:
   d_theme: 浅色、深色，或跟随 Windows。
   d_font: 界面与编辑器文字的大小。
   d_motion: 动画让你分心时可以关闭。
+  d_stripes: 结果表格的奇偶行用两种相近的底色，更容易分辨每一行。
   d_material: 窗口背景透出的材质。
   d_translucency: 选了材质时，窗口底色的透明程度。
   d_cap: 结果达到这个行数时，查询会中止并附上说明。
