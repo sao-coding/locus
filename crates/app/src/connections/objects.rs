@@ -21,7 +21,7 @@ struct Page {
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::menu::{ContextMenuExt as _, PopupMenu};
 use gpui_kit::component::scroll::ScrollableElement as _;
-use gpui_kit::component::{ActiveTheme as _, Icon, IconName, Sizable as _, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme as _, Icon, IconName, Sizable as _, Size, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 use locus_core::driver::AnyDriver;
@@ -700,7 +700,7 @@ impl ObjectTree {
             .h(px(24.))
             .pl(px(4. + *depth as f32 * 14.))
             .pr(px(14.))
-            .gap_1()
+            .gap(px(ROW_GAP))
             .items_center()
             .text_sm()
             .rounded_md();
@@ -811,8 +811,9 @@ impl ObjectTree {
             .when(!*connected, |r| r.opacity(0.55))
             .child(chevron(*open))
             .child(
-                crate::shell::icons::icon("server")
-                    .xsmall()
+                crate::shell::icons::icon("database")
+                    .size(px(NODE_ICON))
+                    .flex_none()
                     .text_color(theme.muted_foreground),
             )
             .child(
@@ -834,7 +835,7 @@ impl ObjectTree {
                         .child(
                             Button::new(("conn-diagram", ix))
                                 .ghost()
-                                .xsmall()
+                                .with_size(Size::Size(px(ACTION_BTN)))
                                 .icon(IconName::Network)
                                 .tooltip(t!("erv3.conn_open").to_string())
                                 .on_click(cx.listener(move |_, _, _, cx| {
@@ -878,14 +879,15 @@ impl ObjectTree {
             .child(chevron(*open))
             .child(
                 crate::shell::icons::icon("layers")
-                    .xsmall()
+                    .size(px(NODE_ICON))
+                    .flex_none()
                     .text_color(theme.muted_foreground),
             )
             .child(div().flex_1().min_w_0().truncate().child(schema.clone()))
             .child(
                 Button::new(("diagram", ix))
                     .ghost()
-                    .xsmall()
+                    .with_size(Size::Size(px(ACTION_BTN)))
                     .icon(IconName::Network)
                     .tooltip(t!("diagram.open").to_string())
                     .on_click(cx.listener(move |t, _, _, cx| {
@@ -967,7 +969,8 @@ impl ObjectTree {
                 } else {
                     "table"
                 })
-                .xsmall()
+                .size(px(NODE_ICON))
+                .flex_none()
                 .text_color(theme.muted_foreground),
             )
             .child(div().flex_1().min_w_0().truncate().child(obj.name.clone()))
@@ -979,7 +982,7 @@ impl ObjectTree {
                     .child(
                         Button::new(("structure", ix))
                             .ghost()
-                            .xsmall()
+                            .with_size(Size::Size(px(ACTION_BTN)))
                             .icon(crate::shell::icons::icon("table-properties"))
                             .tooltip(t!("structure.open").to_string())
                             .on_click(cx.listener(move |t, _, _, cx| {
@@ -1008,7 +1011,7 @@ impl ObjectTree {
                     .child(
                         Button::new(("relations", ix))
                             .ghost()
-                            .xsmall()
+                            .with_size(Size::Size(px(ACTION_BTN)))
                             .icon(IconName::Network)
                             .tooltip(t!("diagram.relations").to_string())
                             .on_click(cx.listener(move |t, _, _, cx| {
@@ -1238,6 +1241,12 @@ pub fn kind_label(kind: DbObjectKind) -> String {
     let key = format!("objects.kinds.{k}");
     t!(&key).into_owned()
 }
+
+/// Tree node icon size and the gap between a row's icon and its text (every row kind).
+const NODE_ICON: f32 = 14.0;
+const ROW_GAP: f32 = 4.0;
+/// Button box whose icon (0.75 x) is NODE_ICON, so the row actions match the node icons.
+const ACTION_BTN: f32 = NODE_ICON / 0.75;
 
 const TREE_CAP: u32 = 1000;
 /// Rows a folder can grow to with "load more"; beyond that the filter finds the rest.
@@ -1509,7 +1518,7 @@ impl ObjectTree {
     ) -> Button {
         Button::new(id)
             .ghost()
-            .xsmall()
+            .with_size(Size::Size(px(ACTION_BTN)))
             .icon(IconName::FileText)
             .tooltip(t!("objects.view_ddl").to_string())
             .on_click(cx.listener(move |_, _, _, cx| {
@@ -1553,7 +1562,8 @@ impl ObjectTree {
                 .child(chevron(*open))
                 .child(
                     crate::shell::icons::object_icon(*kind)
-                        .xsmall()
+                        .size(px(NODE_ICON))
+                        .flex_none()
                         .text_color(theme.muted_foreground),
                 )
                 .child(div().flex_1().min_w_0().truncate().child(kind_label(*kind)))
@@ -1586,7 +1596,8 @@ impl ObjectTree {
                 .child(chevron(*open))
                 .child(
                     crate::shell::icons::icon(if *info { "info" } else { "users" })
-                        .xsmall()
+                        .size(px(NODE_ICON))
+                        .flex_none()
                         .text_color(theme.muted_foreground),
                 )
                 .child(
@@ -1607,7 +1618,8 @@ impl ObjectTree {
                 .child(div().w(px(12.)).flex_none())
                 .child(
                     Icon::new(IconName::User)
-                        .xsmall()
+                        .size(px(NODE_ICON))
+                        .flex_none()
                         .text_color(theme.muted_foreground),
                 )
                 .child(
@@ -1738,7 +1750,8 @@ impl ObjectTree {
             .child(div().w(px(12.)).flex_none())
             .child(
                 crate::shell::icons::object_icon(*kind)
-                    .xsmall()
+                    .size(px(NODE_ICON))
+                    .flex_none()
                     .text_color(theme.muted_foreground),
             )
             .child(
@@ -1775,7 +1788,7 @@ impl ObjectTree {
                 r.child(
                     Button::new(("entry-src", ix))
                         .ghost()
-                        .xsmall()
+                        .with_size(Size::Size(px(ACTION_BTN)))
                         .icon(crate::shell::icons::icon("script"))
                         .tooltip(t!("routines.edit_source").to_string())
                         .flex_none()
