@@ -36,6 +36,7 @@ pub mod params;
 pub mod plan;
 pub mod pool;
 pub mod redis;
+pub mod redis_edit;
 pub mod rowcap;
 pub mod rowfilter;
 pub mod runview;
