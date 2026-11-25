@@ -88,7 +88,11 @@ jobs:
       # The sidecar must exist before the app is built: build.rs embeds it.
       - name: build the sidecar
         run: ./sidecar/build.ps1
+      # LOCUS_VERSION: the full release version (0.2.0-rc.1), which Cargo.toml (0.2.0) can't hold.
+      # The update check and About read it, so an RC stays on the RC channel.
       - name: build
+        env:
+          LOCUS_VERSION: ${{ inputs.version }}
         run: cargo build --locked --release -p app
       - name: package
         run: |

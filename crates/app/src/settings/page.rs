@@ -805,7 +805,7 @@ impl SettingsPage {
                             .child(div().text_color(t.tx3).child(tag.into_owned())),
                     );
                 rows.push(head.into_any_element());
-                rows.push(line(2000, lv, env!("CARGO_PKG_VERSION")));
+                rows.push(line(2000, lv, locus_core::update::CURRENT));
                 rows.push(line(2001, ll.into_owned(), "AGPL-3.0-only"));
             }
             let (lu, la) = (t!("upd.label").into_owned(), t!("upd.auto").into_owned());
