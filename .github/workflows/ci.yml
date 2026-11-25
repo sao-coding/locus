@@ -208,6 +208,47 @@ jobs:
       - run: go vet ./...
       - run: go test ./...
 
+  # The SQL Server backend of the sidecar against a real server. Linux containers don't run on the
+  # Windows runners, so this tests the Go backend directly (internal/backend/mssql/live_test.go:
+  # scripts, row counts, types, params, and that a cancel keeps the open transaction).
+  sidecar-mssql:
+    name: sidecar · SQL Server
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: sidecar
+    env:
+      MSSQL_TEST_HOST: 127.0.0.1
+      MSSQL_TEST_PORT: "1433"
+      MSSQL_TEST_USER: sa
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: sidecar/go.mod
+          cache-dependency-path: sidecar/go.sum
+      # A throwaway password per run (a fixed one in this file trips secret scanners). The container
+      # reports running before the server accepts logins, so wait for a login.
+      - name: SQL Server
+        timeout-minutes: 5
+        run: |
+          pw="Ci-$(openssl rand -hex 16)"
+          echo "::add-mask::$pw"
+          echo "MSSQL_TEST_PASSWORD=$pw" >> "$GITHUB_ENV"
+          docker run -d --name mssql -p 1433:1433 -e ACCEPT_EULA=Y -e MSSQL_PID=Developer \
+            -e MSSQL_SA_PASSWORD="$pw" mcr.microsoft.com/mssql/server:2022-CU28-ubuntu-22.04
+          until docker exec mssql /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$pw" \
+              -Q "SELECT 1" >/dev/null 2>&1; do
+            sleep 3
+          done
+      - name: live tests
+        run: go test -count=1 -run '^TestLive' -v ./internal/backend/mssql/
+
   deny:
     name: licenses · advisories · bans
     runs-on: ubuntu-latest

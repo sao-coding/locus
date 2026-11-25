@@ -1,7 +1,7 @@
 // Package mssql is the Microsoft SQL Server backend (microsoft/go-mssqldb).
 //
 // A script is split into batches on GO lines (SplitBatches); each batch goes
-// to the server as one SQL batch, so DECLAREd variables and multi-statement
+// to the server as one SQL batch, so variables from DECLARE and multi-statement
 // batches behave as in SSMS. The results of a batch are read through the
 // driver's message queue (sqlexp.ReturnMessage), which reports every result
 // set and every row count in server order.
