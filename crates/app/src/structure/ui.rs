@@ -594,40 +594,37 @@ impl QueryTab {
             Load::Ready(text) => {
                 let text = text.clone();
                 let editor = self.editor.read(cx).state.clone();
-                v_flex()
+                // Copy sits as an icon in the top-right corner of the code, like
+                // a code block, clear of the vertical scrollbar.
+                div()
                     .size_full()
+                    .relative()
+                    .rounded(px(6.))
+                    .border_1()
+                    .border_color(t.ln)
+                    .overflow_hidden()
+                    .child(Editor::new(&editor).bordered(false).h_full())
                     .child(
-                        h_flex()
-                            .flex_none()
-                            .pb(px(S2))
-                            .gap(px(S4))
-                            .items_center()
-                            .child(div().flex_1())
-                            .child(
-                                Button::new("st-copy-ddl")
-                                    .ghost()
-                                    .xsmall()
-                                    .label(t!("structure.copy_ddl").to_string())
-                                    .on_click(move |_, _, cx| {
-                                        cx.write_to_clipboard(ClipboardItem::new_string(
-                                            text.clone(),
-                                        ));
-                                        crate::shell::toast::show(
-                                            t!("structure.copied").to_string(),
-                                            cx,
-                                        );
-                                    }),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_h_0()
-                            .rounded(px(6.))
-                            .border_1()
-                            .border_color(t.ln)
-                            .overflow_hidden()
-                            .child(Editor::new(&editor).bordered(false).h_full()),
+                        crate::shell::style::ib(
+                            "st-copy-ddl",
+                            crate::shell::icons::icon("copy"),
+                            H_CONTROL,
+                            false,
+                            cx,
+                        )
+                        .absolute()
+                        .top(px(S3))
+                        .right(px(S6))
+                        .border_1()
+                        .border_color(t.ln)
+                        .bg(cx.theme().background)
+                        .tooltip(crate::shell::style::tip(
+                            t!("structure.copy_ddl").into_owned(),
+                        ))
+                        .on_click(move |_, _, cx| {
+                            cx.write_to_clipboard(ClipboardItem::new_string(text.clone()));
+                            crate::shell::toast::show(t!("structure.copied").to_string(), cx);
+                        }),
                     )
                     .into_any_element()
             }
