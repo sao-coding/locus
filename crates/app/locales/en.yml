@@ -586,12 +586,12 @@ erv3:
   p_columns: Columns
   p_indexes: Indexes
   p_rows: rows
-  p_open_data: Open data
+  p_open_data: Data
   p_structure: Structure
-  p_select: SELECT * into editor
-  p_copy: Copy name
+  p_select: SELECT
+  p_copy: Copy
   choose_path: Several JOIN paths of the same length
-  join_path_tip: "JOIN path: Shift+click two or more tables, then insert the shortest JOIN between them"
+  join_path_tip: JOIN path
   join_need_two: Select two or more tables first (Shift+click)
   join_no_path: No chain of foreign keys connects these tables
   save_png: Save as PNG…

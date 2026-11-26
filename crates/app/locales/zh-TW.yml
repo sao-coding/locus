@@ -586,12 +586,12 @@ erv3:
   p_columns: 欄位
   p_indexes: 索引
   p_rows: 列
-  p_open_data: 開啟資料
+  p_open_data: 資料
   p_structure: 結構
-  p_select: SELECT * 到編輯器
-  p_copy: 複製名稱
+  p_select: SELECT
+  p_copy: 複製
   choose_path: 有多條同樣長度的 JOIN 路徑
-  join_path_tip: JOIN 路徑：Shift+點選兩張以上的資料表，插入它們之間最短的 JOIN
+  join_path_tip: JOIN 路徑
   join_need_two: 請先選取兩張以上的資料表（Shift+點選）
   join_no_path: 這些資料表之間沒有外部索引鍵相連
   save_png: 另存為 PNG…

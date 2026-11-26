@@ -586,12 +586,12 @@ erv3:
   p_columns: 列
   p_indexes: 索引
   p_rows: 行
-  p_open_data: 打开数据
+  p_open_data: 数据
   p_structure: 结构
-  p_select: SELECT * 到编辑器
-  p_copy: 复制名称
+  p_select: SELECT
+  p_copy: 复制
   choose_path: 有多条同样长度的 JOIN 路径
-  join_path_tip: JOIN 路径：Shift+点选两张以上的表，插入它们之间最短的 JOIN
+  join_path_tip: JOIN 路径
   join_need_two: 请先选择两张以上的表（Shift+点选）
   join_no_path: 这些表之间没有外键相连
   save_png: 另存为 PNG…

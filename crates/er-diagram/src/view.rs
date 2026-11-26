@@ -35,6 +35,8 @@ const HIT_TOL: f32 = 4.0;
 const FLY_S: f32 = 0.36;
 /// The border pulse on a search hit, seconds.
 const PULSE_S: f32 = 0.9;
+/// Height of the detail panel's action buttons.
+const PANEL_BTN_H: f32 = 28.0;
 /// Width of the detail panel (screen pixels).
 const PANEL_W: f32 = 300.0;
 /// Width of the chevron area at the right of a card header (world units).
@@ -2162,8 +2164,29 @@ impl ErDiagram {
                     }),
             );
         }
-        let btn =
-            |id: &'static str, text: SharedString| Button::new(id).xsmall().outline().label(text);
+        // one action button: glyph + short label, centred, half the row wide
+        let (border, hover, fg, muted) =
+            (t.border, t.muted, t.popover_foreground, t.muted_foreground);
+        let action = move |id: &'static str, g: Glyph, text: SharedString| {
+            h_flex()
+                .id(id)
+                .flex_1()
+                .min_w_0()
+                .h(px(PANEL_BTN_H))
+                .px_2()
+                .gap(px(6.0))
+                .items_center()
+                .justify_center()
+                .rounded_md()
+                .border_1()
+                .border_color(border)
+                .cursor_pointer()
+                .hover(move |s| s.bg(hover))
+                .text_xs()
+                .text_color(fg)
+                .child(glyph(g, muted, 12.0))
+                .child(div().min_w_0().truncate().child(text))
+        };
         let (k1, k2, k3, name) = (key.clone(), key.clone(), key, tm.name.clone());
         let count = self.counts.get(&self.nodes[i].key).copied();
         Some(
@@ -2217,36 +2240,49 @@ impl ErDiagram {
                         ),
                 )
                 .child(
-                    h_flex()
+                    // 2 x 2 grid of equal-width actions
+                    v_flex()
                         .flex_none()
-                        .flex_wrap()
-                        .gap_1()
+                        .gap(px(6.0))
                         .px_3()
                         .py_2()
                         .border_b_1()
                         .border_color(t.border)
-                        .child(btn("er-p-data", l.open_data.clone()).on_click(cx.listener(
-                            move |_, _, _, cx| cx.emit(ErDiagramEvent::OpenTable(k1.clone())),
-                        )))
                         .child(
-                            btn("er-p-struct", l.structure.clone()).on_click(cx.listener(
-                                move |_, _, _, cx| {
-                                    cx.emit(ErDiagramEvent::OpenStructure(k2.clone()))
-                                },
-                            )),
+                            h_flex()
+                                .gap(px(6.0))
+                                .child(
+                                    action("er-p-data", Glyph::Table, l.open_data.clone())
+                                        .on_click(cx.listener(move |_, _, _, cx| {
+                                            cx.emit(ErDiagramEvent::OpenTable(k1.clone()))
+                                        })),
+                                )
+                                .child(
+                                    action("er-p-struct", Glyph::Structure, l.structure.clone())
+                                        .on_click(cx.listener(move |_, _, _, cx| {
+                                            cx.emit(ErDiagramEvent::OpenStructure(k2.clone()))
+                                        })),
+                                ),
                         )
                         .child(
-                            btn("er-p-select", l.select_star.clone()).on_click(cx.listener(
-                                move |_, _, _, cx| {
-                                    cx.emit(ErDiagramEvent::InsertSelect(k3.clone()))
-                                },
-                            )),
-                        )
-                        .child(btn("er-p-copy", l.copy_name.clone()).on_click(cx.listener(
-                            move |_, _, _, cx| {
-                                cx.write_to_clipboard(ClipboardItem::new_string(name.clone()))
-                            },
-                        ))),
+                            h_flex()
+                                .gap(px(6.0))
+                                .child(
+                                    action("er-p-select", Glyph::Insert, l.select_star.clone())
+                                        .on_click(cx.listener(move |_, _, _, cx| {
+                                            cx.emit(ErDiagramEvent::InsertSelect(k3.clone()))
+                                        })),
+                                )
+                                .child(
+                                    action("er-p-copy", Glyph::Copy, l.copy_name.clone()).on_click(
+                                        cx.listener(move |_, _, _, cx| {
+                                            cx.write_to_clipboard(ClipboardItem::new_string(
+                                                name.clone(),
+                                            ))
+                                        }),
+                                    ),
+                                ),
+                        ),
                 )
                 .child(
                     v_flex()
@@ -2427,6 +2463,14 @@ impl ErDiagram {
 enum Glyph {
     Search,
     Close,
+    /// A small table (open data).
+    Table,
+    /// Rows of a list (structure).
+    Structure,
+    /// An arrow into a line (insert into the editor).
+    Insert,
+    /// Two sheets (copy).
+    Copy,
 }
 
 /// A `size`-pixel square with the glyph stroked in `color`.
@@ -2457,6 +2501,45 @@ fn glyph(kind: Glyph, color: Hsla, size: f32) -> impl IntoElement {
                     pb.line_to(p(0.85, 0.85));
                     pb.move_to(p(0.85, 0.15));
                     pb.line_to(p(0.15, 0.85));
+                }
+                Glyph::Table => {
+                    pb.add_polygon(
+                        &[p(0.1, 0.15), p(0.9, 0.15), p(0.9, 0.85), p(0.1, 0.85)],
+                        true,
+                    );
+                    pb.move_to(p(0.1, 0.4));
+                    pb.line_to(p(0.9, 0.4));
+                    pb.move_to(p(0.5, 0.4));
+                    pb.line_to(p(0.5, 0.85));
+                }
+                Glyph::Structure => {
+                    for y in [0.2, 0.5, 0.8] {
+                        pb.move_to(p(0.1, y));
+                        pb.line_to(p(0.2, y));
+                        pb.move_to(p(0.35, y));
+                        pb.line_to(p(0.9, y));
+                    }
+                }
+                Glyph::Insert => {
+                    // arrow down into a bar
+                    pb.move_to(p(0.5, 0.1));
+                    pb.line_to(p(0.5, 0.62));
+                    pb.move_to(p(0.28, 0.42));
+                    pb.line_to(p(0.5, 0.64));
+                    pb.line_to(p(0.72, 0.42));
+                    pb.move_to(p(0.12, 0.88));
+                    pb.line_to(p(0.88, 0.88));
+                }
+                Glyph::Copy => {
+                    pb.add_polygon(
+                        &[p(0.32, 0.32), p(0.88, 0.32), p(0.88, 0.88), p(0.32, 0.88)],
+                        true,
+                    );
+                    pb.move_to(p(0.2, 0.68));
+                    pb.line_to(p(0.12, 0.68));
+                    pb.line_to(p(0.12, 0.12));
+                    pb.line_to(p(0.68, 0.12));
+                    pb.line_to(p(0.68, 0.2));
                 }
             }
             if let Ok(path) = pb.build() {

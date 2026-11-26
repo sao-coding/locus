@@ -586,10 +586,10 @@ fn main() {
             columns: "Columns".into(),
             indexes: "Indexes".into(),
             rows: "rows".into(),
-            open_data: "Open data".into(),
+            open_data: "Data".into(),
             structure: "Structure".into(),
-            select_star: "SELECT *".into(),
-            copy_name: "Copy name".into(),
+            select_star: "SELECT".into(),
+            copy_name: "Copy".into(),
             choose_path: "Several JOIN paths of the same length".into(),
         };
         gpui_kit::open_window(opts, cx, move |_, cx| {
