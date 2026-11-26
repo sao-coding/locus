@@ -14,10 +14,10 @@ pub const STUB: f32 = 22.0;
 /// Corner radius of a smoothstep edge.
 pub const RADIUS: f32 = 8.0;
 /// Distance between parallel verticals of edges between the same two cards.
-const SLOT_GAP: f32 = 7.0;
+const SLOT_GAP: f32 = 10.0;
 
 /// How relation lines are drawn.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum EdgeStyle {
     /// Orthogonal with rounded corners (default: reads best on dense schemas).
     #[default]
@@ -37,13 +37,73 @@ pub struct Route {
     pub dir_to: f32,
 }
 
-/// Offset of parallel edge `slot` of `count` between the same two cards,
-/// centred on 0 (0, ±7, ±14, ...).
+/// Offset of edge `slot` of `count` sharing one channel, centred on 0
+/// (0, ±5, ±10, ...: 10 apart).
 pub fn slot_offset(slot: usize, count: usize) -> f32 {
     if count <= 1 {
         0.0
     } else {
         (slot as f32 - (count as f32 - 1.0) / 2.0) * SLOT_GAP
+    }
+}
+
+/// Where the referencing card `a` lies against the referenced card `b`:
+/// which gap the edge's vertical runs in (same tests as [`route`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Side {
+    /// `a` left of `b`: the vertical is in the gap left of `b`.
+    Left,
+    /// `a` right of `b`: the gap right of `b`.
+    Right,
+    /// Overlapping columns or the same card: a loop on the right.
+    Loop,
+}
+
+pub fn side(a: Rect, b: Rect) -> Side {
+    if a.0 + a.2 + 2.0 * STUB <= b.0 {
+        Side::Left
+    } else if b.0 + b.2 + 2.0 * STUB <= a.0 {
+        Side::Right
+    } else {
+        Side::Loop
+    }
+}
+
+/// Channel offsets: edges entering the same card from the same side share
+/// one gap, so each gets its own vertical. `edges[i]` = (referenced card,
+/// side, |source row y - target row y|). In a group the nearest source gets
+/// the vertical nearest itself, which keeps the group's lines from crossing
+/// each other. `scratch` is reused between calls.
+pub fn channel_offsets(edges: &[(usize, Side, f32)], scratch: &mut Vec<usize>, out: &mut Vec<f32>) {
+    scratch.clear();
+    scratch.extend(0..edges.len());
+    scratch.sort_by(|&i, &j| {
+        let (a, b) = (edges[i], edges[j]);
+        (a.0, a.1)
+            .cmp(&(b.0, b.1))
+            .then(a.2.total_cmp(&b.2))
+            .then(i.cmp(&j))
+    });
+    out.clear();
+    out.resize(edges.len(), 0.0);
+    let mut start = 0;
+    while start < scratch.len() {
+        let g = (edges[scratch[start]].0, edges[scratch[start]].1);
+        let mut end = start;
+        while end < scratch.len() && (edges[scratch[end]].0, edges[scratch[end]].1) == g {
+            end += 1;
+        }
+        let n = end - start;
+        for (k, &i) in scratch[start..end].iter().enumerate() {
+            out[i] = match g.1 {
+                // nearest source: vertical nearest the source side
+                Side::Left => slot_offset(k, n),
+                Side::Right => -slot_offset(k, n),
+                // loops: the nearest loop is the innermost
+                Side::Loop => k as f32 * SLOT_GAP,
+            };
+        }
+        start = end;
     }
 }
 
@@ -265,6 +325,40 @@ mod tests {
         // a narrow gap clamps the vertical so the stubs stay straight
         let near = route(A, 20.0, (150.0, 0.0, 100.0, 80.0), 40.0, 30.0);
         assert!(near.pts[1].0 <= 150.0 - STUB);
+    }
+
+    #[test]
+    fn edges_into_one_card_get_their_own_verticals() {
+        let target = (400.0, 300.0, 100.0, 80.0);
+        // three sources in a column on the left, at different heights
+        let src = [(0.0, 0.0), (0.0, 120.0), (0.0, 600.0)];
+        let ya: [f32; 3] = [20.0, 140.0, 620.0];
+        let yb: f32 = 320.0;
+        let edges: Vec<(usize, Side, f32)> = src
+            .iter()
+            .zip(ya)
+            .map(|(s, y)| {
+                let a = (s.0, s.1, 100.0, 80.0);
+                (7, side(a, target), (y - yb).abs())
+            })
+            .collect();
+        let (mut scratch, mut off) = (vec![], vec![]);
+        channel_offsets(&edges, &mut scratch, &mut off);
+        let xs: Vec<f32> = (0..3)
+            .map(|i| route((0.0, src[i].1, 100.0, 80.0), ya[i], target, yb, off[i]).pts[1].0)
+            .collect();
+        // all different; the nearest source (the second) is leftmost, the farthest rightmost
+        assert!(xs[1] < xs[0] && xs[0] < xs[2], "{xs:?}");
+        // a lone edge stays centred; another target is another channel
+        let lone = [(7, Side::Left, 10.0), (8, Side::Left, 50.0)];
+        channel_offsets(&lone, &mut scratch, &mut off);
+        assert_eq!(off, [0.0, 0.0]);
+        // from the right the order is mirrored
+        let right = [(1, Side::Right, 10.0), (1, Side::Right, 90.0)];
+        channel_offsets(&right, &mut scratch, &mut off);
+        assert!(off[0] > off[1]);
+        assert_eq!(side(target, (0.0, 0.0, 100.0, 80.0)), Side::Right);
+        assert_eq!(side(target, target), Side::Loop);
     }
 
     #[test]

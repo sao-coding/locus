@@ -3,7 +3,7 @@
 //! export; footer with connection state, version, counts and a hint.
 use crate::shell::scale::*;
 use crate::shell::*;
-use er_diagram::{Density, Depth};
+use er_diagram::{Density, Depth, EdgeStyle};
 use gpui_kit::component::Disableable as _;
 
 impl Locus {
@@ -289,8 +289,31 @@ impl Locus {
             return tools;
         };
         let weak = tab.downgrade();
+        let weak_e = tab.downgrade();
         let t_mm = tab.clone();
+        let style = tab.read(cx).diagram_edge_style(cx).unwrap_or_default();
         tools
+            .child(
+                Button::new("er-edges")
+                    .ghost()
+                    .small()
+                    .label(edge_label(style))
+                    .tooltip(t!("erv3.edge_style").to_string())
+                    .dropdown_menu(move |mut menu, _, _| {
+                        for opt in [EdgeStyle::Smooth, EdgeStyle::Bezier] {
+                            let weak = weak_e.clone();
+                            menu = menu.item(
+                                PopupMenuItem::new(edge_label(opt))
+                                    .checked(style == opt)
+                                    .on_click(move |_, _, cx| {
+                                        let _ = weak
+                                            .update(cx, |t, cx| t.diagram_set_edge_style(opt, cx));
+                                    }),
+                            );
+                        }
+                        menu
+                    }),
+            )
             .child(
                 Button::new("er-density")
                     .ghost()
@@ -407,5 +430,12 @@ fn density_label(d: Density) -> String {
         Density::Full => t!("erv3.density_full").into_owned(),
         Density::Keys => t!("erv3.density_keys").into_owned(),
         Density::Header => t!("erv3.density_header").into_owned(),
+    }
+}
+
+fn edge_label(s: EdgeStyle) -> String {
+    match s {
+        EdgeStyle::Smooth => t!("erv3.edge_smooth").into_owned(),
+        EdgeStyle::Bezier => t!("erv3.edge_curved").into_owned(),
     }
 }

@@ -115,7 +115,7 @@ struct Node {
 }
 
 /// What an edge's geometry was computed from: both card boxes and row centres.
-type GeomKey = [f32; 10];
+type GeomKey = [f32; 11];
 
 struct Rel {
     from: usize,
@@ -127,7 +127,9 @@ struct Rel {
     model_ix: usize,
     /// (referencing end, referenced end).
     ends: (End, End),
-    /// Separation from parallel edges between the same two cards.
+    /// Where the cards and rows were when the channel offsets were last assigned.
+    pos: Option<[f32; 10]>,
+    /// Own vertical in the gap it shares with other lines into the same card.
     offset: f32,
     geom: Option<(GeomKey, EdgePath)>,
 }
@@ -253,6 +255,11 @@ pub struct ErDiagram {
     focus_t: Vec<bool>,
     focus_r: Vec<bool>,
     focus_active: bool,
+    /// Reused buffers of `refresh_geoms`.
+    chan: Vec<(usize, route::Side, f32)>,
+    chan_ix: Vec<usize>,
+    chan_scratch: Vec<usize>,
+    chan_off: Vec<f32>,
 }
 
 impl EventEmitter<ErDiagramEvent> for ErDiagram {}
@@ -378,6 +385,10 @@ impl ErDiagram {
             focus_t: vec![],
             focus_r: vec![],
             focus_active: false,
+            chan: vec![],
+            chan_ix: vec![],
+            chan_scratch: vec![],
+            chan_off: vec![],
         };
         s.set_model(model, layout, cx);
         s
@@ -453,24 +464,12 @@ impl ErDiagram {
                     to_cols: cols(t, &r.to_columns),
                     model_ix: mi,
                     ends: cardinality(r, &model.tables[f]),
+                    pos: None,
                     offset: 0.0,
                     geom: None,
                 })
             })
             .collect();
-        // parallel edges between the same two cards get separate verticals
-        let mut groups: HashMap<(usize, usize), Vec<usize>> = HashMap::new();
-        for (ri, r) in self.rels.iter().enumerate() {
-            groups
-                .entry((r.from.min(r.to), r.from.max(r.to)))
-                .or_default()
-                .push(ri);
-        }
-        for list in groups.values() {
-            for (s, &ri) in list.iter().enumerate() {
-                self.rels[ri].offset = route::slot_offset(s, list.len());
-            }
-        }
         self.model = model;
         self.flipped.clear();
         for i in 0..self.nodes.len() {
@@ -707,6 +706,7 @@ impl ErDiagram {
             self.edge_style = s;
             for r in &mut self.rels {
                 r.geom = None;
+                r.pos = None;
             }
             cx.notify();
             cx.emit(ErDiagramEvent::ViewOptionsChanged);
@@ -855,6 +855,10 @@ impl ErDiagram {
             .iter()
             .map(|r| self.vis[r.from] && self.vis[r.to])
             .collect();
+        // the channel groups change with what is visible
+        for r in &mut self.rels {
+            r.pos = None;
+        }
         self.centre = match &self.scope {
             Scope::Centre { table, .. } => self.index.get(table).copied(),
             _ => None,
@@ -1187,27 +1191,65 @@ impl ErDiagram {
     /// Recompute the geometry of visible edges whose cards moved or resized
     /// (cached per edge; untouched edges cost a comparison).
     fn refresh_geoms(&mut self) {
+        // 1. where each visible line's cards and rows are; did anything move?
+        let mut moved = false;
         for ri in 0..self.rels.len() {
             if !self.rel_vis[ri] {
                 continue;
             }
-            let r = &self.rels[ri];
-            let (a, b) = (self.rect(r.from), self.rect(r.to));
-            let mut ya = self.row_y(r.from, r.from_cols.first().copied());
-            let mut yb = self.row_y(r.to, r.to_cols.first().copied());
-            if r.from == r.to && (ya - yb).abs() < 12.0 {
-                // a self reference on a collapsed card: keep the loop open
-                let m = (ya + yb) / 2.0;
-                (ya, yb) = (m + 6.0, m - 6.0);
+            let pos = self.line_pos(ri);
+            let r = &mut self.rels[ri];
+            if r.pos != Some(pos) || r.geom.is_none() {
+                r.pos = Some(pos);
+                moved = true;
             }
-            let key = [a.0, a.1, a.2, a.3, ya, b.0, b.1, b.2, b.3, yb];
-            if matches!(&r.geom, Some((k, _)) if *k == key) {
+        }
+        if !moved {
+            return;
+        }
+        // 2. channel offsets: lines into the same card from the same side
+        self.chan.clear();
+        self.chan_ix.clear();
+        for (ri, r) in self.rels.iter().enumerate() {
+            if let (true, Some(p)) = (self.rel_vis[ri], r.pos) {
+                let (a, b) = ((p[0], p[1], p[2], p[3]), (p[5], p[6], p[7], p[8]));
+                self.chan
+                    .push((r.to, route::side(a, b), (p[4] - p[9]).abs()));
+                self.chan_ix.push(ri);
+            }
+        }
+        route::channel_offsets(&self.chan, &mut self.chan_scratch, &mut self.chan_off);
+        // 3. new geometry for the lines whose position or offset changed
+        for k in 0..self.chan_ix.len() {
+            let ri = self.chan_ix[k];
+            let off = self.chan_off[k];
+            let r = &mut self.rels[ri];
+            let Some(p) = r.pos else { continue };
+            r.offset = off;
+            let key = [
+                p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], off,
+            ];
+            if matches!(&r.geom, Some((g, _)) if *g == key) {
                 continue;
             }
-            let rt = route::route(a, ya, b, yb, r.offset);
-            let e = route::edge_path(&rt, self.edge_style);
-            self.rels[ri].geom = Some((key, e));
+            let (a, b) = ((p[0], p[1], p[2], p[3]), (p[5], p[6], p[7], p[8]));
+            let rt = route::route(a, p[4], b, p[9], off);
+            r.geom = Some((key, route::edge_path(&rt, self.edge_style)));
         }
+    }
+
+    /// Card boxes and row centres of line `ri`: [a.x, a.y, a.w, a.h, ya, b.x, b.y, b.w, b.h, yb].
+    fn line_pos(&self, ri: usize) -> [f32; 10] {
+        let r = &self.rels[ri];
+        let (a, b) = (self.rect(r.from), self.rect(r.to));
+        let mut ya = self.row_y(r.from, r.from_cols.first().copied());
+        let mut yb = self.row_y(r.to, r.to_cols.first().copied());
+        if r.from == r.to && (ya - yb).abs() < 12.0 {
+            // a self reference on a collapsed card: keep the loop open
+            let m = (ya + yb) / 2.0;
+            (ya, yb) = (m + 6.0, m - 6.0);
+        }
+        [a.0, a.1, a.2, a.3, ya, b.0, b.1, b.2, b.3, yb]
     }
 
     fn hit_table(&self, w: (f32, f32)) -> Option<usize> {

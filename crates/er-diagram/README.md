@@ -37,8 +37,10 @@ Ctrl+wheel = zoom at pointer. Toolbar: fit, 100 %, re-layout (texts from `Labels
 ## Lines, highlight, navigation (issue #23)
 
 - Lines: `EdgeStyle::Smooth` (default; orthogonal with 8-unit rounded corners) or `EdgeStyle::Bezier`
-  (`set_edge_style`). Routing is pure (`route`, `edge_path`, `slot_offset`, tested in `route.rs`);
-  parallel lines between the same two cards get separate verticals, self references loop on the
+  (`set_edge_style`; the app header offers both and keeps the choice per diagram). Routing is pure
+  (`route`, `edge_path`, `channel_offsets`, tested in `route.rs`);
+  lines entering the same card from the same side get their own vertical (nearest source
+  innermost, so they do not cross each other), self references loop on the
   right. Edge geometry is cached per line and recomputed only when one of its cards moves or
   resizes; each line is one path, so gpui-fast reuses its tessellation while panning.
   Smoothstep is the default: on dense schemas its verticals line up with the layer gaps, while

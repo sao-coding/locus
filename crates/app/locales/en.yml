@@ -577,6 +577,9 @@ erv3:
   density_keys: Keys only
   density_header: Headers only
   minimap: Minimap
+  edge_style: Line style
+  edge_smooth: Smooth lines
+  edge_curved: Curved lines
   zoom_out: Zoom out (Ctrl+wheel)
   zoom_in: Zoom in
   export: Export

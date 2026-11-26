@@ -10,7 +10,7 @@
 
 use crate::query::tab::{QueryTab, TabEvent, empty};
 use db_core::{DbObjectKind, ErrorKind};
-use er_diagram::{Density, Depth, ErDiagram, ErDiagramEvent, Scope};
+use er_diagram::{Density, Depth, EdgeStyle, ErDiagram, ErDiagramEvent, Scope};
 use gpui_kit::component::menu::{PopupMenu, PopupMenuItem};
 use gpui_kit::*;
 use locus_core::status::error_title;
@@ -33,10 +33,17 @@ pub struct DiagramState {
     /// Cards whose chevron flipped them (table keys).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub collapsed: Vec<String>,
+    /// Rounded orthogonal lines or curves.
+    #[serde(default, skip_serializing_if = "is_smooth")]
+    pub edge_style: EdgeStyle,
 }
 
 fn is_full(d: &Density) -> bool {
     *d == Density::Full
+}
+
+fn is_smooth(s: &EdgeStyle) -> bool {
+    *s == EdgeStyle::Smooth
 }
 
 impl DiagramState {
@@ -192,6 +199,7 @@ impl QueryTab {
                     hidden: v.hidden_tables(),
                     density: v.density(),
                     collapsed: v.collapsed_cards(),
+                    edge_style: v.edge_style(),
                 }
             }
             None => self.dgm.state.clone(),
@@ -337,6 +345,17 @@ impl QueryTab {
             return;
         };
         v.update(cx, |v, cx| v.set_density(d, cx));
+    }
+
+    pub fn diagram_edge_style(&self, cx: &App) -> Option<EdgeStyle> {
+        self.dgm.view.as_ref().map(|v| v.read(cx).edge_style())
+    }
+
+    pub fn diagram_set_edge_style(&mut self, s: EdgeStyle, cx: &mut Context<Self>) {
+        let Some(v) = self.dgm.view.clone() else {
+            return;
+        };
+        v.update(cx, |v, cx| v.set_edge_style(s, cx));
     }
 
     pub fn diagram_minimap(&self, cx: &App) -> bool {
@@ -509,6 +528,7 @@ impl QueryTab {
                             }
                             v.set_density(state.density, cx);
                             v.set_collapsed_cards(&state.collapsed, cx);
+                            v.set_edge_style(state.edge_style, cx);
                             v.set_minimap(read_prefs().minimap, cx);
                             v
                         });
@@ -752,7 +772,7 @@ impl QueryTab {
 #[cfg(test)]
 mod tests {
     use super::{DiagramState, bare};
-    use er_diagram::{Density, Depth, Scope};
+    use er_diagram::{Density, Depth, EdgeStyle, Scope};
 
     fn data(tables: Option<Vec<&str>>, state: Option<DiagramState>) -> locus_core::spaces::TabData {
         locus_core::spaces::TabData {
@@ -798,6 +818,7 @@ mod tests {
             hidden: vec!["db.y".into()],
             density: Density::Keys,
             collapsed: vec!["db.x".into()],
+            edge_style: EdgeStyle::Bezier,
         };
         let json = serde_json::to_string(&st).unwrap();
         assert_eq!(serde_json::from_str::<DiagramState>(&json).unwrap(), st);
