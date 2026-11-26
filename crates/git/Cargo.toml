@@ -1,0 +1,18 @@
+[package]
+name = "locus-git"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Runs the user's own `git` as a process (so their credentials, SSH, hooks and config apply)
+# and parses what it prints. No GPUI: `cargo test -p locus-git` runs without a window.
+
+[lib]
+name = "locus_git"
+
+[dependencies]
+regex = "=1.13.1"
+
+[lints]
+workspace = true
