@@ -27,6 +27,7 @@ pub(crate) enum Cat {
     Editor,
     Queries,
     Production,
+    Git,
     Shortcuts,
     /// Logo, name, version and licence. Manual check: Ctrl+, then click "About" in the
     /// left list (last entry); the harness cannot click, so `about_is_in_the_nav` guards it.
@@ -39,6 +40,7 @@ const CATS: &[(Cat, &str, &str)] = &[
     (Cat::Editor, "sp.cat_editor", "query"),
     (Cat::Queries, "sp.cat_queries", "table"),
     (Cat::Production, "sp.cat_production", "lock"),
+    (Cat::Git, "git.set_cat", "git-branch"),
     (Cat::Shortcuts, "sp.cat_shortcuts", "query"),
     (Cat::About, "sp.cat_about", "info"),
 ];
@@ -67,6 +69,10 @@ enum Ctl {
     UpdateCheck,
     UpdateDownload,
     UpdateBeta,
+    GitPath,
+    GitPull,
+    GitAutoFetch,
+    GitSecretScan,
 }
 
 impl Ctl {
@@ -84,6 +90,7 @@ impl Ctl {
                 | Ctl::UpdateCheck
                 | Ctl::UpdateDownload
                 | Ctl::UpdateBeta
+                | Ctl::GitSecretScan
         )
     }
 }
@@ -173,6 +180,20 @@ const DEFS: &[(Cat, &str, &str, Ctl)] = &[
         "txn.setting_idle_note",
         Ctl::TxIdle,
     ),
+    (Cat::Git, "git.set_path", "git.set_path_note", Ctl::GitPath),
+    (Cat::Git, "git.set_pull", "git.set_pull_note", Ctl::GitPull),
+    (
+        Cat::Git,
+        "git.set_fetch",
+        "git.set_fetch_note",
+        Ctl::GitAutoFetch,
+    ),
+    (
+        Cat::Git,
+        "git.set_scan",
+        "git.set_scan_note",
+        Ctl::GitSecretScan,
+    ),
 ];
 
 /// Every word of `query` appears in `hay` (case-insensitive). Empty matches all.
@@ -198,9 +219,12 @@ pub(crate) struct SettingsPage {
     search: Entity<InputState>,
     cat: Cat,
     query: String,
+    /// Settings › Git: path of the git executable.
+    git_path: Entity<InputState>,
     scroll: ScrollHandle,
     /// Page focus target: the search box is not focused when the tab opens (audit S2).
     focus: FocusHandle,
+    _git_sub: Subscription,
     _sub: Subscription,
     /// Re-renders About when the update check changes state.
     _upd: Option<Subscription>,
@@ -216,9 +240,25 @@ impl SettingsPage {
                 cx.notify();
             }
         });
+        let git_path = cx.new(|cx| {
+            let mut i =
+                InputState::new(window, cx).placeholder(t!("git.set_path_placeholder").to_string());
+            i.set_value(crate::settings::get(cx).git_path(), window, cx);
+            i
+        });
+        let git_sub = cx.subscribe(&git_path, |this: &mut Self, input, ev: &InputEvent, cx| {
+            if let InputEvent::Change = ev {
+                let v = input.read(cx).value().trim().to_string();
+                crate::settings::update(cx, |s| s.git_mut().path = (!v.is_empty()).then_some(v));
+                this.s = crate::settings::get(cx).clone();
+                cx.emit(SettingsPageEvent::Changed);
+            }
+        });
         Self {
             s: crate::settings::get(cx).clone(),
             search,
+            git_path,
+            _git_sub: git_sub,
             cat: Cat::General,
             query: String::new(),
             scroll: ScrollHandle::new(),
@@ -602,6 +642,61 @@ impl SettingsPage {
                     ),
                 ]
             }
+            Ctl::GitPath => Vec::new(),
+            Ctl::GitPull => {
+                let cur = s.git_pull();
+                [
+                    ("ff-only", "git.pull_ff"),
+                    ("rebase", "git.pull_rebase"),
+                    ("merge", "git.pull_merge"),
+                ]
+                .into_iter()
+                .map(|(v, k)| {
+                    c!(
+                        format!("gitpull-{v}"),
+                        t!(k).into_owned(),
+                        cur == v,
+                        move |s: &mut Settings| s.git_mut().pull = Some(v.into())
+                    )
+                })
+                .collect()
+            }
+            Ctl::GitAutoFetch => {
+                let cur = s.git_auto_fetch_minutes();
+                [0u64, 5, 15, 30]
+                    .into_iter()
+                    .map(|m| {
+                        let label = if m == 0 {
+                            t!("git.fetch_off").into_owned()
+                        } else {
+                            t!("settings.minutes", n = m.to_string()).into_owned()
+                        };
+                        c!(
+                            format!("gitfetch-{m}"),
+                            label,
+                            cur == m,
+                            move |s: &mut Settings| s.git_mut().auto_fetch_minutes = Some(m)
+                        )
+                    })
+                    .collect()
+            }
+            Ctl::GitSecretScan => {
+                let on = s.git_secret_scan();
+                vec![
+                    c!(
+                        "gitscan-on".into(),
+                        t!("prod.on").into_owned(),
+                        on,
+                        |s: &mut Settings| s.git_mut().secret_scan = Some(true)
+                    ),
+                    c!(
+                        "gitscan-off".into(),
+                        t!("prod.off").into_owned(),
+                        !on,
+                        |s: &mut Settings| s.git_mut().secret_scan = Some(false)
+                    ),
+                ]
+            }
             Ctl::FormatIndent => {
                 let n = s.format_options().indent;
                 vec![
@@ -662,6 +757,12 @@ impl SettingsPage {
     }
 
     fn controls(&self, ctl: Ctl, cx: &mut Context<Self>) -> AnyElement {
+        if ctl == Ctl::GitPath {
+            return div()
+                .w(px(200.))
+                .child(Input::new(&self.git_path).px(px(S5)))
+                .into_any_element();
+        }
         if ctl.is_toggle() {
             return self.switch(ctl, cx);
         }
@@ -1113,6 +1214,10 @@ mod tests {
             Ctl::ConfirmNonprod,
             Ctl::FormatCase,
             Ctl::FormatIndent,
+            Ctl::GitPath,
+            Ctl::GitPull,
+            Ctl::GitAutoFetch,
+            Ctl::GitSecretScan,
         ] {
             assert_eq!(DEFS.iter().filter(|d| d.3 == ctl).count(), 1, "{ctl:?}");
         }

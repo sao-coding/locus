@@ -86,6 +86,11 @@ const GLYPHS: &[(&str, &str)] = glyphs![
     "unlock",
     "warn",
     "x",
+    // Git panel.
+    "git-branch",
+    "git-commit",
+    "cloud-download",
+    "undo",
 ];
 
 /// The glyph of a database object kind: group folders, leaf rows and palette results.

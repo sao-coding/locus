@@ -194,6 +194,7 @@ impl Locus {
                     .child(div().flex_none().child(icon))
                     .child(div().flex_1().min_w_0().child(label)),
             )
+            .children(self.git_tab_marker(tab, cx))
             .child(close)
             .context_menu(Self::tab_menu(me, cid, pinned, can_split, grouped, spaces));
         if self.reduce_motion {

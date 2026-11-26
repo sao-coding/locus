@@ -165,6 +165,8 @@ pub struct Locus {
     pub(crate) objects: Entity<crate::connections::objects::ObjectTree>,
     pub(crate) history: Entity<crate::history::History>,
     pub(crate) saved: Entity<crate::saved::SavedLib>,
+    /// The Git panel: the Space folder's repository (`crate::git`).
+    pub(crate) git: Entity<crate::git::GitPanel>,
     /// Tabs most recently shown, newest first (palette "recent").
     pub(crate) recent: Vec<String>,
     /// Catalog cache of autocomplete, shared by all tabs.
@@ -294,6 +296,18 @@ impl Locus {
                 }
             },
         ));
+        let git = cx.new(|cx| crate::git::GitPanel::new(rt.clone(), window, cx));
+        subs.push(cx.subscribe_in(
+            &git,
+            window,
+            |this, _, ev: &crate::git::GitEvent, window, cx| this.on_git_event(ev, window, cx),
+        ));
+        // Back from the terminal or another editor: the work tree may have changed.
+        subs.push(cx.observe_window_activation(window, |this, window, cx| {
+            if window.is_window_active() {
+                this.git_file_saved(cx);
+            }
+        }));
         let mut this = Self {
             store,
             conns,
@@ -319,6 +333,7 @@ impl Locus {
             objects,
             history,
             saved,
+            git,
             recent: Vec::new(),
             completions: Default::default(),
             save_task: None,
@@ -347,6 +362,7 @@ impl Locus {
         for i in 0..this.spaces.len() {
             this.sync_space_conns(i, cx);
         }
+        this.sync_git(cx);
         this
     }
 

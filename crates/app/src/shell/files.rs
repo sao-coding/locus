@@ -163,6 +163,7 @@ impl Locus {
                         cx.notify();
                         t.id.clone()
                     });
+                    this.git_file_saved(cx);
                     this.schedule_save(cx);
                     if close {
                         this.close_tab_now(&id, window, cx);
@@ -208,6 +209,7 @@ impl Locus {
     /// Binds (or, with `None`, unbinds) the active Space's folder.
     pub(crate) fn set_folder(&mut self, folder: Option<String>, cx: &mut Context<Self>) {
         self.space_mut().folder = folder;
+        self.sync_git(cx);
         self.schedule_save(cx);
         cx.notify();
     }

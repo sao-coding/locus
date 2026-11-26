@@ -1,19 +1,4 @@
 # Changelog
-## 0.2.1 (2026-11-26)
-
-### Fixes
-
-- Result grid: cell text is vertically centred in its row, and the in-place cell editor fills exactly the cell and keeps the text where it was (no jump when editing starts).
-- The Space icon chooser has bigger icons (18 px in 36 px cells, 17 icons) with a clear selection ring and a name tooltip. The schema tree uses icons that match what each node is: server, schema, table, view, index, sequence, function, procedure, trigger, type and extension.
-
-#### Query header and table structure layout
-
-The query header keeps the connection and database readable in a narrow window: the tab title gives way first, the unsaved marker is a dot with a tooltip, and the header text is larger. The table structure tables now line up with the section tabs above them and sit in a framed box.
-
-#### PostgreSQL procedure and function source
-
-Opening the source or parameters of a PostgreSQL procedure or function whose arguments have names or modes (`IN p_id integer`) no longer fails with `syntax error at or near "IN"`.
-
 ## 0.2.0 (2026-11-25)
 
 ### Features

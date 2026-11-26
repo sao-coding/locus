@@ -332,7 +332,9 @@ pub(crate) fn tab_kind(t: &QueryTab) -> crate::shell::theme::TabKind {
             locus_core::spaces::TabPage::Redis | locus_core::spaces::TabPage::Activity => {
                 TabKind::Table
             }
-            locus_core::spaces::TabPage::Saved => TabKind::Script,
+            locus_core::spaces::TabPage::Saved | locus_core::spaces::TabPage::Diff => {
+                TabKind::Script
+            }
         }
     } else if t.diagram.is_some() {
         TabKind::Schema
