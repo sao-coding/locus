@@ -33,8 +33,8 @@ pub struct DiagramState {
     /// Cards whose chevron flipped them (table keys).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub collapsed: Vec<String>,
-    /// Rounded orthogonal lines or curves.
-    #[serde(default, skip_serializing_if = "is_smooth")]
+    /// Curves (default) or rounded orthogonal lines.
+    #[serde(default, skip_serializing_if = "is_curved")]
     pub edge_style: EdgeStyle,
 }
 
@@ -42,8 +42,8 @@ fn is_full(d: &Density) -> bool {
     *d == Density::Full
 }
 
-fn is_smooth(s: &EdgeStyle) -> bool {
-    *s == EdgeStyle::Smooth
+fn is_curved(s: &EdgeStyle) -> bool {
+    *s == EdgeStyle::Bezier
 }
 
 impl DiagramState {
@@ -818,7 +818,7 @@ mod tests {
             hidden: vec!["db.y".into()],
             density: Density::Keys,
             collapsed: vec!["db.x".into()],
-            edge_style: EdgeStyle::Bezier,
+            edge_style: EdgeStyle::Smooth,
         };
         let json = serde_json::to_string(&st).unwrap();
         assert_eq!(serde_json::from_str::<DiagramState>(&json).unwrap(), st);
@@ -830,6 +830,13 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<DiagramState>("{}").unwrap(),
             DiagramState::default()
+        );
+        // ... and so draws curves
+        assert_eq!(
+            serde_json::from_str::<DiagramState>("{}")
+                .unwrap()
+                .edge_style,
+            EdgeStyle::Bezier
         );
     }
 

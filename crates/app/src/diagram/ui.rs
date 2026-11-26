@@ -274,7 +274,7 @@ impl Locus {
         tools
     }
 
-    /// Card density (all columns / keys only / headers only) and the minimap.
+    /// The View menu (card detail, line style) and the minimap.
     fn diagram_view_buttons(
         &self,
         tools: Div,
@@ -289,38 +289,17 @@ impl Locus {
             return tools;
         };
         let weak = tab.downgrade();
-        let weak_e = tab.downgrade();
         let t_mm = tab.clone();
         let style = tab.read(cx).diagram_edge_style(cx).unwrap_or_default();
         tools
             .child(
-                Button::new("er-edges")
+                // One "View" menu: card detail, then line style.
+                Button::new("er-view")
                     .ghost()
                     .small()
-                    .label(edge_label(style))
-                    .tooltip(t!("erv3.edge_style").to_string())
+                    .label(t!("erv3.view").to_string())
                     .dropdown_menu(move |mut menu, _, _| {
-                        for opt in [EdgeStyle::Smooth, EdgeStyle::Bezier] {
-                            let weak = weak_e.clone();
-                            menu = menu.item(
-                                PopupMenuItem::new(edge_label(opt))
-                                    .checked(style == opt)
-                                    .on_click(move |_, _, cx| {
-                                        let _ = weak
-                                            .update(cx, |t, cx| t.diagram_set_edge_style(opt, cx));
-                                    }),
-                            );
-                        }
-                        menu
-                    }),
-            )
-            .child(
-                Button::new("er-density")
-                    .ghost()
-                    .small()
-                    .label(density_label(d))
-                    .tooltip(t!("erv3.density").to_string())
-                    .dropdown_menu(move |mut menu, _, _| {
+                        menu = menu.label(t!("erv3.density").to_string());
                         for opt in [Density::Full, Density::Keys, Density::Header] {
                             let weak = weak.clone();
                             menu = menu.item(
@@ -329,6 +308,18 @@ impl Locus {
                                     .on_click(move |_, _, cx| {
                                         let _ =
                                             weak.update(cx, |t, cx| t.diagram_set_density(opt, cx));
+                                    }),
+                            );
+                        }
+                        menu = menu.separator().label(t!("erv3.edge_style").to_string());
+                        for opt in [EdgeStyle::Bezier, EdgeStyle::Smooth] {
+                            let weak = weak.clone();
+                            menu = menu.item(
+                                PopupMenuItem::new(edge_label(opt))
+                                    .checked(style == opt)
+                                    .on_click(move |_, _, cx| {
+                                        let _ = weak
+                                            .update(cx, |t, cx| t.diagram_set_edge_style(opt, cx));
                                     }),
                             );
                         }

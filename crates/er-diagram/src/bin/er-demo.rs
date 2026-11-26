@@ -519,9 +519,11 @@ fn main() {
             let diagram = cx.new(|cx| ErDiagram::new(model, labels, None, cx));
             diagram.update(cx, |d, cx| {
                 d.set_row_counts(counts, cx);
-                // ER_EDGE=bezier, ER_DENSITY=keys|header, ER_MINIMAP=0
-                if std::env::var("ER_EDGE").as_deref() == Ok("bezier") {
-                    d.set_edge_style(EdgeStyle::Bezier, cx);
+                // ER_EDGE=smooth|bezier, ER_DENSITY=keys|header, ER_MINIMAP=0
+                match std::env::var("ER_EDGE").as_deref() {
+                    Ok("smooth") => d.set_edge_style(EdgeStyle::Smooth, cx),
+                    Ok("bezier") => d.set_edge_style(EdgeStyle::Bezier, cx),
+                    _ => {}
                 }
                 match std::env::var("ER_DENSITY").as_deref() {
                     Ok("keys") => d.set_density(Density::Keys, cx),

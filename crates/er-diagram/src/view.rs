@@ -376,7 +376,7 @@ impl ErDiagram {
             shared: None,
             density: Density::Full,
             flipped: BTreeSet::new(),
-            edge_style: EdgeStyle::Smooth,
+            edge_style: EdgeStyle::Bezier,
             minimap: true,
             mm: Cell::new(None),
             search: None,

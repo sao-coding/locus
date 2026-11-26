@@ -36,15 +36,15 @@ Ctrl+wheel = zoom at pointer. Toolbar: fit, 100 %, re-layout (texts from `Labels
 
 ## Lines, highlight, navigation (issue #23)
 
-- Lines: `EdgeStyle::Smooth` (default; orthogonal with 8-unit rounded corners) or `EdgeStyle::Bezier`
+- Lines: `EdgeStyle::Bezier` (default; cubic curves) or `EdgeStyle::Smooth` (orthogonal with 8-unit rounded corners)
   (`set_edge_style`; the app header offers both and keeps the choice per diagram). Routing is pure
   (`route`, `edge_path`, `channel_offsets`, tested in `route.rs`);
   lines entering the same card from the same side get their own vertical (nearest source
   innermost, so they do not cross each other), self references loop on the
   right. Edge geometry is cached per line and recomputed only when one of its cards moves or
   resizes; each line is one path, so gpui-fast reuses its tessellation while panning.
-  Smoothstep is the default: on dense schemas its verticals line up with the layer gaps, while
-  bezier bundles overlap.
+  Curves are the default (lines should not read as straight segments); smoothstep keeps its
+  verticals in the layer gaps and can read better on very dense schemas.
 - Ends (crow's foot, `cardinality`): referenced side `||` (NOT NULL key) or `|o` (nullable);
   referencing side crow's foot, or one bar when the key is the primary key or a unique index (1:1).
   Indexes come from `set_table_details(map)` (`TableDetail`: indexes, column defaults / comments).
@@ -63,5 +63,5 @@ Ctrl+wheel = zoom at pointer. Toolbar: fit, 100 %, re-layout (texts from `Labels
   the order with the fewest crossings, placement towards neighbours); unrelated tables in a grid
   below; `crossings(pos, sizes, edges)` measures a layout.
 
-Demo: `ER_EDGE=bezier`, `ER_DENSITY=keys|header`, `ER_MINIMAP=0`, `ER_SEARCH=<text>`,
+Demo: `ER_EDGE=smooth|bezier`, `ER_DENSITY=keys|header`, `ER_MINIMAP=0`, `ER_SEARCH=<text>`,
 `ER_FOCUS=<table>`; the toolbar has the same switches.

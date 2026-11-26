@@ -19,10 +19,10 @@ const SLOT_GAP: f32 = 10.0;
 /// How relation lines are drawn.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum EdgeStyle {
-    /// Orthogonal with rounded corners (default: reads best on dense schemas).
-    #[default]
+    /// Orthogonal with rounded corners.
     Smooth,
-    /// Cubic bezier.
+    /// Cubic bezier (default).
+    #[default]
     Bezier,
 }
 

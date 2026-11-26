@@ -577,6 +577,7 @@ erv3:
   density_keys: 只显示键
   density_header: 只显示表头
   minimap: 小地图
+  view: 视图
   edge_style: 连线样式
   edge_smooth: 圆角折线
   edge_curved: 曲线

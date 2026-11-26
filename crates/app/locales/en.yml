@@ -577,6 +577,7 @@ erv3:
   density_keys: Keys only
   density_header: Headers only
   minimap: Minimap
+  view: View
   edge_style: Line style
   edge_smooth: Smooth lines
   edge_curved: Curved lines
