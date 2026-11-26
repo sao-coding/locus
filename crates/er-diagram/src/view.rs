@@ -1,15 +1,20 @@
 use crate::layout::{auto_layout, level_layout};
 use crate::model::{
-    DiagramLayout, DiagramModel, HEADER_H, ROW_H, Relation, Scope, card_size, scoped_tables,
-    to_mermaid,
+    CARD_PAD_BOTTOM, Density, DiagramLayout, DiagramModel, End, HEADER_H, ROW_H, Relation, Scope,
+    TableDetail, card_size, cardinality, scoped_tables, to_mermaid,
 };
-use crate::route::{self, Rect, Route};
+use crate::route::{self, EdgePath, EdgeStyle, Rect};
 use gpui_kit::component::button::Button;
+use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::component::{ActiveTheme as _, Sizable as _, h_flex};
+use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 use std::cell::Cell;
 use std::collections::{BTreeSet, HashMap};
 use std::rc::Rc;
+use std::time::Instant;
+
+mod paint;
 
 const BASE_FONT: f32 = 12.0;
 /// Range of the user zoom (buttons, Ctrl+wheel): 40 % to 160 %.
@@ -23,6 +28,14 @@ const ZOOM_STEP: f32 = 1.1;
 const ASYNC_LAYOUT_FROM: usize = 80;
 const DRAG_THRESHOLD: f32 = 3.0;
 const DOT_GAP: f32 = 20.0;
+/// Hit area of a line: this many screen pixels beyond its stroke, at any zoom.
+const HIT_TOL: f32 = 4.0;
+/// Camera flight to a search hit, seconds.
+const FLY_S: f32 = 0.36;
+/// The border pulse on a search hit, seconds.
+const PULSE_S: f32 = 0.9;
+/// Width of the chevron area at the right of a card header (world units).
+const CHEVRON_W: f32 = 24.0;
 
 /// Texts the host supplies (the crate itself shows no hard-coded text).
 #[derive(Clone, Debug, Default)]
@@ -33,6 +46,8 @@ pub struct Labels {
     pub fit: SharedString,
     pub reset_zoom: SharedString,
     pub relayout: SharedString,
+    /// Placeholder of the Ctrl+F search field.
+    pub search: SharedString,
 }
 
 /// Current selection; relation index refers to `DiagramModel::relations`.
@@ -60,6 +75,9 @@ pub enum ErDiagramEvent {
         table: String,
         position: Point<Pixels>,
     },
+    /// Density, a card's collapse chevron, the minimap or the edge style
+    /// changed; save them (`density`, `collapsed_cards`, `minimap`, `edge_style`).
+    ViewOptionsChanged,
 }
 
 struct TextCache {
@@ -89,16 +107,73 @@ struct Node {
     placed: bool,
     /// Column takes part in a foreign key (as referencing column).
     fk: Vec<bool>,
+    /// Row of each column on the card; `None` = not shown at this density.
+    slot: Vec<Option<u16>>,
+    /// Shown columns, top to bottom.
+    shown: Vec<usize>,
     text: Option<TextCache>,
 }
+
+/// What an edge's geometry was computed from: both card boxes and row centres.
+type GeomKey = [f32; 10];
 
 struct Rel {
     from: usize,
     to: usize,
-    from_row: Option<usize>,
-    to_row: Option<usize>,
+    /// Key columns (indices) on the referencing / referenced card.
+    from_cols: Vec<usize>,
+    to_cols: Vec<usize>,
     /// Index into `DiagramModel::relations`.
     model_ix: usize,
+    /// (referencing end, referenced end).
+    ends: (End, End),
+    /// Separation from parallel edges between the same two cards.
+    offset: f32,
+    geom: Option<(GeomKey, EdgePath)>,
+}
+
+/// Screen box of the minimap and its world-to-screen mapping (local coordinates).
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct MiniMap {
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    ox: f32,
+    oy: f32,
+    wx: f32,
+    wy: f32,
+    s: f32,
+}
+
+impl MiniMap {
+    fn contains(&self, p: (f32, f32)) -> bool {
+        p.0 >= self.x && p.0 <= self.x + self.w && p.1 >= self.y && p.1 <= self.y + self.h
+    }
+    fn map_to_world(self, p: (f32, f32)) -> (f32, f32) {
+        (
+            self.wx + (p.0 - self.ox) / self.s,
+            self.wy + (p.1 - self.oy) / self.s,
+        )
+    }
+}
+
+#[derive(Clone, Copy)]
+struct Anim {
+    start: Instant,
+    from_c: (f32, f32),
+    to_c: (f32, f32),
+    from_z: f32,
+    to_z: f32,
+}
+
+struct Search {
+    input: Entity<InputState>,
+    query: String,
+    matches: Vec<usize>,
+    /// The hit Enter went to last.
+    cur: Option<usize>,
+    _sub: Subscription,
 }
 
 #[derive(Default)]
@@ -122,6 +197,8 @@ enum Drag {
         cur: (f32, f32),
         base: BTreeSet<usize>,
     },
+    /// Panning by the minimap; its mapping stays fixed while the button is down.
+    Minimap(MiniMap),
 }
 
 pub struct ErDiagram {
@@ -141,9 +218,13 @@ pub struct ErDiagram {
     layouting: bool,
     layout_gen: u64,
     bounds: Rc<Cell<Bounds<Pixels>>>,
+    focus: FocusHandle,
     sel: BTreeSet<usize>,
     sel_rel: Option<usize>,
     hover_rel: Option<usize>,
+    hover_table: Option<usize>,
+    /// Pointer position (local) while hovering, for the line tooltip.
+    hover_pos: (f32, f32),
     drag: Drag,
     // scope / visibility
     scope: Scope,
@@ -158,22 +239,23 @@ pub struct ErDiagram {
     counts: HashMap<String, u64>,
     centre_label: SharedString,
     shared: Option<SharedText>,
+    // view options
+    density: Density,
+    /// Cards whose chevron was clicked: header only (or, at `Density::Header`, all columns).
+    flipped: BTreeSet<usize>,
+    edge_style: EdgeStyle,
+    minimap: bool,
+    mm: Cell<Option<MiniMap>>,
+    search: Option<Search>,
+    anim: Option<Anim>,
+    pulse: Option<(usize, Instant)>,
+    /// Highlight of this frame: tables / relations in focus (hover, selection, search).
+    focus_t: Vec<bool>,
+    focus_r: Vec<bool>,
+    focus_active: bool,
 }
 
 impl EventEmitter<ErDiagramEvent> for ErDiagram {}
-
-struct Pal {
-    card: Hsla,
-    header: Hsla,
-    border: Hsla,
-    fg: Hsla,
-    muted: Hsla,
-    primary: Hsla,
-    key: Hsla,
-    info: Hsla,
-    line: Hsla,
-    mono: SharedString,
-}
 
 /// 950 -> "950", 12_300 -> "12.3k", 1_200_000 -> "1.2M".
 fn fmt_count(n: u64) -> String {
@@ -203,6 +285,49 @@ fn compute_layout(
     }
 }
 
+/// `orders.customer_id → customers.id`; composite keys as `t.(a, b)`.
+pub(crate) fn relation_text(r: &Relation) -> String {
+    let bare = |k: &str| k.split_once('.').map_or(k, |(_, n)| n).to_string();
+    let side = |t: &str, cols: &[String]| match cols {
+        [one] => format!("{}.{one}", bare(t)),
+        many => format!("{}.({})", bare(t), many.join(", ")),
+    };
+    format!(
+        "{} → {}",
+        side(&r.from_table, &r.from_columns),
+        side(&r.to_table, &r.to_columns)
+    )
+}
+
+/// Search hits among `names` (index, name) for `q`: names containing `q`
+/// (case-insensitive), prefix hits first, then shorter names, then by index.
+pub(crate) fn search_hits<'a>(
+    names: impl Iterator<Item = (usize, &'a str)>,
+    q: &str,
+) -> Vec<usize> {
+    let q = q.trim().to_lowercase();
+    if q.is_empty() {
+        return vec![];
+    }
+    let mut hits: Vec<(bool, usize, usize)> = names
+        .filter_map(|(i, n)| {
+            let l = n.to_lowercase();
+            l.find(&q).map(|at| (at != 0, n.len(), i))
+        })
+        .collect();
+    hits.sort_unstable();
+    hits.into_iter().map(|h| h.2).collect()
+}
+
+fn ease(t: f32) -> f32 {
+    // cubic in-out
+    if t < 0.5 {
+        4.0 * t * t * t
+    } else {
+        1.0 - (-2.0 * t + 2.0).powi(3) / 2.0
+    }
+}
+
 impl ErDiagram {
     pub fn new(
         model: DiagramModel,
@@ -225,9 +350,12 @@ impl ErDiagram {
             layouting: false,
             layout_gen: 0,
             bounds: Rc::new(Cell::new(Bounds::default())),
+            focus: cx.focus_handle(),
             sel: BTreeSet::new(),
             sel_rel: None,
             hover_rel: None,
+            hover_table: None,
+            hover_pos: (0.0, 0.0),
             drag: Drag::None,
             scope: Scope::All,
             hidden: BTreeSet::new(),
@@ -239,6 +367,17 @@ impl ErDiagram {
             counts: HashMap::new(),
             centre_label: "centre".into(),
             shared: None,
+            density: Density::Full,
+            flipped: BTreeSet::new(),
+            edge_style: EdgeStyle::Smooth,
+            minimap: true,
+            mm: Cell::new(None),
+            search: None,
+            anim: None,
+            pulse: None,
+            focus_t: vec![],
+            focus_r: vec![],
+            focus_active: false,
         };
         s.set_model(model, layout, cx);
         s
@@ -279,6 +418,8 @@ impl ErDiagram {
                     h,
                     placed: false,
                     fk,
+                    slot: vec![],
+                    shown: vec![],
                     text: None,
                 }
             })
@@ -299,26 +440,51 @@ impl ErDiagram {
                     *self.index.get(&r.from_table)?,
                     *self.index.get(&r.to_table)?,
                 );
-                let row = |ti: usize, col: Option<&String>| {
-                    col.and_then(|c| model.tables[ti].columns.iter().position(|x| &x.name == c))
+                let cols = |ti: usize, names: &[String]| -> Vec<usize> {
+                    names
+                        .iter()
+                        .filter_map(|c| model.tables[ti].columns.iter().position(|x| &x.name == c))
+                        .collect()
                 };
                 Some(Rel {
                     from: f,
                     to: t,
-                    from_row: row(f, r.from_columns.first()),
-                    to_row: row(t, r.to_columns.first()),
+                    from_cols: cols(f, &r.from_columns),
+                    to_cols: cols(t, &r.to_columns),
                     model_ix: mi,
+                    ends: cardinality(r, &model.tables[f]),
+                    offset: 0.0,
+                    geom: None,
                 })
             })
             .collect();
+        // parallel edges between the same two cards get separate verticals
+        let mut groups: HashMap<(usize, usize), Vec<usize>> = HashMap::new();
+        for (ri, r) in self.rels.iter().enumerate() {
+            groups
+                .entry((r.from.min(r.to), r.from.max(r.to)))
+                .or_default()
+                .push(ri);
+        }
+        for list in groups.values() {
+            for (s, &ri) in list.iter().enumerate() {
+                self.rels[ri].offset = route::slot_offset(s, list.len());
+            }
+        }
         self.model = model;
+        self.flipped.clear();
+        for i in 0..self.nodes.len() {
+            self.apply_rows(i);
+        }
         self.sel.clear();
         self.sel_rel = None;
         self.hover_rel = None;
+        self.hover_table = None;
         self.drag = Drag::None;
         self.hidden.clear();
         self.stash = None;
         self.pending_fit = true;
+        self.pulse = None;
         if let Some(l) = &layout {
             self.apply_saved(l);
         }
@@ -328,7 +494,65 @@ impl ErDiagram {
             self.unplace_visible();
         }
         self.run_layout(true, cx);
+        if let Some(s) = &self.search {
+            let q = s.query.clone();
+            self.set_query(q, cx);
+        }
         cx.notify();
+    }
+
+    /// Indexes, comments and defaults per table key, from the host's
+    /// structure calls. Updates the 1:1 marks and the "keys only" cards.
+    pub fn set_table_details(
+        &mut self,
+        details: HashMap<String, TableDetail>,
+        cx: &mut Context<Self>,
+    ) {
+        for (k, d) in &details {
+            if let Some(&i) = self.index.get(k) {
+                self.model.tables[i].apply_detail(d);
+                self.apply_rows(i);
+            }
+        }
+        for r in &mut self.rels {
+            r.ends = cardinality(
+                &self.model.relations[r.model_ix],
+                &self.model.tables[r.from],
+            );
+        }
+        cx.notify();
+    }
+
+    /// The model as shown (with the details the host added).
+    pub fn model(&self) -> &DiagramModel {
+        &self.model
+    }
+
+    /// Which rows card `i` shows, and its height.
+    fn apply_rows(&mut self, i: usize) {
+        let t = &self.model.tables[i];
+        let flip = self.flipped.contains(&i);
+        let d = match (self.density, flip) {
+            (d, false) => d,
+            (Density::Header, true) => Density::Full,
+            (_, true) => Density::Header,
+        };
+        let n = &mut self.nodes[i];
+        n.slot = vec![None; t.columns.len()];
+        n.shown.clear();
+        for c in 0..t.columns.len() {
+            if d.shows(t, c, n.fk[c]) {
+                n.slot[c] = Some(n.shown.len() as u16);
+                n.shown.push(c);
+            }
+        }
+        n.h = if d == Density::Full {
+            card_size(t).1
+        } else if n.shown.is_empty() {
+            HEADER_H
+        } else {
+            HEADER_H + n.shown.len() as f32 * ROW_H + CARD_PAD_BOTTOM
+        };
     }
 
     fn apply_saved(&mut self, l: &DiagramLayout) {
@@ -412,6 +636,94 @@ impl ErDiagram {
 
     pub fn zoom(&self) -> f32 {
         self.zoom
+    }
+
+    // ---- view options -------------------------------------------------------
+
+    pub fn density(&self) -> Density {
+        self.density
+    }
+
+    /// Full columns, keys only or header only, for every card (the per-card
+    /// chevrons are kept and still flip their card).
+    pub fn set_density(&mut self, d: Density, cx: &mut Context<Self>) {
+        if d == self.density {
+            return;
+        }
+        self.density = d;
+        for i in 0..self.nodes.len() {
+            self.apply_rows(i);
+        }
+        cx.notify();
+        cx.emit(ErDiagramEvent::ViewOptionsChanged);
+    }
+
+    /// Keys of the cards whose chevron was clicked.
+    pub fn collapsed_cards(&self) -> Vec<String> {
+        self.flipped
+            .iter()
+            .map(|&i| self.nodes[i].key.clone())
+            .collect()
+    }
+
+    pub fn set_collapsed_cards(&mut self, keys: &[String], cx: &mut Context<Self>) {
+        let old = std::mem::take(&mut self.flipped);
+        self.flipped = keys
+            .iter()
+            .filter_map(|k| self.index.get(k).copied())
+            .collect();
+        for i in old
+            .union(&self.flipped.clone())
+            .copied()
+            .collect::<Vec<_>>()
+        {
+            self.apply_rows(i);
+        }
+        cx.notify();
+    }
+
+    /// Flip one card between its density and header only (the chevron).
+    pub fn toggle_card(&mut self, key: &str, cx: &mut Context<Self>) {
+        if let Some(&i) = self.index.get(key) {
+            self.toggle_card_ix(i, cx);
+        }
+    }
+
+    fn toggle_card_ix(&mut self, i: usize, cx: &mut Context<Self>) {
+        if !self.flipped.remove(&i) {
+            self.flipped.insert(i);
+        }
+        self.apply_rows(i);
+        cx.notify();
+        cx.emit(ErDiagramEvent::ViewOptionsChanged);
+    }
+
+    pub fn edge_style(&self) -> EdgeStyle {
+        self.edge_style
+    }
+
+    pub fn set_edge_style(&mut self, s: EdgeStyle, cx: &mut Context<Self>) {
+        if s != self.edge_style {
+            self.edge_style = s;
+            for r in &mut self.rels {
+                r.geom = None;
+            }
+            cx.notify();
+            cx.emit(ErDiagramEvent::ViewOptionsChanged);
+        }
+    }
+
+    pub fn minimap(&self) -> bool {
+        self.minimap
+    }
+
+    /// Show or hide the minimap (bottom right; click or drag on it to pan).
+    pub fn set_minimap(&mut self, on: bool, cx: &mut Context<Self>) {
+        if on != self.minimap {
+            self.minimap = on;
+            cx.notify();
+            cx.emit(ErDiagramEvent::ViewOptionsChanged);
+        }
     }
 
     // ---- scope ------------------------------------------------------------
@@ -517,6 +829,11 @@ impl ErDiagram {
         cx.notify();
     }
 
+    /// Row count of a table, when the host supplied one.
+    pub fn row_count(&self, key: &str) -> Option<u64> {
+        self.counts.get(key).copied()
+    }
+
     /// Text of the tag in the centre table's header (default "centre").
     pub fn set_centre_label(&mut self, text: impl Into<SharedString>, cx: &mut Context<Self>) {
         self.centre_label = text.into();
@@ -553,6 +870,9 @@ impl ErDiagram {
             && !self.rel_vis[r]
         {
             self.hover_rel = None;
+        }
+        if self.hover_table.is_some_and(|t| !vis[t]) {
+            self.hover_table = None;
         }
     }
 
@@ -643,6 +963,7 @@ impl ErDiagram {
     // ---- camera -----------------------------------------------------------
 
     pub fn fit_to_view(&mut self, cx: &mut Context<Self>) {
+        self.anim = None;
         self.pending_fit = true;
         self.fit_exact = true;
         cx.notify();
@@ -680,6 +1001,7 @@ impl ErDiagram {
 
     /// Pan by a screen-space delta.
     pub fn pan_by(&mut self, dx: f32, dy: f32, cx: &mut Context<Self>) {
+        self.anim = None;
         self.pan = (self.pan.0 + dx, self.pan.1 + dy);
         self.pending_fit = false;
         cx.notify();
@@ -699,6 +1021,67 @@ impl ErDiagram {
             self.zoom_event(old, cx);
             cx.notify();
         }
+    }
+
+    /// Fly the camera to a table, select it and pulse its border once.
+    pub fn focus_table(&mut self, key: &str, cx: &mut Context<Self>) {
+        let Some(&i) = self.index.get(key) else {
+            return;
+        };
+        if !self.vis[i] {
+            return;
+        }
+        let b = self.bounds.get();
+        let (vw, vh) = (b.size.width.as_f32(), b.size.height.as_f32());
+        let n = &self.nodes[i];
+        let to_z = if self.zoom < 0.7 { 1.0 } else { self.zoom };
+        // keep a tall card's header in view
+        let cy = if n.h * to_z > vh * 0.8 {
+            n.y + vh * 0.4 / to_z
+        } else {
+            n.y + n.h / 2.0
+        };
+        self.anim = Some(Anim {
+            start: Instant::now(),
+            from_c: self.to_world((vw / 2.0, vh / 2.0)),
+            to_c: (n.x + n.w / 2.0, cy),
+            from_z: self.zoom,
+            to_z,
+        });
+        self.pending_fit = false;
+        self.pulse = Some((i, Instant::now()));
+        self.order.retain(|&x| x != i);
+        self.order.push(i);
+        self.sel = BTreeSet::from([i]);
+        self.sel_rel = None;
+        self.emit_selection(cx);
+        cx.notify();
+    }
+
+    /// Advance the camera flight; true while it runs.
+    fn step_anim(&mut self, cx: &mut Context<Self>) -> bool {
+        let Some(a) = self.anim else {
+            return false;
+        };
+        let b = self.bounds.get();
+        let (vw, vh) = (b.size.width.as_f32(), b.size.height.as_f32());
+        let t = (a.start.elapsed().as_secs_f32() / FLY_S).min(1.0);
+        let e = ease(t);
+        let old = self.zoom;
+        self.zoom = a.from_z * (a.to_z / a.from_z).powf(e);
+        let c = (
+            a.from_c.0 + (a.to_c.0 - a.from_c.0) * e,
+            a.from_c.1 + (a.to_c.1 - a.from_c.1) * e,
+        );
+        self.pan = (vw / 2.0 - c.0 * self.zoom, vh / 2.0 - c.1 * self.zoom);
+        if t >= 1.0 {
+            self.anim = None;
+            self.zoom_event(a.from_z.min(old), cx);
+            cx.emit(ErDiagramEvent::ZoomChanged(self.zoom));
+            cx.emit(ErDiagramEvent::LayoutChanged);
+            return false;
+        }
+        true
     }
 
     fn world_bbox(&self) -> Option<(f32, f32, f32, f32)> {
@@ -755,6 +1138,7 @@ impl ErDiagram {
     }
 
     fn zoom_at(&mut self, p: (f32, f32), factor: f32, cx: &mut Context<Self>) {
+        self.anim = None;
         let old = self.zoom;
         // never jump when zooming out from a "fit" below the user range
         let nz = if old < MIN_ZOOM && factor > 1.0 {
@@ -790,23 +1174,40 @@ impl ErDiagram {
         (n.x, n.y, n.w, n.h)
     }
 
-    fn row_y(&self, ti: usize, row: Option<usize>) -> f32 {
+    /// Centre of column `col`'s row on card `ti`; the header centre when the
+    /// column is not shown.
+    fn row_y(&self, ti: usize, col: Option<usize>) -> f32 {
         let n = &self.nodes[ti];
-        match row {
-            Some(r) => n.y + HEADER_H + r as f32 * ROW_H + ROW_H / 2.0,
+        match col.and_then(|c| n.slot.get(c).copied().flatten()) {
+            Some(s) => n.y + HEADER_H + s as f32 * ROW_H + ROW_H / 2.0,
             None => n.y + HEADER_H / 2.0,
         }
     }
 
-    fn route_of(&self, ri: usize) -> Route {
-        let r = &self.rels[ri];
-        route::route(
-            self.rect(r.from),
-            self.row_y(r.from, r.from_row),
-            self.rect(r.to),
-            self.row_y(r.to, r.to_row),
-            ri,
-        )
+    /// Recompute the geometry of visible edges whose cards moved or resized
+    /// (cached per edge; untouched edges cost a comparison).
+    fn refresh_geoms(&mut self) {
+        for ri in 0..self.rels.len() {
+            if !self.rel_vis[ri] {
+                continue;
+            }
+            let r = &self.rels[ri];
+            let (a, b) = (self.rect(r.from), self.rect(r.to));
+            let mut ya = self.row_y(r.from, r.from_cols.first().copied());
+            let mut yb = self.row_y(r.to, r.to_cols.first().copied());
+            if r.from == r.to && (ya - yb).abs() < 12.0 {
+                // a self reference on a collapsed card: keep the loop open
+                let m = (ya + yb) / 2.0;
+                (ya, yb) = (m + 6.0, m - 6.0);
+            }
+            let key = [a.0, a.1, a.2, a.3, ya, b.0, b.1, b.2, b.3, yb];
+            if matches!(&r.geom, Some((k, _)) if *k == key) {
+                continue;
+            }
+            let rt = route::route(a, ya, b, yb, r.offset);
+            let e = route::edge_path(&rt, self.edge_style);
+            self.rels[ri].geom = Some((key, e));
+        }
     }
 
     fn hit_table(&self, w: (f32, f32)) -> Option<usize> {
@@ -816,12 +1217,23 @@ impl ErDiagram {
         })
     }
 
-    /// Lines have an invisible hit area about 16 screen pixels wide.
+    /// Is world point `w` on the collapse chevron of card `i`?
+    fn hit_chevron(&self, i: usize, w: (f32, f32)) -> bool {
+        let n = &self.nodes[i];
+        self.zoom >= 0.5 && w.1 <= n.y + HEADER_H && w.0 >= n.x + n.w - CHEVRON_W
+    }
+
+    /// Nearest line within `HIT_TOL` screen pixels of its stroke (any zoom).
+    /// Needs fresh geometry (`refresh_geoms`).
     fn hit_rel(&self, w: (f32, f32)) -> Option<usize> {
-        let tol = 8.0 / self.zoom;
+        let lw = (1.5 * self.zoom).clamp(1.2, 2.4);
+        let tol = (HIT_TOL + lw / 2.0) / self.zoom;
         (0..self.rels.len())
             .filter(|&i| self.rel_vis[i])
-            .map(|i| (i, route::distance(&self.route_of(i), w)))
+            .filter_map(|i| {
+                let (_, e) = self.rels[i].geom.as_ref()?;
+                route::near_box(e.bbox, w, tol).then(|| (i, route::distance(e, w)))
+            })
             .filter(|(_, d)| *d <= tol)
             .min_by(|a, b| a.1.total_cmp(&b.1))
             .map(|(i, _)| i)
@@ -831,13 +1243,154 @@ impl ErDiagram {
         cx.emit(ErDiagramEvent::SelectionChanged(self.selection()));
     }
 
+    /// Esc: close the search, else clear the selection. False when there was
+    /// nothing to do (the host may use Esc for something else).
+    pub fn escape(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.search.is_some() {
+            self.close_search(window, cx);
+            return true;
+        }
+        if self.sel.is_empty() && self.sel_rel.is_none() {
+            return false;
+        }
+        self.sel.clear();
+        self.sel_rel = None;
+        self.emit_selection(cx);
+        cx.notify();
+        true
+    }
+
+    // ---- search -----------------------------------------------------------
+
+    /// Open (or focus) the search field. Typing filters the cards, Enter
+    /// flies to the next hit.
+    pub fn open_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(s) = &self.search {
+            s.input.update(cx, |i, cx| i.focus(window, cx));
+            return;
+        }
+        let ph = self.labels.search.clone();
+        let input = cx.new(|cx| InputState::new(window, cx).placeholder(ph));
+        let sub = cx.subscribe_in(
+            &input,
+            window,
+            |this: &mut Self, st, ev: &InputEvent, _, cx| match ev {
+                InputEvent::Change => {
+                    let q = st.read(cx).value().to_string();
+                    this.set_query(q, cx);
+                }
+                InputEvent::PressEnter { .. } => this.search_next(cx),
+                _ => {}
+            },
+        );
+        input.update(cx, |i, cx| i.focus(window, cx));
+        self.search = Some(Search {
+            input,
+            query: String::new(),
+            matches: vec![],
+            cur: None,
+            _sub: sub,
+        });
+        cx.notify();
+    }
+
+    /// Open the search with `q` typed in.
+    pub fn search_for(&mut self, q: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_search(window, cx);
+        if let Some(s) = &self.search {
+            let input = s.input.clone();
+            input.update(cx, |i, cx| i.set_value(q.to_string(), window, cx));
+        }
+        self.set_query(q.to_string(), cx);
+    }
+
+    pub fn close_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.search.take().is_some() {
+            window.focus(&self.focus, cx);
+            cx.notify();
+        }
+    }
+
+    pub fn search_open(&self) -> bool {
+        self.search.is_some()
+    }
+
+    fn set_query(&mut self, q: String, cx: &mut Context<Self>) {
+        let matches = search_hits(
+            self.model
+                .tables
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| self.vis[*i])
+                .map(|(i, t)| (i, t.name.as_str())),
+            &q,
+        );
+        if let Some(s) = &mut self.search {
+            s.query = q;
+            s.matches = matches;
+            s.cur = None;
+        }
+        cx.notify();
+    }
+
+    fn search_next(&mut self, cx: &mut Context<Self>) {
+        let Some(s) = &mut self.search else {
+            return;
+        };
+        if s.matches.is_empty() {
+            return;
+        }
+        let c = s.cur.map_or(0, |c| (c + 1) % s.matches.len());
+        s.cur = Some(c);
+        let key = self.nodes[s.matches[c]].key.clone();
+        self.focus_table(&key, cx);
+    }
+
     // ---- input ----------------------------------------------------------
 
-    fn on_down(&mut self, ev: &MouseDownEvent, _: &mut Window, cx: &mut Context<Self>) {
+    fn on_key(&mut self, ev: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        let k = &ev.keystroke;
+        if k.key == "escape" {
+            if self.escape(window, cx) {
+                cx.stop_propagation();
+            }
+        } else if k.key == "f" && (k.modifiers.control || k.modifiers.platform) {
+            self.open_search(window, cx);
+            cx.stop_propagation();
+        }
+    }
+
+    /// Centre the view on the world point under minimap point `p`.
+    fn pan_to_minimap(&mut self, mm: MiniMap, p: (f32, f32), cx: &mut Context<Self>) {
+        let b = self.bounds.get();
+        let w = mm.map_to_world(p);
+        self.anim = None;
+        self.pan = (
+            b.size.width.as_f32() / 2.0 - w.0 * self.zoom,
+            b.size.height.as_f32() / 2.0 - w.1 * self.zoom,
+        );
+        self.pending_fit = false;
+        cx.notify();
+    }
+
+    fn on_down(&mut self, ev: &MouseDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        window.focus(&self.focus, cx);
         let p = self.local(ev.position);
+        if self.minimap
+            && let Some(mm) = self.mm.get()
+            && mm.contains(p)
+        {
+            self.drag = Drag::Minimap(mm);
+            self.pan_to_minimap(mm, p, cx);
+            return;
+        }
         let w = self.to_world(p);
         let shift = ev.modifiers.shift;
         if let Some(t) = self.hit_table(w) {
+            if ev.click_count == 1 && !shift && self.hit_chevron(t, w) {
+                self.toggle_card_ix(t, cx);
+                return;
+            }
             self.order.retain(|&i| i != t);
             self.order.push(t);
             self.sel_rel = None;
@@ -874,7 +1427,10 @@ impl ErDiagram {
                 cur: p,
                 base: self.sel.clone(),
             };
-        } else if let Some(r) = self.hit_rel(w) {
+        } else if let Some(r) = {
+            self.refresh_geoms();
+            self.hit_rel(w)
+        } {
             self.sel.clear();
             self.sel_rel = Some(r);
             self.emit_selection(cx);
@@ -933,6 +1489,7 @@ impl ErDiagram {
                 let (dx, dy) = (p.0 - start.0, p.1 - start.1);
                 if *moved || dx.hypot(dy) > DRAG_THRESHOLD {
                     *moved = true;
+                    self.anim = None;
                     self.pan = (pan0.0 + dx, pan0.1 + dy);
                     self.pending_fit = false;
                     cx.notify();
@@ -951,21 +1508,39 @@ impl ErDiagram {
                 self.sel = sel;
                 cx.notify();
             }
+            Drag::Minimap(mm) if dragging => {
+                let mm = *mm;
+                self.pan_to_minimap(mm, p, cx);
+            }
             Drag::None => {
+                let on_mm = self.minimap && self.mm.get().is_some_and(|m| m.contains(p));
                 let w = self.to_world(p);
-                let h = if self.hit_table(w).is_some() {
+                let t = if on_mm { None } else { self.hit_table(w) };
+                let h = if on_mm || t.is_some() {
                     None
                 } else {
+                    self.refresh_geoms();
                     self.hit_rel(w)
                 };
-                if h != self.hover_rel {
+                let moved_tip = h.is_some() && p != self.hover_pos;
+                self.hover_pos = p;
+                if h != self.hover_rel || t != self.hover_table || moved_tip {
                     self.hover_rel = h;
+                    self.hover_table = t;
                     cx.notify();
                 }
             }
             _ => {}
         }
         self.drag = if dragging { d } else { Drag::None };
+    }
+
+    fn on_hover_out(&mut self, hovered: &bool, _: &mut Window, cx: &mut Context<Self>) {
+        if !*hovered && (self.hover_rel.is_some() || self.hover_table.is_some()) {
+            self.hover_rel = None;
+            self.hover_table = None;
+            cx.notify();
+        }
     }
 
     fn on_up(&mut self, _: &MouseUpEvent, _: &mut Window, cx: &mut Context<Self>) {
@@ -993,6 +1568,7 @@ impl ErDiagram {
                 }
             }
             Drag::Rubber { .. } => self.emit_selection(cx),
+            Drag::Minimap(_) => cx.emit(ErDiagramEvent::LayoutChanged),
             Drag::None => {}
         }
         cx.notify();
@@ -1015,567 +1591,156 @@ impl ErDiagram {
         }
     }
 
-    // ---- painting -------------------------------------------------------
+    // ---- overlays -------------------------------------------------------
 
-    fn ensure_text(&mut self, i: usize, fpx: f32, pal: &Pal, window: &mut Window) {
-        let key = (fpx * 2.0) as u32;
-        let sig = (pal.fg, pal.muted);
-        if let Some(t) = &self.nodes[i].text
-            && t.px == key
-            && t.sig == sig
-        {
-            return;
+    /// Tooltip of the hovered line: `orders.customer_id → customers.id` and
+    /// the constraint name.
+    fn relation_tip(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let ri = self.hover_rel?;
+        if !matches!(self.drag, Drag::None) {
+            return None;
         }
-        let font = window.text_style().font();
-        let mut bold = font.clone();
-        bold.weight = FontWeight::SEMIBOLD;
-        let mut mono = font;
-        mono.family = pal.mono.clone();
-        let ts = window.text_system().clone();
-        let shape = |s: &str, f: &Font, size: f32, color: Hsla| {
-            let run = TextRun {
-                len: s.len(),
-                font: f.clone(),
-                color,
-                background_color: None,
-                underline: None,
-                strikethrough: None,
-            };
-            ts.shape_line(SharedString::from(s.to_string()), px(size), &[run], None)
+        let r = &self.model.relations[self.rels[ri].model_ix];
+        let t = cx.theme();
+        let b = self.bounds.get();
+        let (x, y) = self.hover_pos;
+        let left = if x + 320.0 > b.size.width.as_f32() {
+            (x - 320.0).max(4.0)
+        } else {
+            x + 14.0
         };
-        let t = &self.model.tables[i];
-        let count = self
-            .counts
-            .get(&self.nodes[i].key)
-            .map(|c| shape(&fmt_count(*c), &mono, fpx * 0.88, pal.muted));
-        let cache = TextCache {
-            px: key,
-            sig,
-            header: shape(&t.name, &bold, fpx, pal.fg),
-            count,
-            names: t
-                .columns
-                .iter()
-                .map(|c| shape(&c.name, &mono, fpx * 0.96, pal.fg))
-                .collect(),
-            types: t
-                .columns
-                .iter()
-                .map(|c| {
-                    let s = if c.nullable {
-                        format!("{}?", c.type_name)
-                    } else {
-                        c.type_name.clone()
-                    };
-                    shape(&s, &mono, fpx * 0.85, pal.muted)
+        Some(
+            div()
+                .absolute()
+                .left(px(left))
+                .top(px(y + 18.0))
+                .max_w(px(320.0))
+                .px_2()
+                .py_1()
+                .rounded_md()
+                .border_1()
+                .border_color(t.border)
+                .bg(t.popover)
+                .shadow_md()
+                .text_xs()
+                .text_color(t.popover_foreground)
+                .child(
+                    div()
+                        .font_family(t.mono_font_family.clone())
+                        .child(relation_text(r)),
+                )
+                .when(!r.name.is_empty(), |d| {
+                    d.child(div().text_color(t.muted_foreground).child(r.name.clone()))
                 })
-                .collect(),
-        };
-        self.nodes[i].text = Some(cache);
+                .into_any_element(),
+        )
     }
 
-    fn ensure_shared(&mut self, fpx: f32, pal: &Pal, window: &mut Window) {
-        let key = (fpx * 2.0) as u32;
-        let sig = (pal.key, pal.info, pal.primary, self.centre_label.clone());
-        if let Some(s) = &self.shared
-            && s.px == key
-            && s.sig == sig
-        {
-            return;
-        }
-        let font = window.text_style().font();
-        let mut mono = font.clone();
-        mono.family = pal.mono.clone();
-        let mut bold = font;
-        bold.weight = FontWeight::SEMIBOLD;
-        let ts = window.text_system().clone();
-        let shape = |s: &str, f: &Font, size: f32, color: Hsla| {
-            let run = TextRun {
-                len: s.len(),
-                font: f.clone(),
-                color,
-                background_color: None,
-                underline: None,
-                strikethrough: None,
-            };
-            ts.shape_line(SharedString::from(s.to_string()), px(size), &[run], None)
+    /// The Ctrl+F field: input, hit count, close.
+    fn search_bar(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let s = self.search.as_ref()?;
+        let t = cx.theme();
+        let count = match (s.query.trim().is_empty(), s.cur) {
+            (true, _) => String::new(),
+            (false, Some(c)) if c < s.matches.len() => format!("{}/{}", c + 1, s.matches.len()),
+            (false, _) => s.matches.len().to_string(),
         };
-        self.shared = Some(SharedText {
-            px: key,
-            sig: sig.clone(),
-            pk: shape("PK", &bold, fpx * 0.72, pal.key),
-            fk: shape("FK", &bold, fpx * 0.72, pal.info),
-            centre: shape(&sig.3, &bold, fpx * 0.83, pal.primary),
-        });
-    }
-
-    fn paint_scene(&mut self, b: Bounds<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
-        if self.nodes.is_empty() || self.layouting {
-            return;
-        }
-        let (vw, vh) = (b.size.width.as_f32(), b.size.height.as_f32());
-        if self.pending_fit && vw > 1.0 {
-            let old = self.zoom;
-            self.do_fit(vw, vh);
-            self.pending_fit = false;
-            self.zoom_event(old, cx);
-        }
-        let pal = {
-            let t = cx.theme();
-            Pal {
-                card: t.popover,
-                header: t.muted,
-                border: t.border,
-                fg: t.foreground,
-                muted: t.muted_foreground,
-                primary: t.primary,
-                key: t.warning,
-                info: t.info,
-                line: t.muted_foreground,
-                mono: t.mono_font_family.clone(),
-            }
-        };
-        let z = self.zoom;
-        let (ox, oy) = (
-            b.origin.x.as_f32() + self.pan.0,
-            b.origin.y.as_f32() + self.pan.1,
-        );
-        let (bx, by) = (b.origin.x.as_f32(), b.origin.y.as_f32());
-        let f = Frame {
-            z,
-            ox,
-            oy,
-            bx,
-            by,
-            vw,
-            vh,
-        };
-        let rc =
-            |x: f32, y: f32, w: f32, h: f32| Bounds::new(point(px(x), px(y)), size(px(w), px(h)));
-        let mut neighbours: BTreeSet<usize> = BTreeSet::new();
-        for (ri, r) in self.rels.iter().enumerate() {
-            if self.rel_vis[ri] && self.rel_highlighted(ri) {
-                neighbours.insert(r.from);
-                neighbours.insert(r.to);
-            }
-        }
-        // highlighted rows: (table, row)
-        let mut rows: Vec<(usize, usize)> = vec![];
-        for ri in [self.sel_rel, self.hover_rel].into_iter().flatten() {
-            let r = &self.rels[ri];
-            if let Some(x) = r.from_row {
-                rows.push((r.from, x));
-            }
-            if let Some(x) = r.to_row {
-                rows.push((r.to, x));
-            }
-        }
-
-        let fpx = (BASE_FONT * z).round().max(5.0);
-        let lh = fpx * 1.25;
-        if z >= 0.3 {
-            self.ensure_shared(fpx, &pal, window);
-        }
-        let sc = Scene {
-            f,
-            pal: &pal,
-            fpx,
-            lh,
-            neighbours: &neighbours,
-            rows: &rows,
-        };
-
-        window.with_content_mask(Some(ContentMask { bounds: b }), |window| {
-            self.paint_dots(f, &pal, window);
-            self.paint_relations(&sc, window);
-            self.paint_cards(&sc, window, cx);
-
-            // rubber band
-            if let Drag::Rubber { start, cur, .. } = &self.drag {
-                let (x0, x1) = (start.0.min(cur.0), start.0.max(cur.0));
-                let (y0, y1) = (start.1.min(cur.1), start.1.max(cur.1));
-                window.paint_quad(quad(
-                    rc(bx + x0, by + y0, x1 - x0, y1 - y0),
-                    px(0.0),
-                    pal.primary.opacity(0.12),
-                    px(1.0),
-                    pal.primary,
-                    BorderStyle::Solid,
-                ));
-            }
-        });
-    }
-
-    /// Is relation `ri` selected, hovered or attached to a selected table?
-    fn rel_highlighted(&self, ri: usize) -> bool {
-        let r = &self.rels[ri];
-        self.sel_rel == Some(ri)
-            || self.hover_rel == Some(ri)
-            || self.sel.contains(&r.from)
-            || self.sel.contains(&r.to)
-    }
-
-    /// Dotted canvas background: a fixed 20 px grid that follows the pan.
-    fn paint_dots(&self, f: Frame, pal: &Pal, window: &mut Window) {
-        let Frame { bx, by, vw, vh, .. } = f;
-        let rc =
-            |x: f32, y: f32, w: f32, h: f32| Bounds::new(point(px(x), px(y)), size(px(w), px(h)));
-        let dot = 2.0f32;
-        let dc = pal.fg.opacity(0.22);
-        let gx = (self.pan.0).rem_euclid(DOT_GAP);
-        let gy = (self.pan.1).rem_euclid(DOT_GAP);
-        let mut y = gy;
-        while y < vh {
-            let mut x = gx;
-            while x < vw {
-                window.paint_quad(fill(
-                    rc(bx + x - dot / 2.0, by + y - dot / 2.0, dot, dot),
-                    dc,
-                ));
-                x += DOT_GAP;
-            }
-            y += DOT_GAP;
-        }
-    }
-
-    /// Relation lines (highlighted ones on top) and their end marks.
-    fn paint_relations(&self, sc: &Scene, window: &mut Window) {
-        let Frame {
-            z,
-            ox,
-            oy,
-            bx,
-            by,
-            vw,
-            vh,
-        } = sc.f;
-        let pal = sc.pal;
-        let vis = |x: f32, y: f32, w: f32, h: f32| {
-            x + w >= bx && x <= bx + vw && y + h >= by && y <= by + vh
-        };
-        let sx = |x: f32| ox + x * z;
-        let sy = |y: f32| oy + y * z;
-        let pt = |x: f32, y: f32| point(px(x), px(y));
-        let rc =
-            |x: f32, y: f32, w: f32, h: f32| Bounds::new(point(px(x), px(y)), size(px(w), px(h)));
-        let lw = (1.5 * z).clamp(1.5, 2.4);
-        let mut many_n = PathBuilder::stroke(px(lw));
-        let mut many_h = PathBuilder::stroke(px(lw * 1.5));
-        let (mut any_n, mut any_h) = (false, false);
-        for pass in [false, true] {
-            for ri in 0..self.rels.len() {
-                if !self.rel_vis[ri] {
-                    continue;
-                }
-                let hl = self.rel_highlighted(ri);
-                if hl != pass {
-                    continue;
-                }
-                let r = self.route_of(ri);
-                let bb = route::bbox(&r);
-                if !vis(sx(bb.0), sy(bb.1), bb.2 * z + 2.0, bb.3 * z + 2.0) {
-                    continue;
-                }
-                let (col, w) = if hl {
-                    (pal.primary, lw * 1.5)
-                } else {
-                    (pal.line, lw)
-                };
-                for s in r.pts.windows(2) {
-                    let (a, c) = (s[0], s[1]);
-                    let (x0, x1, y0, y1) = (a.0.min(c.0), a.0.max(c.0), a.1.min(c.1), a.1.max(c.1));
-                    window.paint_quad(fill(
-                        rc(
-                            sx(x0) - w / 2.0,
-                            sy(y0) - w / 2.0,
-                            (x1 - x0) * z + w,
-                            (y1 - y0) * z + w,
-                        ),
-                        col,
-                    ));
-                }
-                if z >= 0.35 {
-                    // many end: crow's foot at pts[0]; one end: bar at pts[3]
-                    let (xa, ya) = r.pts[0];
-                    let d = r.dir_from;
-                    let pb = if hl { &mut many_h } else { &mut many_n };
-                    for dy in [-7.0f32, 7.0] {
-                        pb.move_to(pt(sx(xa + d * 11.0), sy(ya)));
-                        pb.line_to(pt(sx(xa), sy(ya + dy)));
+        let (muted, hover) = (t.muted_foreground, t.muted);
+        Some(
+            h_flex()
+                .id("er-search")
+                .absolute()
+                .top_2()
+                .left_2()
+                .w(px(300.0))
+                .h(px(32.0))
+                .pl(px(10.0))
+                .pr(px(4.0))
+                .gap(px(6.0))
+                .items_center()
+                .rounded_md()
+                .border_1()
+                .border_color(t.border)
+                .bg(t.popover)
+                .shadow_md()
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_key_down(cx.listener(|this, ev: &KeyDownEvent, window, cx| {
+                    if ev.keystroke.key == "escape" {
+                        this.close_search(window, cx);
+                        cx.stop_propagation();
                     }
-                    if hl {
-                        any_h = true
-                    } else {
-                        any_n = true
-                    }
-                    let (xb, yb) = r.pts[3];
-                    let bx2 = xb + r.dir_to * 8.0;
-                    window.paint_quad(fill(rc(sx(bx2) - w / 2.0, sy(yb - 6.0), w, 12.0 * z), col));
-                }
-            }
-            let (pb, any, col) = if pass {
-                (
-                    std::mem::replace(&mut many_h, PathBuilder::stroke(px(1.0))),
-                    any_h,
-                    pal.primary,
+                }))
+                .child(glyph(Glyph::Search, muted, 14.0))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .child(Input::new(&s.input).small().appearance(false)),
                 )
-            } else {
-                (
-                    std::mem::replace(&mut many_n, PathBuilder::stroke(px(1.0))),
-                    any_n,
-                    pal.line,
+                .child(div().flex_none().text_xs().text_color(muted).child(count))
+                .child(
+                    div()
+                        .id("er-search-close")
+                        .flex_none()
+                        .size(px(24.0))
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .rounded_sm()
+                        .cursor_pointer()
+                        .hover(move |s| s.bg(hover))
+                        .child(glyph(Glyph::Close, muted, 12.0))
+                        .on_click(cx.listener(|this, _, window, cx| this.close_search(window, cx))),
                 )
-            };
-            if any && let Ok(p) = pb.build() {
-                window.paint_path(p, col);
-            }
-        }
+                .into_any_element(),
+        )
     }
+}
 
-    /// Cards: frame, header and, when zoomed in enough, the column rows.
-    fn paint_cards(&mut self, sc: &Scene, window: &mut Window, cx: &mut Context<Self>) {
-        let Frame {
-            z,
-            ox,
-            oy,
-            bx,
-            by,
-            vw,
-            vh,
-        } = sc.f;
-        let (pal, fpx, neighbours) = (sc.pal, sc.fpx, sc.neighbours);
-        let vis = |x: f32, y: f32, w: f32, h: f32| {
-            x + w >= bx && x <= bx + vw && y + h >= by && y <= by + vh
-        };
-        let sx = |x: f32| ox + x * z;
-        let sy = |y: f32| oy + y * z;
-        let rc =
-            |x: f32, y: f32, w: f32, h: f32| Bounds::new(point(px(x), px(y)), size(px(w), px(h)));
-        let order = self.order.clone();
-        for i in order {
-            if !self.vis[i] {
-                continue;
-            }
-            let (nx, ny, nw, nh) = {
-                let n = &self.nodes[i];
-                (sx(n.x), sy(n.y), n.w * z, n.h * z)
-            };
-            if !vis(nx, ny, nw, nh) {
-                continue;
-            }
-            let selected = self.sel.contains(&i);
-            let is_centre = self.centre == Some(i);
-            let (bc, bw) = if selected || is_centre {
-                (pal.primary, 2.0)
-            } else if neighbours.contains(&i) && !self.sel.is_empty() {
-                (pal.primary.opacity(0.6), 1.5)
-            } else {
-                (pal.border, 1.0)
-            };
-            let rad = 8.0 * z;
-            window.paint_quad(quad(
-                rc(nx, ny, nw, nh),
-                px(rad),
-                pal.card,
-                px(bw),
-                bc,
-                BorderStyle::Solid,
-            ));
-            let hh = HEADER_H * z;
-            let cb = CardBox { nx, ny, nw, nh, hh };
-            window.paint_quad(quad(
-                rc(nx + 1.0, ny + 1.0, nw - 2.0, hh - 1.0),
-                Corners {
-                    top_left: px(rad),
-                    top_right: px(rad),
-                    bottom_right: px(0.0),
-                    bottom_left: px(0.0),
-                },
-                pal.header,
-                px(0.0),
-                transparent_black(),
-                BorderStyle::Solid,
-            ));
-            window.paint_quad(fill(rc(nx + 1.0, ny + hh, nw - 2.0, 1.0), pal.border));
-            if z < 0.3 {
-                continue;
-            }
-            self.ensure_text(i, fpx, pal, window);
-            self.paint_card_header(i, cb, is_centre, sc, window, cx);
-            if z < 0.4 {
-                continue;
-            }
-            self.paint_card_rows(i, cb, sc, window, cx);
-        }
-    }
+/// Small icons the view paints itself, so it needs no icon assets from the host.
+#[derive(Clone, Copy)]
+enum Glyph {
+    Search,
+    Close,
+}
 
-    /// Table icon, name, centre tag and row count of one card.
-    fn paint_card_header(
-        &self,
-        i: usize,
-        cb: CardBox,
-        is_centre: bool,
-        sc: &Scene,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let CardBox { nx, ny, nw, nh, hh } = cb;
-        let (z, pal, lh) = (sc.f.z, sc.pal, sc.lh);
-        let pt = |x: f32, y: f32| point(px(x), px(y));
-        let rc =
-            |x: f32, y: f32, w: f32, h: f32| Bounds::new(point(px(x), px(y)), size(px(w), px(h)));
-        let t = self.nodes[i].text.as_ref().unwrap();
-        let sh = self.shared.as_ref().unwrap();
-        window.with_content_mask(
-            Some(ContentMask {
-                bounds: rc(nx, ny, nw, nh),
-            }),
-            |window| {
-                // table icon: a small grid
-                let (ix, iw, ih) = (nx + 10.0 * z, 13.0 * z, 11.0 * z);
-                let iy = ny + (hh - ih) / 2.0;
-                window.paint_quad(quad(
-                    rc(ix, iy, iw, ih),
-                    px(2.0 * z),
-                    transparent_black(),
-                    px(1.2),
-                    pal.muted,
-                    BorderStyle::Solid,
-                ));
-                window.paint_quad(fill(rc(ix, iy + ih / 3.0, iw, 1.0), pal.muted));
-                window.paint_quad(fill(
-                    rc(ix + iw / 2.0, iy + ih / 3.0, 1.0, ih * 2.0 / 3.0),
-                    pal.muted,
-                ));
-                let _ = t.header.paint(
-                    pt(nx + 30.0 * z, ny + (hh - lh) / 2.0),
-                    px(lh),
-                    TextAlign::Left,
-                    None,
-                    window,
-                    cx,
-                );
-                // right side: centre tag, then the row count
-                let mut right = nx + nw - 10.0 * z;
-                if is_centre {
-                    let (tw, th) = (sh.centre.width.as_f32() + 10.0 * z, 16.0 * z);
-                    let tx = right - tw;
-                    window.paint_quad(quad(
-                        rc(tx, ny + (hh - th) / 2.0, tw, th),
-                        px(3.0 * z),
-                        pal.primary.opacity(0.15),
-                        px(0.0),
-                        transparent_black(),
-                        BorderStyle::Solid,
-                    ));
-                    let _ = sh.centre.paint(
-                        pt(tx + 5.0 * z, ny + (hh - lh) / 2.0),
-                        px(lh),
-                        TextAlign::Left,
-                        None,
-                        window,
-                        cx,
-                    );
-                    right = tx - 8.0 * z;
+/// A `size`-pixel square with the glyph stroked in `color`.
+fn glyph(kind: Glyph, color: Hsla, size: f32) -> impl IntoElement {
+    canvas(
+        |_, _, _| {},
+        move |b, _, window, _| {
+            let (x, y) = (b.origin.x.as_f32(), b.origin.y.as_f32());
+            let s = size;
+            let p = |u: f32, v: f32| point(px(x + u * s), px(y + v * s));
+            let mut pb = PathBuilder::stroke(px((s / 9.0).clamp(1.2, 1.8)));
+            match kind {
+                Glyph::Search => {
+                    // circle (polygon) and handle
+                    let (cx_, cy_, r) = (0.42, 0.42, 0.3);
+                    let pts: Vec<Point<Pixels>> = (0..=24)
+                        .map(|k| {
+                            let a = k as f32 / 24.0 * std::f32::consts::TAU;
+                            p(cx_ + r * a.cos(), cy_ + r * a.sin())
+                        })
+                        .collect();
+                    pb.add_polygon(&pts, true);
+                    pb.move_to(p(0.64, 0.64));
+                    pb.line_to(p(0.92, 0.92));
                 }
-                if let Some(c) = &t.count {
-                    let _ = c.paint(
-                        pt(right - c.width.as_f32(), ny + (hh - lh) / 2.0),
-                        px(lh),
-                        TextAlign::Left,
-                        None,
-                        window,
-                        cx,
-                    );
+                Glyph::Close => {
+                    pb.move_to(p(0.15, 0.15));
+                    pb.line_to(p(0.85, 0.85));
+                    pb.move_to(p(0.85, 0.15));
+                    pb.line_to(p(0.15, 0.85));
                 }
-            },
-        );
-    }
-
-    /// Column rows of one card (tag, name and type), only those in view.
-    fn paint_card_rows(
-        &self,
-        i: usize,
-        cb: CardBox,
-        sc: &Scene,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let CardBox { nx, ny, nw, hh, .. } = cb;
-        let (z, pal, lh, rows) = (sc.f.z, sc.pal, sc.lh, sc.rows);
-        let (by, vh) = (sc.f.by, sc.f.vh);
-        let pt = |x: f32, y: f32| point(px(x), px(y));
-        let ncols = self.model.tables[i].columns.len();
-        let rc =
-            |x: f32, y: f32, w: f32, h: f32| Bounds::new(point(px(x), px(y)), size(px(w), px(h)));
-        for r in 0..ncols {
-            let ry = ny + hh + r as f32 * ROW_H * z;
-            let rh = ROW_H * z;
-            if ry + rh < by || ry > by + vh {
-                continue;
             }
-            if rows.contains(&(i, r)) {
-                window.paint_quad(fill(
-                    rc(nx + 2.0, ry, nw - 4.0, rh),
-                    pal.primary.opacity(0.22),
-                ));
+            if let Ok(path) = pb.build() {
+                window.paint_path(path, color);
             }
-            let col = &self.model.tables[i].columns[r];
-            let tag = if col.primary_key {
-                Some((pal.key, &self.shared.as_ref().unwrap().pk))
-            } else if self.nodes[i].fk[r] {
-                Some((pal.info, &self.shared.as_ref().unwrap().fk))
-            } else {
-                None
-            };
-            let t = self.nodes[i].text.as_ref().unwrap();
-            window.with_content_mask(
-                Some(ContentMask {
-                    bounds: rc(nx, ry, nw, rh),
-                }),
-                |window| {
-                    let ty = ry + (rh - lh) / 2.0;
-                    if let Some((c, line)) = tag {
-                        let (tw, th) = (20.0 * z, 14.0 * z);
-                        let (tx, tyy) = (nx + 10.0 * z, ry + (rh - th) / 2.0);
-                        window.paint_quad(quad(
-                            rc(tx, tyy, tw, th),
-                            px(3.0 * z),
-                            c.opacity(0.15),
-                            px(0.0),
-                            transparent_black(),
-                            BorderStyle::Solid,
-                        ));
-                        let _ = line.paint(
-                            pt(tx + (tw - line.width.as_f32()) / 2.0, ty),
-                            px(lh),
-                            TextAlign::Left,
-                            None,
-                            window,
-                            cx,
-                        );
-                    }
-                    let _ = t.names[r].paint(
-                        pt(nx + 37.0 * z, ty),
-                        px(lh),
-                        TextAlign::Left,
-                        None,
-                        window,
-                        cx,
-                    );
-                    let tw = t.types[r].width.as_f32();
-                    let _ = t.types[r].paint(
-                        pt(nx + nw - 10.0 * z - tw, ty),
-                        px(lh),
-                        TextAlign::Left,
-                        None,
-                        window,
-                        cx,
-                    );
-                },
-            );
-        }
-    }
+        },
+    )
+    .flex_none()
+    .size(px(size))
 }
 
 impl Render for ErDiagram {
@@ -1590,11 +1755,14 @@ impl Render for ErDiagram {
             .size_full()
             .overflow_hidden()
             .bg(bg)
+            .track_focus(&self.focus)
+            .on_key_down(cx.listener(Self::on_key))
             .on_mouse_down(MouseButton::Left, cx.listener(Self::on_down))
             .on_mouse_down(MouseButton::Right, cx.listener(Self::on_right_down))
             .on_mouse_move(cx.listener(Self::on_move))
             .on_mouse_up(MouseButton::Left, cx.listener(Self::on_up))
             .on_mouse_up_out(MouseButton::Left, cx.listener(Self::on_up))
+            .on_hover(cx.listener(Self::on_hover_out))
             .on_scroll(cx.listener(Self::on_scroll))
             .child(
                 canvas(
@@ -1645,13 +1813,15 @@ impl Render for ErDiagram {
                     ),
             );
         }
-        root
+        root.children(self.relation_tip(cx))
+            .children(self.search_bar(cx))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::fmt_count;
+    use super::{fmt_count, relation_text, search_hits};
+    use crate::Relation;
 
     #[test]
     fn counts_are_compact() {
@@ -1662,6 +1832,34 @@ mod tests {
         assert_eq!(fmt_count(123_400), "123k");
         assert_eq!(fmt_count(1_260_000), "1.3M");
         assert_eq!(fmt_count(4_000_000_000), "4B");
+    }
+
+    #[test]
+    fn tooltip_text_lists_composite_keys() {
+        let r = |fc: &[&str], tc: &[&str]| Relation {
+            name: "fk".into(),
+            from_table: "s.orders".into(),
+            from_columns: fc.iter().map(|s| s.to_string()).collect(),
+            to_table: "s.customers".into(),
+            to_columns: tc.iter().map(|s| s.to_string()).collect(),
+        };
+        assert_eq!(
+            relation_text(&r(&["customer_id"], &["id"])),
+            "orders.customer_id → customers.id"
+        );
+        assert_eq!(
+            relation_text(&r(&["cid", "tenant"], &["id", "tenant"])),
+            "orders.(cid, tenant) → customers.(id, tenant)"
+        );
+    }
+
+    #[test]
+    fn search_ranks_prefix_hits_first() {
+        let names = ["order_items", "orders", "customers", "pre_orders", "x"];
+        let hits = search_hits(names.iter().copied().enumerate(), "ORDER");
+        assert_eq!(hits, [1, 0, 3]);
+        assert!(search_hits(names.iter().copied().enumerate(), "  ").is_empty());
+        assert!(search_hits(names.iter().copied().enumerate(), "zzz").is_empty());
     }
 }
 
@@ -1677,14 +1875,27 @@ struct Frame {
     vh: f32,
 }
 
+struct Pal {
+    bg: Hsla,
+    card: Hsla,
+    header: Hsla,
+    border: Hsla,
+    fg: Hsla,
+    muted: Hsla,
+    primary: Hsla,
+    key: Hsla,
+    info: Hsla,
+    line: Hsla,
+    mono: SharedString,
+}
+
 /// Everything the paint helpers share for one frame.
 struct Scene<'a> {
     f: Frame,
     pal: &'a Pal,
     fpx: f32,
     lh: f32,
-    neighbours: &'a BTreeSet<usize>,
-    /// Highlighted rows: (table, row).
+    /// Highlighted rows: (table, column).
     rows: &'a [(usize, usize)],
 }
 

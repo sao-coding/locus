@@ -3,7 +3,7 @@
 //! export; footer with connection state, version, counts and a hint.
 use crate::shell::scale::*;
 use crate::shell::*;
-use er_diagram::Depth;
+use er_diagram::{Density, Depth};
 use gpui_kit::component::Disableable as _;
 
 impl Locus {
@@ -97,6 +97,7 @@ impl Locus {
         tools = self.diagram_scope_buttons(tools, tab, cx);
         tools = tools.child(sep());
         tools = self.diagram_zoom_buttons(tools, tab, cx);
+        tools = self.diagram_view_buttons(tools, tab, cx);
         // Export: Mermaid, DDL where the driver can. (No PNG / SVG: the diagram
         // is painted by GPUI directly and the crate cannot render it to a file.)
         let weak = tab.downgrade();
@@ -273,6 +274,57 @@ impl Locus {
         tools
     }
 
+    /// Card density (all columns / keys only / headers only) and the minimap.
+    fn diagram_view_buttons(
+        &self,
+        tools: Div,
+        tab: &Entity<QueryTab>,
+        cx: &mut Context<Self>,
+    ) -> Div {
+        let (density, minimap) = {
+            let tr = tab.read(cx);
+            (tr.diagram_density(cx), tr.diagram_minimap(cx))
+        };
+        let Some(d) = density else {
+            return tools;
+        };
+        let weak = tab.downgrade();
+        let t_mm = tab.clone();
+        tools
+            .child(
+                Button::new("er-density")
+                    .ghost()
+                    .small()
+                    .label(density_label(d))
+                    .tooltip(t!("erv3.density").to_string())
+                    .dropdown_menu(move |mut menu, _, _| {
+                        for opt in [Density::Full, Density::Keys, Density::Header] {
+                            let weak = weak.clone();
+                            menu = menu.item(
+                                PopupMenuItem::new(density_label(opt))
+                                    .checked(d == opt)
+                                    .on_click(move |_, _, cx| {
+                                        let _ =
+                                            weak.update(cx, |t, cx| t.diagram_set_density(opt, cx));
+                                    }),
+                            );
+                        }
+                        menu
+                    }),
+            )
+            .child(
+                ib(
+                    "er-minimap",
+                    crate::shell::icons::icon("map"),
+                    26.,
+                    minimap,
+                    cx,
+                )
+                .tooltip(tip(t!("erv3.minimap").into_owned()))
+                .on_click(move |_, _, cx| t_mm.update(cx, |t, cx| t.diagram_toggle_minimap(cx))),
+            )
+    }
+
     /// Status bar of a diagram tab: state, version | tables and keys, hint | Space.
     pub(crate) fn render_diagram_footer(&self, cx: &mut Context<Self>) -> AnyElement {
         let t = crate::shell::theme::tokens(cx);
@@ -347,5 +399,13 @@ fn depth_label(d: Depth) -> String {
         Depth::Hops(1) => t!("erv3.depth_1").into_owned(),
         Depth::Hops(n) => t!("erv3.depth_n", n = n.to_string()).into_owned(),
         Depth::All => t!("erv3.depth_all").into_owned(),
+    }
+}
+
+fn density_label(d: Density) -> String {
+    match d {
+        Density::Full => t!("erv3.density_full").into_owned(),
+        Density::Keys => t!("erv3.density_keys").into_owned(),
+        Density::Header => t!("erv3.density_header").into_owned(),
     }
 }

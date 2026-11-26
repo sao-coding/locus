@@ -43,10 +43,15 @@ The file has the same shape as Zed's keymap:
 | `CellEdit` | a grid cell being edited |
 | `Palette` | the command palette (a dialog: shell commands do not run there) |
 
-Esc runs `locus::Escape`, which goes in this order: close a rename, stop a
+Esc runs `locus::Escape`, which goes in this order: close a rename, in a
+relationship diagram close its table search or else clear its selection, stop a
 running query, close the find bar, cancel a cell edit, let the editor have it
 (completion popup), leave a maximised pane; otherwise the focused element gets
 the key.
+
+In a relationship diagram, Ctrl+F (`locus::Find`) opens the table search:
+typing filters the cards, Enter flies to the next hit, selects it and pulses
+its border once; Esc closes the search.
 
 ## Actions
 

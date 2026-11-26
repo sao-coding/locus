@@ -1,6 +1,6 @@
 //! Deterministic generated schema for the demo, benches and tests.
 
-use crate::{Column, DiagramModel, Relation, TableNode};
+use crate::{Column, DiagramModel, Index, Relation, TableNode};
 
 const BASES: &[&str] = &[
     "customers",
@@ -97,6 +97,7 @@ pub fn generate(n: usize) -> DiagramModel {
             type_name: "bigint unsigned".into(),
             nullable: false,
             primary_key: true,
+            ..Default::default()
         }];
         let extra = 2 + (rng.next() % 6) as usize;
         let mut used = std::collections::BTreeSet::new();
@@ -110,6 +111,7 @@ pub fn generate(n: usize) -> DiagramModel {
                 type_name: ty.into(),
                 nullable,
                 primary_key: false,
+                ..Default::default()
             });
         }
         // foreign keys to earlier tables, biased towards low indices (hubs)
@@ -137,6 +139,7 @@ pub fn generate(n: usize) -> DiagramModel {
                     type_name: "bigint unsigned".into(),
                     nullable: rng.next().is_multiple_of(3),
                     primary_key: false,
+                    ..Default::default()
                 });
                 relations.push(Relation {
                     name: format!("fk_{}_{}", names[i], col),
@@ -147,10 +150,53 @@ pub fn generate(n: usize) -> DiagramModel {
                 });
             }
         }
+        // Extras that do not draw from the generator (so the schema of the
+        // benches stays the same): self references, 1:1 extension tables and
+        // indexes on some foreign-key columns.
+        let base = BASES[i % BASES.len()];
+        if i < BASES.len() && matches!(base, "employees" | "categories" | "comments") {
+            cols.push(Column {
+                name: "parent_id".into(),
+                type_name: "bigint unsigned".into(),
+                nullable: true,
+                ..Default::default()
+            });
+            relations.push(Relation {
+                name: format!("fk_{}_parent", names[i]),
+                from_table: format!("demo.{}", names[i]),
+                from_columns: vec!["parent_id".into()],
+                to_table: format!("demo.{}", names[i]),
+                to_columns: vec!["id".into()],
+            });
+        }
+        let mut indexes = vec![Index {
+            name: "PRIMARY".into(),
+            columns: vec!["id".into()],
+            unique: true,
+            primary: true,
+        }];
+        let fk_cols: Vec<String> = relations
+            .iter()
+            .filter(|r| r.from_table == format!("demo.{}", names[i]))
+            .map(|r| r.from_columns[0].clone())
+            .collect();
+        for (k, c) in fk_cols.iter().enumerate() {
+            let one_to_one = k == 0 && names[i].ends_with("_ext");
+            if one_to_one || (i + k) % 3 != 0 {
+                indexes.push(Index {
+                    name: format!("ix_{}_{c}", names[i]),
+                    columns: vec![c.clone()],
+                    unique: one_to_one,
+                    primary: false,
+                });
+            }
+        }
         tables.push(TableNode {
             schema: "demo".into(),
             name: names[i].clone(),
             columns: cols,
+            indexes,
+            ..Default::default()
         });
     }
     DiagramModel { tables, relations }

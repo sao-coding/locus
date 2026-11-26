@@ -10,7 +10,7 @@
 
 use crate::query::tab::{QueryTab, TabEvent, empty};
 use db_core::{DbObjectKind, ErrorKind};
-use er_diagram::{Depth, ErDiagram, ErDiagramEvent, Scope};
+use er_diagram::{Density, Depth, ErDiagram, ErDiagramEvent, Scope};
 use gpui_kit::component::menu::{PopupMenu, PopupMenuItem};
 use gpui_kit::*;
 use locus_core::status::error_title;
@@ -27,6 +27,16 @@ pub struct DiagramState {
     /// Table keys removed from the canvas.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hidden: Vec<String>,
+    /// Full columns, keys only or headers only.
+    #[serde(default, skip_serializing_if = "is_full")]
+    pub density: Density,
+    /// Cards whose chevron flipped them (table keys).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub collapsed: Vec<String>,
+}
+
+fn is_full(d: &Density) -> bool {
+    *d == Density::Full
 }
 
 impl DiagramState {
@@ -51,7 +61,7 @@ impl DiagramState {
         };
         Self {
             scope,
-            hidden: Vec::new(),
+            ..Default::default()
         }
     }
 }
@@ -86,12 +96,75 @@ fn read_layout(p: Option<std::path::PathBuf>) -> Option<er_diagram::DiagramLayou
         .and_then(|b| serde_json::from_slice(&b).ok())
 }
 
+/// Diagram options shared by every diagram tab (`diagrams\view.json`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct DiagramPrefs {
+    #[serde(default = "yes")]
+    pub minimap: bool,
+}
+
+fn yes() -> bool {
+    true
+}
+
+impl Default for DiagramPrefs {
+    fn default() -> Self {
+        Self { minimap: true }
+    }
+}
+
+fn prefs_path() -> Option<std::path::PathBuf> {
+    locus_core::settings::app_dir().map(|d| d.join("diagrams").join("view.json"))
+}
+
+pub fn read_prefs() -> DiagramPrefs {
+    prefs_path()
+        .and_then(|p| std::fs::read(p).ok())
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .unwrap_or_default()
+}
+
+fn write_prefs(p: &DiagramPrefs) {
+    if let (Some(path), Ok(b)) = (prefs_path(), serde_json::to_vec_pretty(p)) {
+        if let Some(dir) = path.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        if let Err(e) = locus_core::settings::write_atomic(&path, &b) {
+            log::warn!("diagram options could not be saved: {e}");
+        }
+    }
+}
+
+/// `TableStructure` (driver) -> `TableDetail` (diagram): indexes, column
+/// defaults and comments.
+pub fn table_detail(st: &db_core::structure::TableStructure) -> er_diagram::TableDetail {
+    er_diagram::TableDetail {
+        indexes: st
+            .indexes
+            .iter()
+            .map(|i| er_diagram::Index {
+                name: i.name.clone(),
+                columns: i.columns.clone(),
+                unique: i.unique,
+                primary: i.primary,
+            })
+            .collect(),
+        comment: None,
+        columns: st
+            .columns
+            .iter()
+            .map(|c| (c.name.clone(), c.default.clone(), c.comment.clone()))
+            .collect(),
+    }
+}
+
 pub fn diagram_labels() -> er_diagram::Labels {
     er_diagram::Labels {
         empty: t!("diagram.empty").to_string().into(),
         fit: t!("diagram.fit").to_string().into(),
         reset_zoom: t!("diagram.reset_zoom").to_string().into(),
         relayout: t!("diagram.relayout").to_string().into(),
+        search: t!("erv3.search").to_string().into(),
     }
 }
 
@@ -117,6 +190,8 @@ impl QueryTab {
                 DiagramState {
                     scope: v.scope().clone(),
                     hidden: v.hidden_tables(),
+                    density: v.density(),
+                    collapsed: v.collapsed_cards(),
                 }
             }
             None => self.dgm.state.clone(),
@@ -251,6 +326,46 @@ impl QueryTab {
             return;
         };
         v.update(cx, |v, cx| v.auto_arrange(cx));
+    }
+
+    pub fn diagram_density(&self, cx: &App) -> Option<Density> {
+        self.dgm.view.as_ref().map(|v| v.read(cx).density())
+    }
+
+    pub fn diagram_set_density(&mut self, d: Density, cx: &mut Context<Self>) {
+        let Some(v) = self.dgm.view.clone() else {
+            return;
+        };
+        v.update(cx, |v, cx| v.set_density(d, cx));
+    }
+
+    pub fn diagram_minimap(&self, cx: &App) -> bool {
+        self.dgm.view.as_ref().is_some_and(|v| v.read(cx).minimap())
+    }
+
+    pub fn diagram_toggle_minimap(&mut self, cx: &mut Context<Self>) {
+        let Some(v) = self.dgm.view.clone() else {
+            return;
+        };
+        v.update(cx, |v, cx| {
+            let on = !v.minimap();
+            v.set_minimap(on, cx)
+        });
+    }
+
+    /// Ctrl+F on a diagram tab: the table search.
+    pub fn diagram_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(v) = self.dgm.view.clone() {
+            v.update(cx, |v, cx| v.open_search(window, cx));
+        }
+    }
+
+    /// Esc on a diagram tab: close the search, else clear the selection.
+    pub fn diagram_escape(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        match self.dgm.view.clone() {
+            Some(v) => v.update(cx, |v, cx| v.escape(window, cx)),
+            None => false,
+        }
     }
 
     pub fn diagram_hide(&mut self, key: &str, cx: &mut Context<Self>) {
@@ -392,8 +507,12 @@ impl QueryTab {
                             for h in &state.hidden {
                                 v.hide_table(h, cx);
                             }
+                            v.set_density(state.density, cx);
+                            v.set_collapsed_cards(&state.collapsed, cx);
+                            v.set_minimap(read_prefs().minimap, cx);
                             v
                         });
+                        t.load_diagram_details(view.clone(), cx);
                         t.dgm.sub = Some(cx.subscribe(
                             &view,
                             move |t: &mut QueryTab, view, ev: &ErDiagramEvent, cx| {
@@ -408,6 +527,46 @@ impl QueryTab {
             });
         });
         self.dgm.task = Some(task);
+    }
+
+    /// Indexes, defaults and comments of every table (one structure call
+    /// each, in the background, a batch at a time): 1:1 marks, "keys only"
+    /// cards. Tables whose structure fails just keep their plain columns.
+    fn load_diagram_details(&mut self, view: Entity<ErDiagram>, cx: &mut Context<Self>) {
+        use db_core::Driver as _;
+        let (Some(driver), Some((_, schema))) = (self.dgm.driver.clone(), self.diagram.clone())
+        else {
+            return;
+        };
+        if driver.catalog().is_none() {
+            return;
+        }
+        let keys: Vec<String> = view
+            .read(cx)
+            .model()
+            .tables
+            .iter()
+            .map(|t| t.key())
+            .collect();
+        let view = view.downgrade();
+        self.dgm.details = Some(cx.spawn(async move |_, cx| {
+            for chunk in keys.chunks(16) {
+                let mut out = std::collections::HashMap::new();
+                if let Some(cat) = driver.catalog() {
+                    for k in chunk {
+                        if let Ok(st) = cat.structure(&schema, bare(k), 500).await {
+                            out.insert(k.clone(), table_detail(&st));
+                        }
+                    }
+                }
+                if view
+                    .update(cx, |v, cx| v.set_table_details(out, cx))
+                    .is_err()
+                {
+                    return;
+                }
+            }
+        }));
     }
 
     fn on_diagram_event(
@@ -436,6 +595,13 @@ impl QueryTab {
                 cx.notify();
             }
             ErDiagramEvent::ZoomChanged(_) => cx.emit(TabEvent::DiagramChanged),
+            ErDiagramEvent::ViewOptionsChanged => {
+                let minimap = view.read(cx).minimap();
+                if read_prefs().minimap != minimap {
+                    write_prefs(&DiagramPrefs { minimap });
+                }
+                self.changed(cx);
+            }
             ErDiagramEvent::LayoutChanged if persist => {
                 let Some((conn, schema)) = self.diagram.clone() else {
                     return;
@@ -586,7 +752,7 @@ impl QueryTab {
 #[cfg(test)]
 mod tests {
     use super::{DiagramState, bare};
-    use er_diagram::{Depth, Scope};
+    use er_diagram::{Density, Depth, Scope};
 
     fn data(tables: Option<Vec<&str>>, state: Option<DiagramState>) -> locus_core::spaces::TabData {
         locus_core::spaces::TabData {
@@ -630,6 +796,8 @@ mod tests {
                 depth: Depth::All,
             },
             hidden: vec!["db.y".into()],
+            density: Density::Keys,
+            collapsed: vec!["db.x".into()],
         };
         let json = serde_json::to_string(&st).unwrap();
         assert_eq!(serde_json::from_str::<DiagramState>(&json).unwrap(), st);

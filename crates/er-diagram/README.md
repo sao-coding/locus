@@ -33,3 +33,33 @@ Ctrl+wheel = zoom at pointer. Toolbar: fit, 100 %, re-layout (texts from `Labels
 - Right click on a table: `TableContextMenu { table, position }`; `hide_table(key)`, `show_hidden_tables()`.
 - `mermaid()` / `to_mermaid(&model, &keys)`; `set_row_counts(map)` for the header counts.
 - Demo: toolbar for all of it; `ER_SCOPE=centre|list ER_DEPTH=1|2|all er-demo [n]`.
+
+## Lines, highlight, navigation (issue #23)
+
+- Lines: `EdgeStyle::Smooth` (default; orthogonal with 8-unit rounded corners) or `EdgeStyle::Bezier`
+  (`set_edge_style`). Routing is pure (`route`, `edge_path`, `slot_offset`, tested in `route.rs`);
+  parallel lines between the same two cards get separate verticals, self references loop on the
+  right. Edge geometry is cached per line and recomputed only when one of its cards moves or
+  resizes; each line is one path, so gpui-fast reuses its tessellation while panning.
+  Smoothstep is the default: on dense schemas its verticals line up with the layer gaps, while
+  bezier bundles overlap.
+- Ends (crow's foot, `cardinality`): referenced side `||` (NOT NULL key) or `|o` (nullable);
+  referencing side crow's foot, or one bar when the key is the primary key or a unique index (1:1).
+  Indexes come from `set_table_details(map)` (`TableDetail`: indexes, column defaults / comments).
+- Hover a card: its lines and neighbours are highlighted, the rest dims to about 35 %. Hover a line:
+  its key rows are highlighted and a tooltip shows `orders.customer_id → customers.id` and the
+  constraint name. The selection keeps the highlight; Esc (`escape`) clears it. Lines are hit
+  within 4 screen pixels of the stroke at any zoom.
+- Minimap (bottom right, `set_minimap`): cards and the viewport; click or drag on it to pan.
+- Search: Ctrl+F (`open_search`, `search_for`) filters the cards, Enter flies to the next hit
+  (`focus_table`: animated camera, selection, one border pulse). Animations request frames only
+  while they run.
+- Density (`set_density`: `Full`, `Keys` = PK / FK / indexed columns, `Header`); the chevron in a
+  card header flips one card (`collapsed_cards` / `set_collapsed_cards`). `ViewOptionsChanged`
+  asks the host to save these.
+- Layout: Sugiyama-style (dummy nodes on long edges, barycentre sweeps plus adjacent swaps keeping
+  the order with the fewest crossings, placement towards neighbours); unrelated tables in a grid
+  below; `crossings(pos, sizes, edges)` measures a layout.
+
+Demo: `ER_EDGE=bezier`, `ER_DENSITY=keys|header`, `ER_MINIMAP=0`, `ER_SEARCH=<text>`,
+`ER_FOCUS=<table>`; the toolbar has the same switches.

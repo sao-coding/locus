@@ -55,6 +55,7 @@ const GLYPHS: &[(&str, &str)] = glyphs![
     "key-round",
     "link",
     "lock",
+    "map",
     "maximize",
     "minus",
     "monitor",

@@ -9,19 +9,155 @@ const MIN_W: f32 = 170.0;
 /// G1: card width cap (was 380); longer names are truncated.
 const MAX_W: f32 = 300.0;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Column {
     pub name: String,
     pub type_name: String,
     pub nullable: bool,
     pub primary_key: bool,
+    /// Default expression, once the host supplied the table's structure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub comment: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// An index of a table (columns in index order).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Index {
+    pub name: String,
+    pub columns: Vec<String>,
+    pub unique: bool,
+    pub primary: bool,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TableNode {
     pub schema: String,
     pub name: String,
     pub columns: Vec<Column>,
+    /// Indexes; empty until the host supplies them (`ErDiagram::set_table_details`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub indexes: Vec<Index>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub comment: Option<String>,
+}
+
+/// What the host can add to a table after the first load (from the driver's
+/// table structure): indexes, the table comment, column defaults / comments.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct TableDetail {
+    pub indexes: Vec<Index>,
+    pub comment: Option<String>,
+    /// (column, default, comment)
+    pub columns: Vec<(String, Option<String>, Option<String>)>,
+}
+
+impl TableNode {
+    /// Merge a [`TableDetail`] into the table.
+    pub fn apply_detail(&mut self, d: &TableDetail) {
+        self.indexes = d.indexes.clone();
+        self.comment = d.comment.clone().filter(|c| !c.is_empty());
+        for (name, def, com) in &d.columns {
+            if let Some(c) = self.columns.iter_mut().find(|c| &c.name == name) {
+                c.default = def.clone();
+                c.comment = com.clone().filter(|c| !c.is_empty());
+            }
+        }
+    }
+
+    fn pk_columns(&self) -> Vec<&str> {
+        self.columns
+            .iter()
+            .filter(|c| c.primary_key)
+            .map(|c| c.name.as_str())
+            .collect()
+    }
+
+    /// `cols` (as a set) is the primary key or the columns of a unique index.
+    pub fn is_unique_set(&self, cols: &[String]) -> bool {
+        use std::collections::BTreeSet;
+        if cols.is_empty() {
+            return false;
+        }
+        let want: BTreeSet<&str> = cols.iter().map(|s| s.as_str()).collect();
+        if self.pk_columns().into_iter().collect::<BTreeSet<_>>() == want {
+            return true;
+        }
+        self.indexes.iter().any(|i| {
+            (i.unique || i.primary)
+                && i.columns
+                    .iter()
+                    .map(|s| s.as_str())
+                    .collect::<BTreeSet<_>>()
+                    == want
+        })
+    }
+
+    /// Column `name` is in the primary key or in some index.
+    pub fn in_any_index(&self, name: &str) -> bool {
+        self.indexes
+            .iter()
+            .any(|i| i.columns.iter().any(|c| c == name))
+    }
+
+    /// Some index (or the primary key) starts with `cols`, in any order of
+    /// those leading columns, so lookups by these columns can use it.
+    pub fn has_index_on(&self, cols: &[String]) -> bool {
+        use std::collections::BTreeSet;
+        if cols.is_empty() {
+            return true;
+        }
+        let want: BTreeSet<&str> = cols.iter().map(|s| s.as_str()).collect();
+        let leads = |list: &[&str]| {
+            list.len() >= want.len()
+                && list[..want.len()].iter().copied().collect::<BTreeSet<_>>() == want
+        };
+        if leads(&self.pk_columns()) {
+            return true;
+        }
+        self.indexes.iter().any(|i| {
+            let l: Vec<&str> = i.columns.iter().map(|s| s.as_str()).collect();
+            leads(&l)
+        })
+    }
+}
+
+/// End mark of a relation line (crow's-foot notation).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum End {
+    /// Crow's foot: many rows.
+    Many,
+    /// One bar: at most one row (the referencing side of a 1:1).
+    One,
+    /// Two bars: exactly one row (referenced side of a NOT NULL key).
+    OnlyOne,
+    /// Circle and bar: zero or one row (referenced side of a nullable key).
+    ZeroOrOne,
+}
+
+/// (referencing end, referenced end) of `rel`, `from` being its referencing
+/// table. The referenced side is "one": mandatory when every key column is
+/// NOT NULL, optional when one is nullable. The referencing side is "many",
+/// or "one" when its key columns are the primary key or a unique index (1:1).
+pub fn cardinality(rel: &Relation, from: &TableNode) -> (End, End) {
+    let nullable = rel.from_columns.iter().any(|c| {
+        from.columns
+            .iter()
+            .find(|x| &x.name == c)
+            .is_some_and(|x| x.nullable)
+    });
+    let to_end = if nullable {
+        End::ZeroOrOne
+    } else {
+        End::OnlyOne
+    };
+    let from_end = if from.is_unique_set(&rel.from_columns) {
+        End::One
+    } else {
+        End::Many
+    };
+    (from_end, to_end)
 }
 
 impl TableNode {
@@ -74,8 +210,10 @@ impl DiagramModel {
                         type_name: c.type_name.clone(),
                         nullable: c.nullable,
                         primary_key: c.primary_key,
+                        ..Default::default()
                     })
                     .collect(),
+                ..Default::default()
             })
             .collect();
         let known: std::collections::HashSet<String> = tables_out.iter().map(|t| t.key()).collect();
@@ -251,8 +389,15 @@ pub fn to_mermaid(model: &DiagramModel, tables: &[String]) -> String {
         if set.contains(r.from_table.as_str()) && set.contains(r.to_table.as_str()) {
             linked.insert(&r.from_table);
             linked.insert(&r.to_table);
+            let (from_end, to_end) = model
+                .tables
+                .iter()
+                .find(|t| t.key() == r.from_table)
+                .map_or((End::Many, End::OnlyOne), |t| cardinality(r, t));
+            let left = if to_end == End::ZeroOrOne { "|o" } else { "||" };
+            let right = if from_end == End::One { "o|" } else { "o{" };
             out.push_str(&format!(
-                "  {} ||--o{{ {} : \"{}\"\n",
+                "  {} {left}--{right} {} : \"{}\"\n",
                 mermaid_name(bare(&r.to_table)),
                 mermaid_name(bare(&r.from_table)),
                 r.from_columns.join(", ").replace('"', "'")
@@ -265,6 +410,32 @@ pub fn to_mermaid(model: &DiagramModel, tables: &[String]) -> String {
         }
     }
     out
+}
+
+/// How much of each card is shown.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Density {
+    /// Every column.
+    #[default]
+    Full,
+    /// Primary-key, foreign-key and indexed columns.
+    Keys,
+    /// The header only.
+    Header,
+}
+
+impl Density {
+    /// Is column `c` of `t` (`fk`: it is a referencing column) shown?
+    pub fn shows(self, t: &TableNode, c: usize, fk: bool) -> bool {
+        match self {
+            Density::Full => true,
+            Density::Header => false,
+            Density::Keys => {
+                let col = &t.columns[c];
+                col.primary_key || fk || t.in_any_index(&col.name)
+            }
+        }
+    }
 }
 
 /// Table position by table key, plus the camera. Serializable so the host can
@@ -356,7 +527,7 @@ mod tests {
         let t = |n: &str| TableNode {
             schema: "s".into(),
             name: n.into(),
-            columns: vec![],
+            ..Default::default()
         };
         let r = |f: &str, to: &str| Relation {
             name: format!("fk_{f}"),
@@ -461,6 +632,162 @@ mod tests {
         assert!(s.contains("\n  x\n"), "{s}");
         let part = to_mermaid(&m, &["s.a".into(), "s.b".into()]);
         assert_eq!(part, "erDiagram\n  a ||--o{ b : \"a_id\"\n");
+    }
+
+    fn col(n: &str, pk: bool, nullable: bool) -> Column {
+        Column {
+            name: n.into(),
+            type_name: "int".into(),
+            nullable,
+            primary_key: pk,
+            ..Default::default()
+        }
+    }
+
+    fn rel(from: &str, cols: &[&str]) -> Relation {
+        Relation {
+            name: "fk".into(),
+            from_table: format!("s.{from}"),
+            from_columns: cols.iter().map(|s| s.to_string()).collect(),
+            to_table: "s.p".into(),
+            to_columns: vec!["id".into()],
+        }
+    }
+
+    #[test]
+    fn cardinality_from_nullability_and_uniqueness() {
+        let mut child = TableNode {
+            schema: "s".into(),
+            name: "c".into(),
+            columns: vec![
+                col("id", true, false),
+                col("p_id", false, false),
+                col("q_id", false, true),
+            ],
+            ..Default::default()
+        };
+        // NOT NULL key: exactly one parent; many children
+        assert_eq!(
+            cardinality(&rel("c", &["p_id"]), &child),
+            (End::Many, End::OnlyOne)
+        );
+        // nullable key: zero or one parent
+        assert_eq!(
+            cardinality(&rel("c", &["q_id"]), &child),
+            (End::Many, End::ZeroOrOne)
+        );
+        // the key is the primary key: 1:1
+        assert_eq!(
+            cardinality(&rel("c", &["id"]), &child),
+            (End::One, End::OnlyOne)
+        );
+        // a unique index on the key: 1:1; a plain index changes nothing
+        child.indexes = vec![
+            Index {
+                name: "ix_q".into(),
+                columns: vec!["q_id".into()],
+                ..Default::default()
+            },
+            Index {
+                name: "uq_p".into(),
+                columns: vec!["p_id".into()],
+                unique: true,
+                primary: false,
+            },
+        ];
+        assert_eq!(cardinality(&rel("c", &["p_id"]), &child).0, End::One);
+        assert_eq!(cardinality(&rel("c", &["q_id"]), &child).0, End::Many);
+        // composite: unique only as the whole set, in any order
+        child.indexes.push(Index {
+            name: "uq_pq".into(),
+            columns: vec!["q_id".into(), "p_id".into()],
+            unique: true,
+            primary: false,
+        });
+        assert!(child.is_unique_set(&["p_id".into(), "q_id".into()]));
+        assert!(!child.is_unique_set(&["q_id".into(), "id".into()]));
+        // the mermaid text follows the marks
+        let m = DiagramModel {
+            tables: vec![
+                TableNode {
+                    schema: "s".into(),
+                    name: "p".into(),
+                    columns: vec![col("id", true, false)],
+                    ..Default::default()
+                },
+                child.clone(),
+            ],
+            relations: vec![rel("c", &["q_id"]), rel("c", &["p_id"])],
+        };
+        let s = to_mermaid(&m, &["s.p".into(), "s.c".into()]);
+        assert!(s.contains("  p |o--o{ c : \"q_id\"\n"), "{s}");
+        assert!(s.contains("  p ||--o| c : \"p_id\"\n"), "{s}");
+    }
+
+    #[test]
+    fn density_picks_columns() {
+        let mut t = TableNode {
+            schema: "s".into(),
+            name: "t".into(),
+            columns: vec![
+                col("id", true, false),
+                col("p_id", false, false),
+                col("code", false, false),
+                col("note", false, true),
+            ],
+            ..Default::default()
+        };
+        t.indexes.push(Index {
+            name: "ix_code".into(),
+            columns: vec!["code".into()],
+            ..Default::default()
+        });
+        let shown = |d: Density| -> Vec<usize> {
+            (0..4)
+                .filter(|&c| d.shows(&t, c, c == 1))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(shown(Density::Full), [0, 1, 2, 3]);
+        assert_eq!(shown(Density::Keys), [0, 1, 2]);
+        assert!(shown(Density::Header).is_empty());
+        // index detection: an index must start with the key columns
+        assert!(t.has_index_on(&["code".into()]));
+        assert!(t.has_index_on(&["id".into()]), "the primary key counts");
+        assert!(!t.has_index_on(&["p_id".into()]));
+        t.indexes.push(Index {
+            name: "ix_note_p".into(),
+            columns: vec!["note".into(), "p_id".into()],
+            ..Default::default()
+        });
+        assert!(!t.has_index_on(&["p_id".into()]), "p_id is not leading");
+        assert!(t.has_index_on(&["p_id".into(), "note".into()]));
+    }
+
+    #[test]
+    fn details_merge_into_the_table() {
+        let mut t = TableNode {
+            schema: "s".into(),
+            name: "t".into(),
+            columns: vec![col("id", true, false), col("n", false, true)],
+            ..Default::default()
+        };
+        t.apply_detail(&TableDetail {
+            indexes: vec![Index {
+                name: "PRIMARY".into(),
+                columns: vec!["id".into()],
+                unique: true,
+                primary: true,
+            }],
+            comment: Some(String::new()),
+            columns: vec![
+                ("n".into(), Some("0".into()), Some("a note".into())),
+                ("gone".into(), None, None),
+            ],
+        });
+        assert_eq!(t.indexes.len(), 1);
+        assert_eq!(t.comment, None, "empty comment is no comment");
+        assert_eq!(t.columns[1].default.as_deref(), Some("0"));
+        assert_eq!(t.columns[1].comment.as_deref(), Some("a note"));
     }
 
     #[test]
