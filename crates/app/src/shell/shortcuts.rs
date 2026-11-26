@@ -61,6 +61,14 @@ pub(crate) enum Shortcut {
     SaveQuery,
     /// Palette: the Saved tab (queries and snippets).
     OpenSaved,
+    /// Git panel: Ctrl+Shift+G toggles it; the others are palette commands.
+    ToggleGit,
+    GitCommit,
+    GitPull,
+    GitPush,
+    GitFetch,
+    GitSwitchBranch,
+    GitRefresh,
 }
 
 impl Locus {
@@ -104,6 +112,11 @@ impl Locus {
         if s == Shortcut::Cancel && self.renaming.is_some() {
             self.renaming = None;
             cx.notify();
+            return true;
+        }
+        // Ctrl+Enter in the Git commit box commits instead of running the editor's query.
+        if s == Shortcut::Run && self.git.read(cx).msg_focused(window, cx) {
+            self.git.update(cx, |g, cx| g.commit(window, cx));
             return true;
         }
         let tab = self.active_tab(cx);
@@ -244,6 +257,13 @@ impl Locus {
             Shortcut::TxMode => self.tx_toggle_mode(window, cx),
             Shortcut::SaveQuery => self.save_query_dialog(window, cx),
             Shortcut::OpenSaved => self.open_saved(window, cx),
+            Shortcut::ToggleGit
+            | Shortcut::GitCommit
+            | Shortcut::GitPull
+            | Shortcut::GitPush
+            | Shortcut::GitFetch
+            | Shortcut::GitSwitchBranch
+            | Shortcut::GitRefresh => self.git_command(s, window, cx),
         }
         cx.notify();
         true

@@ -33,6 +33,7 @@ fn old_shortcut(k: &Keystroke) -> Option<Shortcut> {
         ("p", true, true, false) | ("k", true, false, false) => Shortcut::Palette,
         ("j", true, false, false) => Shortcut::ToggleSchema,
         ("h", true, true, false) => Shortcut::History,
+        ("g", true, true, false) => Shortcut::ToggleGit,
         (",", true, false, false) => Shortcut::Settings,
         ("e", true, true, false) => Shortcut::Export,
         ("r", true, true, false) => Shortcut::OpenDiagram,

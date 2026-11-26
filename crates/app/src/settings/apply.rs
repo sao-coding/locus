@@ -32,6 +32,8 @@ impl Locus {
     pub(crate) fn apply_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.reduce_motion = crate::settings::get(cx).reduce_motion;
         apply_theme(window, cx);
+        // Settings › Git may have changed the git path: look again.
+        self.git_file_saved(cx);
         cx.refresh_windows();
     }
 }

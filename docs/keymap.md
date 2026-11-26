@@ -1,3 +1,10 @@
+| `locus::GitCommit` | (palette only) | `Workspace` |
+| `locus::GitPull` | (palette only) | `Workspace` |
+| `locus::GitPush` | (palette only) | `Workspace` |
+| `locus::GitFetch` | (palette only) | `Workspace` |
+| `locus::GitSwitchBranch` | (palette only) | `Workspace` |
+| `locus::GitRefresh` | (palette only) | `Workspace` |
+| `locus::ToggleGit` | `ctrl-shift-g` | `Workspace` |
 # Key bindings
 
 Every shortcut in Locus is a GPUI action (`locus::<Name>`) bound to keys in a

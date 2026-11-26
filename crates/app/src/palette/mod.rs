@@ -59,6 +59,13 @@ pub(crate) const ACTIONS: &[(Shortcut, &str)] = &[
     (Shortcut::Settings, "actions.settings"),
     (Shortcut::SaveQuery, "sq.act_save"),
     (Shortcut::OpenSaved, "sq.act_open"),
+    (Shortcut::ToggleGit, "git.act_toggle"),
+    (Shortcut::GitCommit, "git.act_commit"),
+    (Shortcut::GitPull, "git.act_pull"),
+    (Shortcut::GitPush, "git.act_push"),
+    (Shortcut::GitFetch, "git.act_fetch"),
+    (Shortcut::GitSwitchBranch, "git.act_branch"),
+    (Shortcut::GitRefresh, "git.act_refresh"),
 ];
 
 /// What Enter does with an entry.

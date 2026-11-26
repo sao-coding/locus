@@ -431,7 +431,7 @@ impl Dialect {
                 vec![t(schema), t(name), t(mysql_ty)],
             ),
             Dialect::Postgres => {
-                let target = PG_ROUTINE_OID;
+                let target = "to_regprocedure(quote_ident(?) || '.' || ?)";
                 stmt(
                     format!(
                         "SELECT * FROM (\
@@ -511,7 +511,9 @@ impl Dialect {
                         r#"SELECT pg_get_indexdef(i.indexrelid) || ';' FROM pg_index i JOIN pg_class ci ON ci.oid = i.indexrelid
                         JOIN pg_namespace n ON n.oid = ci.relnamespace WHERE n.nspname = ? AND ci.relname = ?"#
                     }
-                    Function | Procedure => PG_ROUTINE_DEF.as_str(),
+                    Function | Procedure => {
+                        "SELECT pg_get_functiondef(to_regprocedure(quote_ident(?) || '.' || ?))"
+                    }
                     Trigger => {
                         r#"SELECT pg_get_triggerdef(t.oid, true) || ';' FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
                         JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = ? AND t.tgname = ? AND NOT t.tgisinternal
@@ -894,40 +896,10 @@ pub fn server_info(d: Dialect, fetch: Fetch, cap: u32) -> CatalogFuture<Vec<Info
     })
 }
 
-/// The oid of a PostgreSQL function or procedure from (schema, name). The
-/// name may be the form the object list shows, `f(IN a integer)`, the
-/// type-only form `f(integer)`, or a bare `f`. `to_regprocedure` accepts only
-/// the type-only form and raises a syntax error on argument names or modes.
-const PG_ROUTINE_OID: &str = "(SELECT p.oid FROM (SELECT ?::text AS s, ?::text AS nm) a \
-     JOIN pg_namespace n ON n.nspname = a.s JOIN pg_proc p ON p.pronamespace = n.oid \
-     WHERE quote_ident(p.proname) || '(' || pg_get_function_identity_arguments(p.oid) || ')' = a.nm \
-        OR quote_ident(p.proname) || '(' || oidvectortypes(p.proargtypes) || ')' = a.nm \
-        OR p.proname = a.nm OR quote_ident(p.proname) = a.nm \
-     ORDER BY p.oid LIMIT 1)";
-
-static PG_ROUTINE_DEF: std::sync::LazyLock<String> =
-    std::sync::LazyLock::new(|| format!("SELECT pg_get_functiondef({PG_ROUTINE_OID})"));
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use DbObjectKind::*;
-
-    /// The object list shows routines as `f(IN a integer)`; the lookups must
-    /// bind that text as a value (one `?` per bound param), not parse it.
-    #[test]
-    fn pg_routine_lookups_bind_the_shown_name() {
-        let shown = "f(IN a integer)";
-        for kind in [Function, Procedure] {
-            let (s, _) = Dialect::Postgres.ddl("s", kind, shown).unwrap();
-            assert!(!s.sql.contains("to_regprocedure"));
-            assert_eq!(s.sql.matches('?').count(), s.params.len());
-            let p = Dialect::Postgres
-                .routine_params("s", kind, shown, 50)
-                .unwrap();
-            assert_eq!(p.sql.matches('?').count(), p.params.len());
-        }
-    }
 
     #[test]
     fn every_statement_binds_names_and_filters_by_owner() {

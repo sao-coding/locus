@@ -417,6 +417,8 @@ shell:
   rail_history: 查询历史
   settings: 设置（Ctrl+,）
   panel_schema: Schema
+  rail_git: Git（Ctrl+Shift+G）
+  panel_git: Git
   panel_history: 查询历史
   schema_search: 搜索已加载的表、列、函数
   no_match: 已加载的项目中没有匹配的
@@ -1313,3 +1315,119 @@ upd:
   not_ready: "更新尚未下载完成。"
   cannot_write: "Locus 无法在这个文件夹中替换自己（%{msg}）。请从发布页面下载新版本。"
   updated: "已更新到 Locus %{v}。"
+git:
+  set_cat: Git
+  act_toggle: 切换 Git 面板
+  act_commit: "Git：提交"
+  act_pull: "Git：拉取"
+  act_push: "Git：推送"
+  act_fetch: "Git：抓取"
+  act_branch: "Git：切换分支…"
+  act_refresh: "Git：刷新"
+  age_now: 刚刚
+  age_min: "%{n} 分钟前"
+  age_hour: "%{n} 小时前"
+  age_day: "%{n} 天前"
+  age_month: "%{n} 个月前"
+  age_year: "%{n} 年前"
+  amend: 修订
+  amend_btn: 修订提交
+  bind_folder: 绑定文件夹…
+  branch_filter: 搜索或创建分支
+  branches_tip: 切换或创建分支
+  branches_title: 分支
+  busy_commit: 提交中…
+  busy_fetch: 抓取中…
+  busy_pull: 拉取中…
+  busy_push: 推送中…
+  busy_switch: "切换到 %{name}…"
+  cancelled: 已取消。
+  changes: 更改
+  clean: 没有更改
+  commit: 提交
+  commit_all: 全部提交
+  commit_anyway: 仍然提交
+  commit_files: "%{n} 个文件"
+  commit_tip: 提交（Ctrl+Enter）。没有暂存任何文件时，会提交已跟踪文件的更改。
+  create_branch: "创建分支“%{name}”"
+  detached: 分离的 HEAD
+  diff_bad_spec: 无法读取这个差异标签页。
+  diff_binary: 二进制文件
+  diff_commit: "提交 %{short}"
+  diff_empty: 没有差异。
+  diff_split: 并排
+  diff_staged: 已暂存
+  diff_subtitle: 只读差异
+  diff_tab: 差异
+  diff_unified: 统一
+  diff_unstaged: 未暂存
+  diff_untracked: 新文件
+  diff_whole: 整个提交
+  discard: 放弃
+  discard_all: 放弃所有更改
+  discard_body: "要放弃 %{what} 的更改吗？"
+  discard_note: 文件会回到已暂存的内容。此操作无法撤销。
+  discard_note_untracked: "%{n} 个新文件会被删除。此操作无法撤销。"
+  discard_title: 放弃更改
+  fetch: 抓取
+  fetch_off: 关闭
+  file_history_none: 当前标签页不是这个仓库中的文件。
+  file_history_tip: 当前标签页文件的历史
+  g_changes: 更改
+  g_conflicts: 合并冲突
+  g_staged: 已暂存
+  history: 历史
+  history_of: "%{file} 的历史"
+  init: 初始化仓库
+  init_ignore: "添加 .gitignore（*.env、.locus/）"
+  install: 获取 Git
+  loading: 加载中…
+  missing: 找不到 Git
+  missing_note: "Locus 会运行你安装的 git（%{program}）。请先安装，或在“设置 › Git”中指定路径。"
+  msg_placeholder: 提交信息（Ctrl+Enter 提交）
+  n_files: "%{n} 个文件"
+  no_commits: 还没有提交。
+  no_folder: 这个 Space 没有绑定文件夹
+  no_folder_note: 绑定存放 .sql 文件的文件夹，就能在这里看到它的 Git 仓库。
+  no_repo: 这个文件夹不是 Git 仓库
+  no_repo_note: 初始化后即可跟踪你的 .sql 文件。
+  no_subject: （没有信息）
+  no_upstream: 没有上游
+  open_diff: 打开差异
+  open_file: 打开文件
+  pull: 拉取
+  pull_ff: 仅快进
+  pull_merge: 合并
+  pull_rebase: 变基
+  push: 推送
+  refresh: 刷新
+  remote: 远程
+  retry: 重试
+  secret_cloud: 云访问密钥
+  secret_env: ".env 文件"
+  secret_key: 私钥
+  secret_more: "…还有 %{n} 项"
+  secret_note: 这次提交似乎包含凭据。任何能读取这个仓库的人都能看到。
+  secret_password: 密码
+  secret_title: 这次提交包含凭据？
+  secret_url: 连接 URL 中的密码
+  set_fetch: 自动抓取
+  set_fetch_note: 打开仓库时，在后台定期运行 git fetch。默认关闭。
+  set_path: Git 可执行文件
+  set_path_note: git.exe 的完整路径。留空则使用 PATH 中的 git。
+  set_path_placeholder: git（取自 PATH）
+  set_pull: 拉取方式
+  set_pull_note: 拉取时如何合并远程的更改。“仅快进”不会在你不知情时产生合并提交。
+  set_scan: 提交前扫描凭据
+  set_scan_note: 提交的内容含有连接 URL 中的密码、password=… 行、私钥或 .env 文件时警告。
+  stage: 暂存
+  stage_all: 全部暂存
+  status_changes: "%{branch} · %{n} 项更改"
+  status_clean: "%{branch} · 没有更改"
+  status_tip: 打开 Git 面板
+  tab_commit: "%{name} @ %{short}"
+  tab_diff: "%{name}（更改）"
+  tab_staged: "%{name}（已暂存）"
+  timeout: Git 没有在限定时间内完成，已停止。
+  unstage: 取消暂存
+  unstage_all: 全部取消暂存

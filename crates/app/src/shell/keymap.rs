@@ -112,6 +112,13 @@ commands!(
     TxMode,
     SaveQuery,
     OpenSaved,
+    ToggleGit,
+    GitCommit,
+    GitPull,
+    GitPush,
+    GitFetch,
+    GitSwitchBranch,
+    GitRefresh,
 );
 
 fn space_action(i: usize) -> Box<dyn Action> {

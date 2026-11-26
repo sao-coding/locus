@@ -22,13 +22,22 @@ pub(crate) struct PanelSpec {
 }
 
 /// Every panel, in rail order.
-pub(crate) const PANELS: &[PanelSpec] = &[PanelSpec {
-    panel: RightPanel::Schema,
-    rail_id: "rail-schema",
-    icon: "db",
-    tip: "shell.rail_schema",
-    title: "shell.panel_schema",
-}];
+pub(crate) const PANELS: &[PanelSpec] = &[
+    PanelSpec {
+        panel: RightPanel::Schema,
+        rail_id: "rail-schema",
+        icon: "db",
+        tip: "shell.rail_schema",
+        title: "shell.panel_schema",
+    },
+    PanelSpec {
+        panel: RightPanel::Git,
+        rail_id: "rail-git",
+        icon: "git-branch",
+        tip: "shell.rail_git",
+        title: "shell.panel_git",
+    },
+];
 
 /// True when `p` is a registered panel (spaces.json may name one this build lacks).
 pub(crate) fn is_registered(p: RightPanel) -> bool {
@@ -96,7 +105,18 @@ impl Locus {
     fn panel_content(&self, panel: RightPanel, cx: &mut Context<Self>) -> Option<PanelContent> {
         match panel {
             RightPanel::Schema => Some(self.schema_panel(cx)),
+            RightPanel::Git => Some(self.git_panel(cx)),
             RightPanel::History | RightPanel::Unknown => None,
+        }
+    }
+
+    /// The Git panel (`crate::git`): header buttons and the panel view.
+    fn git_panel(&self, cx: &mut Context<Self>) -> PanelContent {
+        let git = self.git.clone();
+        let actions = git.read(cx).header_actions(&git, cx);
+        PanelContent {
+            actions,
+            rows: vec![div().flex_1().min_h_0().child(git).into_any_element()],
         }
     }
 

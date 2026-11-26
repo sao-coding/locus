@@ -12,6 +12,7 @@ impl Locus {
         }
         self.active_space = i;
         self.renaming = None;
+        self.sync_git(cx);
         self.focus_editor(window, cx);
         self.schedule_save(cx);
         cx.notify();

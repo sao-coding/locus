@@ -12,7 +12,7 @@ impl Locus {
         let spaces: Vec<usize> = match page {
             TabPage::Settings | TabPage::Saved => (0..self.spaces.len()).collect(),
             TabPage::History => vec![self.active_space],
-            TabPage::Redis | TabPage::Activity => Vec::new(),
+            TabPage::Redis | TabPage::Activity | TabPage::Diff => Vec::new(),
         };
         for si in spaces {
             for t in &self.spaces[si].tabs {
@@ -175,6 +175,7 @@ impl Locus {
             Some(TabPage::Saved) => self.attach_saved(tab, data, window, cx),
             Some(TabPage::Redis) => self.attach_redis(tab, data, window, cx),
             Some(TabPage::Activity) => self.attach_activity(tab, data, window, cx),
+            Some(TabPage::Diff) => self.attach_diff(tab, data, window, cx),
             None => {}
         }
     }
@@ -296,6 +297,11 @@ impl Locus {
                 crate::shell::theme::TabKind::Script,
                 t!("sq.tab_title"),
                 t!("sq.subtitle"),
+            ),
+            TabPage::Diff => (
+                crate::shell::theme::TabKind::Script,
+                t!("git.diff_tab"),
+                t!("git.diff_subtitle"),
             ),
         };
         h_flex()

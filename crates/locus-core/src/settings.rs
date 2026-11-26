@@ -69,6 +69,60 @@ pub struct Settings {
     /// Offer test versions (RCs) too; missing = whether this build is one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub update_beta: Option<bool>,
+    /// Git panel (Settings › Git).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub git: Option<GitSettings>,
+}
+
+/// Settings › Git. A missing field means its default.
+#[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Debug)]
+pub struct GitSettings {
+    /// Path of the git executable; empty or missing = `git` from PATH.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    /// "ff-only" (default), "rebase" or "merge".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull: Option<String>,
+    /// Minutes between background fetches; 0 or missing = off.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_fetch_minutes: Option<u64>,
+    /// Warn before committing what looks like a credential (default on).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub secret_scan: Option<bool>,
+}
+
+impl Settings {
+    pub fn git_path(&self) -> String {
+        self.git
+            .as_ref()
+            .and_then(|g| g.path.clone())
+            .unwrap_or_default()
+    }
+
+    pub fn git_pull(&self) -> String {
+        self.git
+            .as_ref()
+            .and_then(|g| g.pull.clone())
+            .unwrap_or_else(|| "ff-only".into())
+    }
+
+    pub fn git_auto_fetch_minutes(&self) -> u64 {
+        self.git
+            .as_ref()
+            .and_then(|g| g.auto_fetch_minutes)
+            .unwrap_or(0)
+    }
+
+    pub fn git_secret_scan(&self) -> bool {
+        self.git
+            .as_ref()
+            .and_then(|g| g.secret_scan)
+            .unwrap_or(true)
+    }
+
+    pub fn git_mut(&mut self) -> &mut GitSettings {
+        self.git.get_or_insert_with(Default::default)
+    }
 }
 
 impl Settings {

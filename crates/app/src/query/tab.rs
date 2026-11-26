@@ -345,7 +345,11 @@ impl QueryTab {
                 return t!("settings.title").into_owned();
             }
             Some(locus_core::spaces::TabPage::Saved) => return t!("sq.tab_title").into_owned(),
-            Some(locus_core::spaces::TabPage::Redis | locus_core::spaces::TabPage::Activity)
+            Some(
+                locus_core::spaces::TabPage::Redis
+                | locus_core::spaces::TabPage::Activity
+                | locus_core::spaces::TabPage::Diff,
+            )
             | None => {}
         }
         if self.diagram.is_some() {

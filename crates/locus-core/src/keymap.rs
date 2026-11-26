@@ -41,6 +41,7 @@ pub const DEFAULTS: &[(&str, &str)] = &[
     ("ctrl-shift-p", "Palette"),
     ("ctrl-j", "ToggleSchema"),
     ("ctrl-shift-h", "History"),
+    ("ctrl-shift-g", "ToggleGit"),
     ("ctrl-,", "Settings"),
     ("ctrl-shift-e", "Export"),
     ("ctrl-shift-r", "OpenDiagram"),

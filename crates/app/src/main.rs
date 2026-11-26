@@ -11,6 +11,7 @@ mod connections;
 #[cfg(feature = "dev")]
 mod dev;
 mod diagram;
+mod git;
 mod history;
 mod import;
 mod palette;

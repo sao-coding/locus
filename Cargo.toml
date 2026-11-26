@@ -10,11 +10,12 @@ members = [
     "crates/db-redis",
     "crates/db-sidecar-client",
     "crates/er-diagram",
+    "crates/git",
 ]
 default-members = ["crates/app"]
 
 [workspace.package]
-version = "0.2.1"
+version = "0.2.0"
 edition = "2024"
 license = "AGPL-3.0-only"
 repository = "https://github.com/sao-coding/locus"
@@ -30,6 +31,7 @@ db-sqlite = { path = "crates/db-sqlite" }
 db-redis = { path = "crates/db-redis" }
 db-sidecar-client = { path = "crates/db-sidecar-client" }
 er-diagram = { path = "crates/er-diagram" }
+locus-git = { path = "crates/git" }
 locus-core = { path = "crates/locus-core" }
 gpui-kit = { version = "=0.9.1", features = ["tree-sitter-sql", "gpui-fast"] }
 tokio-postgres = { version = "=0.7.18", default-features = false }
