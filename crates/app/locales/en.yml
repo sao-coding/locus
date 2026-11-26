@@ -417,6 +417,8 @@ shell:
   rail_history: History
   settings: Settings (Ctrl+,)
   panel_schema: Schema
+  rail_git: Git (Ctrl+Shift+G)
+  panel_git: Git
   panel_history: History
   schema_search: Search loaded tables, columns, routines
   no_match: Nothing loaded matches
@@ -1312,3 +1314,119 @@ upd:
   not_ready: "The update is not downloaded yet."
   cannot_write: "Locus cannot replace itself in this folder (%{msg}). Download the new version from the release page."
   updated: "Updated to Locus %{v}."
+git:
+  set_cat: Git
+  act_toggle: Toggle the Git panel
+  act_commit: "Git: Commit"
+  act_pull: "Git: Pull"
+  act_push: "Git: Push"
+  act_fetch: "Git: Fetch"
+  act_branch: "Git: Switch branch…"
+  act_refresh: "Git: Refresh"
+  age_now: just now
+  age_min: "%{n} min ago"
+  age_hour: "%{n} h ago"
+  age_day: "%{n} d ago"
+  age_month: "%{n} mo ago"
+  age_year: "%{n} y ago"
+  amend: Amend
+  amend_btn: Amend commit
+  bind_folder: Bind folder…
+  branch_filter: Find or create a branch
+  branches_tip: Switch or create a branch
+  branches_title: Branches
+  busy_commit: Committing…
+  busy_fetch: Fetching…
+  busy_pull: Pulling…
+  busy_push: Pushing…
+  busy_switch: "Switching to %{name}…"
+  cancelled: Cancelled.
+  changes: Changes
+  clean: No changes
+  commit: Commit
+  commit_all: Commit all
+  commit_anyway: Commit anyway
+  commit_files: "%{n} files"
+  commit_tip: Commit (Ctrl+Enter). With nothing staged, changes to tracked files are committed.
+  create_branch: "Create branch “%{name}”"
+  detached: detached HEAD
+  diff_bad_spec: This diff tab cannot be read.
+  diff_binary: binary file
+  diff_commit: "commit %{short}"
+  diff_empty: No differences.
+  diff_split: Side by side
+  diff_staged: staged
+  diff_subtitle: Read-only diff
+  diff_tab: Diff
+  diff_unified: Unified
+  diff_unstaged: not staged
+  diff_untracked: new file
+  diff_whole: Whole commit
+  discard: Discard
+  discard_all: Discard all changes
+  discard_body: "Discard the changes to %{what}?"
+  discard_note: The file goes back to what is staged. This cannot be undone.
+  discard_note_untracked: "%{n} new file(s) will be deleted. This cannot be undone."
+  discard_title: Discard changes
+  fetch: Fetch
+  fetch_off: "Off"
+  file_history_none: The current tab is not a file in this repository.
+  file_history_tip: History of the file in the current tab
+  g_changes: Changes
+  g_conflicts: Merge conflicts
+  g_staged: Staged
+  history: History
+  history_of: "History of %{file}"
+  init: Initialize repository
+  init_ignore: "Add a .gitignore (*.env, .locus/)"
+  install: Get Git
+  loading: Loading…
+  missing: Git was not found
+  missing_note: "Locus runs your installed git (%{program}). Install it, or set its path in Settings › Git."
+  msg_placeholder: Message (Ctrl+Enter to commit)
+  n_files: "%{n} files"
+  no_commits: No commits yet.
+  no_folder: No folder bound to this Space
+  no_folder_note: Bind the folder of your .sql files to see its Git repository here.
+  no_repo: This folder is not a Git repository
+  no_repo_note: Initialize one to track your .sql files.
+  no_subject: (no message)
+  no_upstream: no upstream
+  open_diff: Open diff
+  open_file: Open file
+  pull: Pull
+  pull_ff: Fast-forward only
+  pull_merge: Merge
+  pull_rebase: Rebase
+  push: Push
+  refresh: Refresh
+  remote: remote
+  retry: Try again
+  secret_cloud: cloud access key
+  secret_env: ".env file"
+  secret_key: private key
+  secret_more: "…and %{n} more"
+  secret_note: This commit seems to contain credentials. Anyone who can read the repository can read them.
+  secret_password: password
+  secret_title: Credentials in this commit?
+  secret_url: password in a connection URL
+  set_fetch: Fetch automatically
+  set_fetch_note: Run git fetch in the background while a repository is open. Off by default.
+  set_path: Git executable
+  set_path_note: Full path of git.exe. Empty uses the git found on PATH.
+  set_path_placeholder: git (from PATH)
+  set_pull: Pull mode
+  set_pull_note: How Pull joins remote changes. Fast-forward only never creates a merge by surprise.
+  set_scan: Scan for credentials before committing
+  set_scan_note: Warn about passwords in connection URLs, password=… lines, private keys and .env files in what is committed.
+  stage: Stage
+  stage_all: Stage all
+  status_changes: "%{branch} · %{n} changes"
+  status_clean: "%{branch} · no changes"
+  status_tip: Open the Git panel
+  tab_commit: "%{name} @ %{short}"
+  tab_diff: "%{name} (changes)"
+  tab_staged: "%{name} (staged)"
+  timeout: Git did not finish in time and was stopped.
+  unstage: Unstage
+  unstage_all: Unstage all

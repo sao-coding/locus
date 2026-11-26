@@ -417,6 +417,8 @@ shell:
   rail_history: 查詢紀錄
   settings: 設定（Ctrl+,）
   panel_schema: Schema
+  rail_git: Git（Ctrl+Shift+G）
+  panel_git: Git
   panel_history: 查詢紀錄
   schema_search: 搜尋已載入的資料表、欄位、函式
   no_match: 已載入的項目中沒有符合的
@@ -1313,3 +1315,119 @@ upd:
   not_ready: "更新尚未下載完成。"
   cannot_write: "Locus 無法在這個資料夾中取代自己（%{msg}）。請從發行頁面下載新版本。"
   updated: "已更新到 Locus %{v}。"
+git:
+  set_cat: Git
+  act_toggle: 切換 Git 面板
+  act_commit: "Git：提交"
+  act_pull: "Git：拉取"
+  act_push: "Git：推送"
+  act_fetch: "Git：擷取"
+  act_branch: "Git：切換分支…"
+  act_refresh: "Git：重新整理"
+  age_now: 剛剛
+  age_min: "%{n} 分鐘前"
+  age_hour: "%{n} 小時前"
+  age_day: "%{n} 天前"
+  age_month: "%{n} 個月前"
+  age_year: "%{n} 年前"
+  amend: 修訂
+  amend_btn: 修訂提交
+  bind_folder: 綁定資料夾…
+  branch_filter: 搜尋或建立分支
+  branches_tip: 切換或建立分支
+  branches_title: 分支
+  busy_commit: 提交中…
+  busy_fetch: 擷取中…
+  busy_pull: 拉取中…
+  busy_push: 推送中…
+  busy_switch: "切換到 %{name}…"
+  cancelled: 已取消。
+  changes: 變更
+  clean: 沒有變更
+  commit: 提交
+  commit_all: 全部提交
+  commit_anyway: 仍要提交
+  commit_files: "%{n} 個檔案"
+  commit_tip: 提交（Ctrl+Enter）。沒有暫存任何檔案時，會提交已追蹤檔案的變更。
+  create_branch: "建立分支「%{name}」"
+  detached: 分離的 HEAD
+  diff_bad_spec: 無法讀取這個差異分頁。
+  diff_binary: 二進位檔
+  diff_commit: "提交 %{short}"
+  diff_empty: 沒有差異。
+  diff_split: 並排
+  diff_staged: 已暫存
+  diff_subtitle: 唯讀差異
+  diff_tab: 差異
+  diff_unified: 統一
+  diff_unstaged: 未暫存
+  diff_untracked: 新檔案
+  diff_whole: 整個提交
+  discard: 捨棄
+  discard_all: 捨棄所有變更
+  discard_body: "要捨棄 %{what} 的變更嗎？"
+  discard_note: 檔案會回到已暫存的內容。此動作無法復原。
+  discard_note_untracked: "%{n} 個新檔案會被刪除。此動作無法復原。"
+  discard_title: 捨棄變更
+  fetch: 擷取
+  fetch_off: 關閉
+  file_history_none: 目前的分頁不是這個儲存庫中的檔案。
+  file_history_tip: 目前分頁檔案的歷史
+  g_changes: 變更
+  g_conflicts: 合併衝突
+  g_staged: 已暫存
+  history: 歷史
+  history_of: "%{file} 的歷史"
+  init: 初始化儲存庫
+  init_ignore: "加入 .gitignore（*.env、.locus/）"
+  install: 取得 Git
+  loading: 載入中…
+  missing: 找不到 Git
+  missing_note: "Locus 會執行你安裝的 git（%{program}）。請先安裝，或在「設定 › Git」指定路徑。"
+  msg_placeholder: 提交訊息（Ctrl+Enter 提交）
+  n_files: "%{n} 個檔案"
+  no_commits: 還沒有提交。
+  no_folder: 這個 Space 沒有綁定資料夾
+  no_folder_note: 綁定放 .sql 檔的資料夾，就能在這裡看到它的 Git 儲存庫。
+  no_repo: 這個資料夾不是 Git 儲存庫
+  no_repo_note: 初始化後即可追蹤你的 .sql 檔。
+  no_subject: （沒有訊息）
+  no_upstream: 沒有上游
+  open_diff: 開啟差異
+  open_file: 開啟檔案
+  pull: 拉取
+  pull_ff: 僅快轉
+  pull_merge: 合併
+  pull_rebase: 重定基底
+  push: 推送
+  refresh: 重新整理
+  remote: 遠端
+  retry: 重試
+  secret_cloud: 雲端存取金鑰
+  secret_env: ".env 檔"
+  secret_key: 私密金鑰
+  secret_more: "…還有 %{n} 項"
+  secret_note: 這次提交似乎含有認證資訊。任何能讀取這個儲存庫的人都看得到。
+  secret_password: 密碼
+  secret_title: 這次提交含有認證資訊？
+  secret_url: 連線網址中的密碼
+  set_fetch: 自動擷取
+  set_fetch_note: 開啟儲存庫時，在背景定期執行 git fetch。預設關閉。
+  set_path: Git 執行檔
+  set_path_note: git.exe 的完整路徑。留空則使用 PATH 中的 git。
+  set_path_placeholder: git（取自 PATH）
+  set_pull: 拉取方式
+  set_pull_note: 拉取時如何合併遠端的變更。「僅快轉」不會在你不知情時產生合併提交。
+  set_scan: 提交前掃描認證資訊
+  set_scan_note: 提交的內容含有連線網址中的密碼、password=… 行、私密金鑰或 .env 檔時警告。
+  stage: 暫存
+  stage_all: 全部暫存
+  status_changes: "%{branch} · %{n} 項變更"
+  status_clean: "%{branch} · 沒有變更"
+  status_tip: 開啟 Git 面板
+  tab_commit: "%{name} @ %{short}"
+  tab_diff: "%{name}（變更）"
+  tab_staged: "%{name}（已暫存）"
+  timeout: Git 沒有在時限內完成，已停止。
+  unstage: 取消暫存
+  unstage_all: 全部取消暫存

@@ -84,6 +84,8 @@ pub enum TabPage {
     Activity,
     /// Saved queries and snippets (one per window).
     Saved,
+    /// A read-only diff (one per file and side); its spec is JSON in the tab's `sql`.
+    Diff,
 }
 
 pub fn default_limit() -> Option<u64> {
@@ -297,8 +299,8 @@ mod tests {
         );
         assert!(s.contains(r#""obj":{"tab":"source""#));
         assert_eq!(old.obj, None);
-        // A panel this build lacks (the removed Git panel) still loads.
-        let old: SpacesFile = serde_json::from_str(r#"{"right_panel":"git"}"#).unwrap();
+        // A panel this build lacks still loads.
+        let old: SpacesFile = serde_json::from_str(r#"{"right_panel":"future-panel"}"#).unwrap();
         assert_eq!(old.right_panel, Some(RightPanel::Unknown));
     }
 }
@@ -319,7 +321,9 @@ pub enum RightPanel {
     Schema,
     /// Query history (a later task turns it into a tab).
     History,
-    /// A panel this build does not have (for example `git`, removed): opens nothing.
+    /// Git: changes, commit box, history.
+    Git,
+    /// A panel this build does not have: opens nothing.
     #[serde(other)]
     Unknown,
 }
