@@ -62,6 +62,40 @@ struct Demo {
 }
 
 impl Demo {
+    /// SVG or PNG of the diagram (the selection when tables are selected) into
+    /// ER_EXPORT_DIR (default: the temp folder).
+    fn export(&mut self, png: bool, cx: &mut Context<Self>) {
+        let svg = self.diagram.update(cx, |d, cx| d.export_svg(true, cx));
+        let dir = std::env::var("ER_EXPORT_DIR")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|_| std::env::temp_dir());
+        self.status = "exporting…".into();
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            // rendering loads the system fonts: keep it off the UI thread
+            let msg = cx
+                .background_executor()
+                .spawn(async move {
+                    let (path, bytes) = if png {
+                        let b = er_diagram::svg_to_png(&svg, 2.0)?;
+                        (dir.join("er-demo-export.png"), b)
+                    } else {
+                        (dir.join("er-demo-export.svg"), svg.into_bytes())
+                    };
+                    std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
+                    Ok::<_, String>(format!("saved {}", path.display()))
+                })
+                .await
+                .unwrap_or_else(|e| format!("export failed: {e}"));
+            this.update(cx, |t, cx| {
+                t.status = msg;
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
     fn apply_scope(&mut self, cx: &mut Context<Self>) {
         let centre = self
             .diagram
@@ -104,6 +138,15 @@ impl Demo {
             }
             ErDiagramEvent::OpenTable(t) => {
                 self.status = format!("open: {t}");
+                cx.notify();
+            }
+            ErDiagramEvent::InsertSql(s) => {
+                cx.write_to_clipboard(ClipboardItem::new_string(s.clone()));
+                self.status = format!("JOIN path copied: {}", s.replace('\n', " "));
+                cx.notify();
+            }
+            ErDiagramEvent::InsertSelect(t) | ErDiagramEvent::OpenStructure(t) => {
+                self.status = format!("{ev:?}: {t}");
                 cx.notify();
             }
             _ => {}
@@ -245,6 +288,45 @@ impl Demo {
             .child(btn("find", "Find (Ctrl+F)".into()).on_click(cx.listener(
                 |t, _, window, cx| t.diagram.update(cx, |d, cx| d.open_search(window, cx)),
             )));
+        let (inferred, groups) = {
+            let d = self.diagram.read(cx);
+            (d.show_inferred(), d.color_groups())
+        };
+        bar = bar
+            .child(div().w(px(12.)))
+            .child(
+                btn("inferred", "Inferred".into())
+                    .selected(inferred)
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        t.diagram
+                            .update(cx, |d, cx| d.set_show_inferred(!inferred, cx));
+                        cx.notify();
+                    })),
+            )
+            .child(
+                btn("groups", "Groups".into())
+                    .selected(groups)
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        t.diagram
+                            .update(cx, |d, cx| d.set_color_groups(!groups, cx));
+                        cx.notify();
+                    })),
+            )
+            .child(
+                btn("join", "JOIN path".into()).on_click(cx.listener(|t, _, _, cx| {
+                    let r = t
+                        .diagram
+                        .update(cx, |d, cx| d.join_path(|s| s.to_string(), cx));
+                    t.status = format!("JOIN path: {r:?}");
+                    cx.notify();
+                })),
+            )
+            .child(
+                btn("svg", "SVG".into()).on_click(cx.listener(|t, _, _, cx| t.export(false, cx))),
+            )
+            .child(
+                btn("png", "PNG".into()).on_click(cx.listener(|t, _, _, cx| t.export(true, cx))),
+            );
         if nhidden > 0 {
             bar = bar.child(btn("unhide", format!("Show hidden ({nhidden})")).on_click(
                 cx.listener(|t, _, _, cx| {
@@ -339,6 +421,29 @@ impl Render for Demo {
                     // ER_SEARCH=<text> opens the search with it typed in
                     if let Ok(q) = std::env::var("ER_SEARCH") {
                         diagram.update(cx, |d, cx| d.search_for(&q, w, cx));
+                    }
+                    // ER_SELECT=a,b selects tables; ER_JOIN=1 then runs "JOIN path";
+                    // ER_GROUPS=1 tints by prefix; ER_EXPORT=svg|png saves an export
+                    if let Ok(list) = std::env::var("ER_SELECT") {
+                        let keys: Vec<String> =
+                            list.split(',').map(|t| format!("demo.{t}")).collect();
+                        diagram.update(cx, |d, cx| d.set_selection(&keys, cx));
+                    }
+                    if std::env::var("ER_GROUPS").is_ok() {
+                        diagram.update(cx, |d, cx| d.set_color_groups(true, cx));
+                    }
+                    if std::env::var("ER_JOIN").is_ok() {
+                        me.update(cx, |b, cx| {
+                            let r = b
+                                .diagram
+                                .update(cx, |d, cx| d.join_path(|s| s.to_string(), cx));
+                            b.status = format!("JOIN path: {r:?}");
+                        });
+                    }
+                    match std::env::var("ER_EXPORT").as_deref() {
+                        Ok("svg") => me.update(cx, |b, cx| b.export(false, cx)),
+                        Ok("png") => me.update(cx, |b, cx| b.export(true, cx)),
+                        _ => {}
                     }
                 }
             });
@@ -476,6 +581,16 @@ fn main() {
             reset_zoom: "100%".into(),
             relayout: "Re-layout".into(),
             search: "Find a table".into(),
+            inferred: "inferred, no FK".into(),
+            fk_no_index: "No index starts with this foreign key".into(),
+            columns: "Columns".into(),
+            indexes: "Indexes".into(),
+            rows: "rows".into(),
+            open_data: "Open data".into(),
+            structure: "Structure".into(),
+            select_star: "SELECT *".into(),
+            copy_name: "Copy name".into(),
+            choose_path: "Several JOIN paths of the same length".into(),
         };
         gpui_kit::open_window(opts, cx, move |_, cx| {
             let mut hub = String::new();

@@ -251,6 +251,213 @@ pub fn suggest_on(rels: &[Rel], refs: &[Ref], current: Option<&str>, q: char) ->
     out
 }
 
+/// `customer_id` / `customerId` / `CUSTOMER_ID` -> `customer`.
+fn id_stem(col: &str) -> Option<&str> {
+    let n = col.len();
+    if n > 3 && col[n - 3..].eq_ignore_ascii_case("_id") {
+        return Some(&col[..n - 3]);
+    }
+    // camelCase: ...Id (the "I" upper-case, after a lower-case letter or digit)
+    if n > 2
+        && col.ends_with("Id")
+        && col[..n - 2].ends_with(|c: char| c.is_lowercase() || c.is_ascii_digit())
+    {
+        return Some(&col[..n - 2]);
+    }
+    None
+}
+
+/// Lower-case without `_`: `customerOrder` and `customer_order` compare equal.
+fn flat(s: &str) -> String {
+    s.chars()
+        .filter(|c| *c != '_')
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+
+/// Table names a stem may refer to: itself, `+s`, `+es`, `y` -> `ies`.
+fn table_matches(stem: &str, table: &str) -> bool {
+    let (s, t) = (flat(stem), flat(table));
+    if s.is_empty() {
+        return false;
+    }
+    t == s
+        || t == format!("{s}s")
+        || t == format!("{s}es")
+        || s.strip_suffix('y').is_some_and(|b| t == format!("{b}ies"))
+}
+
+/// Type family for "compatible key types": integers, strings, uuids; any
+/// other type only matches itself. Sizes, `unsigned` and case are ignored.
+fn type_family(t: &str) -> String {
+    let base: String = t
+        .to_lowercase()
+        .split(['(', ' '])
+        .next()
+        .unwrap_or("")
+        .to_string();
+    match base.as_str() {
+        "tinyint" | "smallint" | "mediumint" | "int" | "integer" | "bigint" | "int2" | "int4"
+        | "int8" | "serial" | "bigserial" | "smallserial" | "number" => "int".into(),
+        "char" | "varchar" | "nchar" | "nvarchar" | "varchar2" | "nvarchar2" | "text"
+        | "character" => "text".into(),
+        "uuid" | "uniqueidentifier" => "uuid".into(),
+        _ => base,
+    }
+}
+
+/// Relations a schema seems to have without declaring them: a column named
+/// like `customer_id` / `customerId` whose table part names another table
+/// (`customer`, `customers`, ...) with a one-column primary key of a
+/// compatible type, and that is not already part of a declared key of its
+/// table. `tables` = (table, columns); the result uses the declared keys'
+/// shape (`ForeignKey` with empty names and schema).
+pub fn infer_fks(
+    tables: &[(String, Vec<db_core::ColumnInfo>)],
+    declared: &[ForeignKey],
+) -> Vec<ForeignKey> {
+    // one-column primary keys: table -> (pk name, type family)
+    let pks: Vec<(&str, &str, String)> = tables
+        .iter()
+        .filter_map(|(t, cols)| {
+            let mut pk = cols.iter().filter(|c| c.primary_key);
+            match (pk.next(), pk.next()) {
+                (Some(c), None) => Some((t.as_str(), c.name.as_str(), type_family(&c.type_name))),
+                _ => None,
+            }
+        })
+        .collect();
+    let mut out = Vec::new();
+    for (t, cols) in tables {
+        for c in cols {
+            let Some(stem) = id_stem(&c.name) else {
+                continue;
+            };
+            let covered = declared
+                .iter()
+                .any(|fk| is(&fk.table, t) && fk.columns.iter().any(|x| is(x, &c.name)));
+            if covered {
+                continue;
+            }
+            let fam = type_family(&c.type_name);
+            // prefer an exact name over a plural
+            let mut hits: Vec<&(&str, &str, String)> = pks
+                .iter()
+                .filter(|(rt, _, f)| *f == fam && table_matches(stem, rt))
+                .filter(|(rt, pk, _)| !(is(rt, t) && is(pk, &c.name)))
+                .collect();
+            hits.sort_by_key(|(rt, _, _)| (flat(rt) != flat(stem), rt.len()));
+            if let Some((rt, pk, _)) = hits.first() {
+                out.push(ForeignKey {
+                    name: String::new(),
+                    table: t.clone(),
+                    columns: vec![c.name.clone()],
+                    ref_schema: String::new(),
+                    ref_table: rt.to_string(),
+                    ref_columns: vec![pk.to_string()],
+                });
+            }
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod infer_tests {
+    use super::*;
+    use db_core::ColumnInfo;
+
+    fn c(n: &str, ty: &str, pk: bool) -> ColumnInfo {
+        ColumnInfo {
+            name: n.into(),
+            type_name: ty.into(),
+            nullable: !pk,
+            primary_key: pk,
+        }
+    }
+
+    fn tables() -> Vec<(String, Vec<ColumnInfo>)> {
+        vec![
+            ("customers".into(), vec![c("id", "int(11)", true)]),
+            ("category".into(), vec![c("id", "bigint unsigned", true)]),
+            ("companies".into(), vec![c("code", "varchar(10)", true)]),
+            (
+                "orders".into(),
+                vec![
+                    c("id", "int", true),
+                    c("customer_id", "int", false),
+                    c("categoryId", "int", false),
+                    c("company_id", "int", false), // varchar key: not compatible
+                    c("paid", "tinyint", false),
+                    c("user_id", "int", false), // no users table
+                ],
+            ),
+            (
+                "order_lines".into(),
+                vec![c("orderId", "INT", false), c("id", "int", true)],
+            ),
+        ]
+    }
+
+    #[test]
+    fn names_and_types_make_inferred_keys() {
+        let got = infer_fks(&tables(), &[]);
+        let mut pairs: Vec<(String, String, String, String)> = got
+            .iter()
+            .map(|f| {
+                (
+                    f.table.clone(),
+                    f.columns[0].clone(),
+                    f.ref_table.clone(),
+                    f.ref_columns[0].clone(),
+                )
+            })
+            .collect();
+        pairs.sort();
+        let want = [
+            ("order_lines", "orderId", "orders", "id"),
+            ("orders", "categoryId", "category", "id"),
+            ("orders", "customer_id", "customers", "id"),
+        ];
+        let want: Vec<(String, String, String, String)> = want
+            .iter()
+            .map(|(a, b, c, d)| (a.to_string(), b.to_string(), c.to_string(), d.to_string()))
+            .collect();
+        assert_eq!(pairs, want);
+    }
+
+    #[test]
+    fn declared_keys_are_not_inferred_again() {
+        let declared = [ForeignKey {
+            name: "fk".into(),
+            table: "orders".into(),
+            columns: vec!["customer_id".into()],
+            ref_schema: String::new(),
+            ref_table: "customers".into(),
+            ref_columns: vec!["id".into()],
+        }];
+        let got = infer_fks(&tables(), &declared);
+        assert!(!got.iter().any(|f| f.columns[0] == "customer_id"));
+        assert_eq!(got.len(), 2);
+    }
+
+    #[test]
+    fn stems_and_plurals() {
+        assert_eq!(id_stem("customer_id"), Some("customer"));
+        assert_eq!(id_stem("CUSTOMER_ID"), Some("CUSTOMER"));
+        assert_eq!(id_stem("customerId"), Some("customer"));
+        assert_eq!(id_stem("id"), None);
+        assert_eq!(id_stem("valid"), None);
+        assert_eq!(id_stem("ID"), None);
+        assert!(table_matches("category", "categories"));
+        assert!(table_matches("box", "boxes"));
+        assert!(table_matches("orderLine", "order_lines"));
+        assert!(!table_matches("order", "orderings"));
+        assert_eq!(type_family("BIGINT(20) unsigned"), "int");
+        assert_eq!(type_family("character varying"), "text");
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

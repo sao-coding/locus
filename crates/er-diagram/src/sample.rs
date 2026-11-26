@@ -147,6 +147,7 @@ pub fn generate(n: usize) -> DiagramModel {
                     from_columns: vec![col],
                     to_table: format!("demo.{}", names[t]),
                     to_columns: vec!["id".into()],
+                    ..Default::default()
                 });
             }
         }
@@ -167,7 +168,31 @@ pub fn generate(n: usize) -> DiagramModel {
                 from_columns: vec!["parent_id".into()],
                 to_table: format!("demo.{}", names[i]),
                 to_columns: vec!["id".into()],
+                ..Default::default()
             });
+        }
+        // a few `<table>_id` columns without a declared key: inferred relations
+        for (from, to) in [("audit_log", "users"), ("sessions", "roles")] {
+            if base == from
+                && i < BASES.len()
+                && let Some(t) = BASES.iter().position(|b| *b == to).filter(|&t| t < n)
+            {
+                let col = format!("{}_id", to.trim_end_matches('s'));
+                cols.push(Column {
+                    name: col.clone(),
+                    type_name: "bigint unsigned".into(),
+                    nullable: true,
+                    ..Default::default()
+                });
+                relations.push(Relation {
+                    from_table: format!("demo.{}", names[i]),
+                    from_columns: vec![col],
+                    to_table: format!("demo.{}", names[t]),
+                    to_columns: vec!["id".into()],
+                    inferred: true,
+                    ..Default::default()
+                });
+            }
         }
         let mut indexes = vec![Index {
             name: "PRIMARY".into(),
@@ -196,6 +221,7 @@ pub fn generate(n: usize) -> DiagramModel {
             name: names[i].clone(),
             columns: cols,
             indexes,
+            has_details: true,
             ..Default::default()
         });
     }

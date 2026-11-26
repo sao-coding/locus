@@ -578,6 +578,26 @@ erv3:
   density_header: Headers only
   minimap: Minimap
   view: View
+  show_inferred: Inferred relations (no FK)
+  color_groups: Colour groups
+  inferred_tip: inferred, no FK
+  fk_no_index: No index starts with this foreign key, so lookups and deletes on the parent scan this table
+  fk_no_index_n: "%{n} FK without index"
+  p_columns: Columns
+  p_indexes: Indexes
+  p_rows: rows
+  p_open_data: Open data
+  p_structure: Structure
+  p_select: SELECT * into editor
+  p_copy: Copy name
+  choose_path: Several JOIN paths of the same length
+  join_path_tip: "JOIN path: Shift+click two or more tables, then insert the shortest JOIN between them"
+  join_need_two: Select two or more tables first (Shift+click)
+  join_no_path: No chain of foreign keys connects these tables
+  save_png: Save as PNG…
+  save_svg: Save as SVG…
+  image_saved: "Saved %{path}"
+  image_failed: "Could not save the image: %{msg}"
   edge_style: Line style
   edge_smooth: Smooth lines
   edge_curved: Curved lines

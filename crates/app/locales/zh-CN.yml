@@ -578,6 +578,26 @@ erv3:
   density_header: 只显示表头
   minimap: 小地图
   view: 视图
+  show_inferred: 推测的关联（无外键）
+  color_groups: 颜色分组
+  inferred_tip: 推测，未声明外键
+  fk_no_index: 没有以此外键开头的索引，查询或删除父表时会扫描这张表
+  fk_no_index_n: "%{n} 个外键没有索引"
+  p_columns: 列
+  p_indexes: 索引
+  p_rows: 行
+  p_open_data: 打开数据
+  p_structure: 结构
+  p_select: SELECT * 到编辑器
+  p_copy: 复制名称
+  choose_path: 有多条同样长度的 JOIN 路径
+  join_path_tip: JOIN 路径：Shift+点选两张以上的表，插入它们之间最短的 JOIN
+  join_need_two: 请先选择两张以上的表（Shift+点选）
+  join_no_path: 这些表之间没有外键相连
+  save_png: 另存为 PNG…
+  save_svg: 另存为 SVG…
+  image_saved: "已保存 %{path}"
+  image_failed: "无法保存图片：%{msg}"
   edge_style: 连线样式
   edge_smooth: 圆角折线
   edge_curved: 曲线

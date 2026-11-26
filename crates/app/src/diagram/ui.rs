@@ -98,8 +98,8 @@ impl Locus {
         tools = tools.child(sep());
         tools = self.diagram_zoom_buttons(tools, tab, cx);
         tools = self.diagram_view_buttons(tools, tab, cx);
-        // Export: Mermaid, DDL where the driver can. (No PNG / SVG: the diagram
-        // is painted by GPUI directly and the crate cannot render it to a file.)
+        // Export: Mermaid, DDL where the driver can, PNG / SVG of the diagram
+        // (of the selected tables when some are).
         let weak = tab.downgrade();
         tools = tools.child(
             Button::new("er-export")
@@ -127,7 +127,26 @@ impl Locus {
                             ),
                         );
                     }
-                    menu
+                    let (w3, w4) = (weak.clone(), weak.clone());
+                    menu.separator()
+                        .item(
+                            PopupMenuItem::new(t!("erv3.save_png").to_string()).on_click(
+                                move |_, window, cx| {
+                                    let _ = w3.update(cx, |t, cx| {
+                                        t.export_diagram_image(true, window, cx)
+                                    });
+                                },
+                            ),
+                        )
+                        .item(
+                            PopupMenuItem::new(t!("erv3.save_svg").to_string()).on_click(
+                                move |_, window, cx| {
+                                    let _ = w4.update(cx, |t, cx| {
+                                        t.export_diagram_image(false, window, cx)
+                                    });
+                                },
+                            ),
+                        )
                 }),
         );
         tools = tools.child(sep()).child(
@@ -290,10 +309,23 @@ impl Locus {
         };
         let weak = tab.downgrade();
         let t_mm = tab.clone();
+        let t_join = tab.clone();
         let style = tab.read(cx).diagram_edge_style(cx).unwrap_or_default();
+        let (inferred, groups, _) = tab.read(cx).diagram_insights(cx).unwrap_or_default();
         tools
             .child(
-                // One "View" menu: card detail, then line style.
+                ib(
+                    "er-join-path",
+                    crate::shell::icons::icon("link"),
+                    26.,
+                    false,
+                    cx,
+                )
+                .tooltip(tip(t!("erv3.join_path_tip").into_owned()))
+                .on_click(move |_, _, cx| t_join.update(cx, |t, cx| t.diagram_join_path(cx))),
+            )
+            .child(
+                // One "View" menu: card detail, line style, inferred relations, colour groups.
                 Button::new("er-view")
                     .ghost()
                     .small()
@@ -323,7 +355,23 @@ impl Locus {
                                     }),
                             );
                         }
-                        menu
+                        let (w1, w2) = (weak.clone(), weak.clone());
+                        menu.separator()
+                            .item(
+                                PopupMenuItem::new(t!("erv3.show_inferred").to_string())
+                                    .checked(inferred)
+                                    .on_click(move |_, _, cx| {
+                                        let _ =
+                                            w1.update(cx, |t, cx| t.diagram_toggle_inferred(cx));
+                                    }),
+                            )
+                            .item(
+                                PopupMenuItem::new(t!("erv3.color_groups").to_string())
+                                    .checked(groups)
+                                    .on_click(move |_, _, cx| {
+                                        let _ = w2.update(cx, |t, cx| t.diagram_toggle_groups(cx));
+                                    }),
+                            )
                     }),
             )
             .child(
@@ -390,6 +438,17 @@ impl Locus {
             .child(left)
             .child(div().flex_1())
             .child(counts)
+            .children(
+                tr.diagram_insights(cx)
+                    .map(|i| i.2)
+                    .filter(|n| *n > 0)
+                    .map(|n| {
+                        div()
+                            .flex_none()
+                            .text_color(t.yel_text)
+                            .child(t!("erv3.fk_no_index_n", n = n.to_string()).into_owned())
+                    }),
+            )
             .child(
                 div()
                     .min_w_0()

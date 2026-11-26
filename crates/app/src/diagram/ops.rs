@@ -165,6 +165,19 @@ impl Locus {
     /// this Space's split (one undo step) and focus it; with no query pane,
     /// copy it and say so.
     pub(crate) fn insert_join(&mut self, sql: String, window: &mut Window, cx: &mut Context<Self>) {
+        self.insert_diagram_sql(sql, None, window, cx);
+    }
+
+    /// Diagram SQL (a JOIN path, `SELECT *`): into a query pane of this
+    /// Space's split like `insert_join`; with no query pane, a new query tab
+    /// on `conn` holding it (not run).
+    pub(crate) fn insert_diagram_sql(
+        &mut self,
+        sql: String,
+        conn: Option<String>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let target = self
             .space()
             .panes()
@@ -175,6 +188,19 @@ impl Locus {
                 t.read(cx).diagram.is_none().then_some((ix, t))
             });
         let Some((ix, tab)) = target else {
+            if let Some(conn_id) = conn {
+                let mut data = self.blank_tab(Some(conn_id), cx);
+                data.sql = sql;
+                let tab = self.make_tab(&data, window, cx);
+                let s = self.space_mut();
+                s.tabs.push(tab);
+                s.show_alone(&data.id, cx);
+                self.sync_space_conns(self.active_space, cx);
+                self.focus_editor(window, cx);
+                self.schedule_save(cx);
+                cx.notify();
+                return;
+            }
             cx.write_to_clipboard(ClipboardItem::new_string(sql.clone()));
             crate::shell::toast::show(t!("erv3.join_copied", sql = sql).to_string(), cx);
             return;

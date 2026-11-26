@@ -489,6 +489,7 @@ mod tests {
         let edges: Vec<_> = m
             .relations
             .iter()
+            .filter(|r| !r.inferred)
             .map(|r| (idx[&r.from_table], idx[&r.to_table]))
             .collect();
         (sizes, edges)
@@ -580,7 +581,8 @@ mod tests {
     fn sample_crossings_stay_low() {
         // the previous layout (plain barycentre sweeps, stacked layers) had
         // 56 / 224 / 2671 crossings on these samples
-        for (n, max) in [(30, 30), (60, 164), (200, 2166)] {
+        // (2170 at 200: two cards got a column for the inferred-relation demo)
+        for (n, max) in [(30, 30), (60, 164), (200, 2170)] {
             let (sizes, edges) = inputs(n);
             let c = crossings(&auto_layout(&sizes, &edges), &sizes, &edges);
             assert!(c <= max, "n={n}: {c} crossings, expected at most {max}");

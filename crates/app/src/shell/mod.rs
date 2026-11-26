@@ -598,6 +598,9 @@ impl Locus {
                     cx,
                 ),
                 TabEvent::DiagramJoin { sql } => this.insert_join(sql.clone(), window, cx),
+                TabEvent::DiagramSql { conn_id, sql } => {
+                    this.insert_diagram_sql(sql.clone(), Some(conn_id.clone()), window, cx)
+                }
                 TabEvent::DiagramShowInSchema { table } => {
                     this.show_in_schema(table.clone(), window, cx)
                 }

@@ -50,6 +50,8 @@ impl ErDiagram {
                 info: t.info,
                 line: t.muted_foreground,
                 mono: t.mono_font_family.clone(),
+                tints: [t.blue, t.green, t.yellow, t.magenta, t.cyan, t.red],
+                warn: t.warning,
             }
         };
         let z = self.zoom;
@@ -125,6 +127,8 @@ impl ErDiagram {
             None
         };
         let mut active = false;
+        // a JOIN path shows only itself, not every neighbour of the selection
+        let by_sel = self.path_hl.is_none();
         for ri in 0..nr {
             if !self.rel_vis[ri] {
                 continue;
@@ -132,8 +136,7 @@ impl ErDiagram {
             let r = &self.rels[ri];
             let on = self.sel_rel == Some(ri)
                 || self.hover_rel == Some(ri)
-                || self.sel.contains(&r.from)
-                || self.sel.contains(&r.to)
+                || (by_sel && (self.sel.contains(&r.from) || self.sel.contains(&r.to)))
                 || hover_t == Some(r.from)
                 || hover_t == Some(r.to);
             if on {
@@ -149,6 +152,15 @@ impl ErDiagram {
         }
         if let Some(t) = hover_t {
             self.focus_t[t] = true;
+            active = true;
+        }
+        if let Some((ts, rs)) = &self.path_hl {
+            for &i in ts {
+                self.focus_t[i] = true;
+            }
+            for &ri in rs {
+                self.focus_r[ri] = true;
+            }
             active = true;
         }
         if let Some(s) = &self.search
@@ -308,14 +320,24 @@ impl ErDiagram {
                 if x + w < bx || x > bx + vw || y + h < by || y > by + vh {
                     continue;
                 }
+                let inferred = self.model.relations[rel.model_ix].inferred;
+                let base = if inferred {
+                    pal.line.opacity(0.6)
+                } else {
+                    pal.line
+                };
                 let (col, width) = if pass {
                     (pal.primary, lw * 1.4)
                 } else if self.focus_active {
-                    (pal.line.opacity(0.35), lw)
+                    (base.opacity(base.a * 0.35), lw)
                 } else {
-                    (pal.line, lw)
+                    (base, lw)
                 };
                 let mut pb = PathBuilder::stroke(px(width));
+                if inferred {
+                    // an inferred relation (no declared key) is dashed
+                    pb = pb.dash_array(&[px(5.0 * z), px(4.0 * z)]);
+                }
                 pb.move_to(pt(sx(e.start.0), sy(e.start.1)));
                 for s in &e.segs {
                     match *s {
@@ -334,14 +356,19 @@ impl ErDiagram {
                         .into_iter()
                         .enumerate()
                     {
-                        circles[k] = end_mark(&mut pb, end, (sx(p.0), sy(p.1)), d, z);
+                        let (segs, n, circle) = route::end_mark(end, p, d);
+                        for (a, b) in &segs[..n] {
+                            pb.move_to(pt(sx(a.0), sy(a.1)));
+                            pb.line_to(pt(sx(b.0), sy(b.1)));
+                        }
+                        circles[k] = circle.map(|c| (sx(c.0), sy(c.1)));
                     }
                 }
                 if let Ok(p) = pb.build() {
                     window.paint_path(p, col);
                 }
                 // the circle of an optional end is hollow: background inside
-                let r = 3.5 * z;
+                let r = route::MARK_R * z;
                 for (cx_, cy_) in circles.into_iter().flatten() {
                     window.paint_quad(quad(
                         rc(cx_ - r, cy_ - r, 2.0 * r, 2.0 * r),
@@ -422,7 +449,12 @@ impl ErDiagram {
                         bottom_left: px(0.0),
                     }
                 },
-                pal.header,
+                match self.groups.1.get(i).copied().flatten() {
+                    Some(g) if self.color_groups => pal
+                        .header
+                        .blend(pal.tints[g % pal.tints.len()].opacity(0.24)),
+                    _ => pal.header,
+                },
                 px(0.0),
                 transparent_black(),
                 BorderStyle::Solid,
@@ -635,6 +667,23 @@ impl ErDiagram {
                     );
                 },
             );
+            if self.fk_warn[i][r] {
+                // foreign key without an index: a warning dot on the tag's corner
+                let d = 9.0 * z;
+                window.paint_quad(quad(
+                    rc(
+                        nx + 32.0 * z - d / 2.0,
+                        ry + rh / 2.0 - 7.0 * z - d / 2.0,
+                        d,
+                        d,
+                    ),
+                    px(d / 2.0),
+                    pal.warn,
+                    px(1.5),
+                    pal.card,
+                    BorderStyle::Solid,
+                ));
+            }
         }
     }
 
@@ -692,7 +741,13 @@ impl ErDiagram {
                 let s = (MM_W / ww).min(MM_H / wh);
                 let (iw, ih) = (ww * s, wh * s);
                 let (w, h) = (iw + 2.0 * MM_PAD, ih + 2.0 * MM_PAD);
-                let (x, y) = (f.vw - MM_MARGIN - w, f.vh - MM_MARGIN - h);
+                // left of the detail panel when it is open
+                let right = if self.panel_table().is_some() {
+                    PANEL_W
+                } else {
+                    0.0
+                };
+                let (x, y) = (f.vw - MM_MARGIN - right - w, f.vh - MM_MARGIN - h);
                 MiniMap {
                     x,
                     y,
@@ -760,39 +815,5 @@ impl ErDiagram {
                 ));
             },
         );
-    }
-}
-
-/// Add the end mark of one line end at `p` (screen), the line leaving
-/// towards `d` (+1 right, -1 left). Returns the centre of the circle of an
-/// optional end (painted hollow by the caller).
-fn end_mark(pb: &mut PathBuilder, end: End, p: (f32, f32), d: f32, z: f32) -> Option<(f32, f32)> {
-    let (x, y) = p;
-    let bar = |pb: &mut PathBuilder, at: f32| {
-        pb.move_to(pt(x + d * at * z, y - 6.0 * z));
-        pb.line_to(pt(x + d * at * z, y + 6.0 * z));
-    };
-    match end {
-        End::Many => {
-            let tip = x + d * 12.0 * z;
-            pb.move_to(pt(tip, y));
-            pb.line_to(pt(x, y - 6.5 * z));
-            pb.move_to(pt(tip, y));
-            pb.line_to(pt(x, y + 6.5 * z));
-            None
-        }
-        End::One => {
-            bar(pb, 9.0);
-            None
-        }
-        End::OnlyOne => {
-            bar(pb, 7.0);
-            bar(pb, 12.0);
-            None
-        }
-        End::ZeroOrOne => {
-            bar(pb, 7.0);
-            Some((x + d * 15.0 * z, y))
-        }
     }
 }

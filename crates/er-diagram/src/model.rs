@@ -41,6 +41,10 @@ pub struct TableNode {
     pub indexes: Vec<Index>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub comment: Option<String>,
+    /// Indexes (and comments) are known: set by `apply_detail`. Until then
+    /// no foreign key is reported as lacking an index.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub has_details: bool,
 }
 
 /// What the host can add to a table after the first load (from the driver's
@@ -57,6 +61,7 @@ impl TableNode {
     /// Merge a [`TableDetail`] into the table.
     pub fn apply_detail(&mut self, d: &TableDetail) {
         self.indexes = d.indexes.clone();
+        self.has_details = true;
         self.comment = d.comment.clone().filter(|c| !c.is_empty());
         for (name, def, com) in &d.columns {
             if let Some(c) = self.columns.iter_mut().find(|c| &c.name == name) {
@@ -173,13 +178,16 @@ pub fn table_key(schema: &str, name: &str) -> String {
 
 /// `from_table.from_columns` references `to_table.to_columns`. Tables are
 /// given by [`TableNode::key`]. The "many" end is `from`, the "one" end `to`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Relation {
     pub name: String,
     pub from_table: String,
     pub from_columns: Vec<String>,
     pub to_table: String,
     pub to_columns: Vec<String>,
+    /// Not a declared key: guessed from column and table names (drawn dashed).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub inferred: bool,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -233,6 +241,7 @@ impl DiagramModel {
                     from_columns: fk.columns.clone(),
                     to_table: to,
                     to_columns: fk.ref_columns.clone(),
+                    ..Default::default()
                 })
             })
             .collect();
@@ -356,6 +365,15 @@ pub fn join_clause(fk: &Relation) -> String {
 
 /// Like [`join_clause`], with every table / column name passed through `quote`.
 pub fn join_clause_with(fk: &Relation, quote: impl Fn(&str) -> String) -> String {
+    format!(
+        "JOIN {} ON {}",
+        quote(bare(&fk.to_table)),
+        on_clause(fk, &quote)
+    )
+}
+
+/// `parent.pk = child.fk AND ...` of a key, names passed through `quote`.
+fn on_clause(fk: &Relation, quote: &impl Fn(&str) -> String) -> String {
     let (parent, child) = (quote(bare(&fk.to_table)), quote(bare(&fk.from_table)));
     let conds: Vec<String> = fk
         .to_columns
@@ -363,7 +381,232 @@ pub fn join_clause_with(fk: &Relation, quote: impl Fn(&str) -> String) -> String
         .zip(&fk.from_columns)
         .map(|(p, c)| format!("{parent}.{} = {child}.{}", quote(p), quote(c)))
         .collect();
-    format!("JOIN {parent} ON {}", conds.join(" AND "))
+    conds.join(" AND ")
+}
+
+/// A way to join a set of tables: the tables in join order (the first is
+/// the `FROM` table) and the relation (index into `DiagramModel::relations`)
+/// that brings in each following table.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct JoinPath {
+    pub tables: Vec<String>,
+    pub relations: Vec<usize>,
+}
+
+/// Shortest ways to join `tables` (keys, at least two) through declared
+/// foreign keys, intermediate tables allowed. Each further table is reached
+/// from the tables joined so far by a shortest path; when several paths of
+/// the same length exist, every combination is returned (at most `max`), so
+/// the caller can let the user choose. Empty when some table cannot be
+/// reached or fewer than two tables are given.
+pub fn join_paths(model: &DiagramModel, tables: &[String], max: usize) -> Vec<JoinPath> {
+    use std::collections::HashMap;
+    if tables.len() < 2 || max == 0 {
+        return vec![];
+    }
+    let key_ix: HashMap<String, usize> = model
+        .tables
+        .iter()
+        .enumerate()
+        .map(|(i, t)| (t.key(), i))
+        .collect();
+    let n = model.tables.len();
+    // adjacency: (neighbour, relation)
+    let mut adj: Vec<Vec<(usize, usize)>> = vec![vec![]; n];
+    for (ri, r) in model.relations.iter().enumerate() {
+        if r.inferred {
+            continue;
+        }
+        if let (Some(&a), Some(&b)) = (key_ix.get(&r.from_table), key_ix.get(&r.to_table))
+            && a != b
+        {
+            adj[a].push((b, ri));
+            adj[b].push((a, ri));
+        }
+    }
+    let Some(targets) = tables
+        .iter()
+        .map(|k| key_ix.get(k).copied())
+        .collect::<Option<Vec<usize>>>()
+    else {
+        return vec![];
+    };
+    // partial results: (joined tables in order, relations)
+    let mut partial: Vec<(Vec<usize>, Vec<usize>)> = vec![(vec![targets[0]], vec![])];
+    for &t in &targets[1..] {
+        let mut next = vec![];
+        for (joined, rels) in &partial {
+            if joined.contains(&t) {
+                next.push((joined.clone(), rels.clone()));
+                continue;
+            }
+            // multi-source BFS from the joined set; preds keep every shortest way in
+            let mut dist = vec![usize::MAX; n];
+            let mut preds: Vec<Vec<(usize, usize)>> = vec![vec![]; n];
+            let mut queue = std::collections::VecDeque::new();
+            for &s in joined {
+                dist[s] = 0;
+                queue.push_back(s);
+            }
+            while let Some(u) = queue.pop_front() {
+                if u == t {
+                    continue;
+                }
+                for &(v, ri) in &adj[u] {
+                    if dist[v] == usize::MAX {
+                        dist[v] = dist[u] + 1;
+                        queue.push_back(v);
+                    }
+                    if dist[v] == dist[u] + 1 && !preds[v].contains(&(u, ri)) {
+                        preds[v].push((u, ri));
+                    }
+                }
+            }
+            if dist[t] == usize::MAX {
+                return vec![];
+            }
+            // walk back every shortest way from t to the joined set
+            let mut ways: Vec<Vec<(usize, usize)>> = vec![];
+            let mut stack: Vec<(usize, Vec<(usize, usize)>)> = vec![(t, vec![])];
+            while let Some((v, way)) = stack.pop() {
+                if dist[v] == 0 {
+                    ways.push(way);
+                    continue;
+                }
+                if ways.len() >= max {
+                    break;
+                }
+                for &(u, ri) in &preds[v] {
+                    let mut w = way.clone();
+                    w.push((v, ri));
+                    stack.push((u, w));
+                }
+            }
+            for way in ways {
+                let (mut j, mut r) = (joined.clone(), rels.clone());
+                // `way` runs from t back to the joined set: join in reverse
+                for &(v, ri) in way.iter().rev() {
+                    j.push(v);
+                    r.push(ri);
+                }
+                next.push((j, r));
+            }
+        }
+        next.sort();
+        next.dedup();
+        next.truncate(max);
+        partial = next;
+    }
+    partial
+        .into_iter()
+        .map(|(j, r)| JoinPath {
+            tables: j.iter().map(|&i| model.tables[i].key()).collect(),
+            relations: r,
+        })
+        .collect()
+}
+
+/// `SELECT *\nFROM a\nJOIN b ON ...\nJOIN c ON ...` for a join path; names
+/// passed through `quote` (as [`join_clause_with`]).
+pub fn join_sql(model: &DiagramModel, path: &JoinPath, quote: impl Fn(&str) -> String) -> String {
+    let Some(first) = path.tables.first() else {
+        return String::new();
+    };
+    let mut out = format!("SELECT *\nFROM {}", quote(bare(first)));
+    for (t, &ri) in path.tables[1..].iter().zip(&path.relations) {
+        let r = &model.relations[ri];
+        out.push_str(&format!(
+            "\nJOIN {} ON {}",
+            quote(bare(t)),
+            on_clause(r, &quote)
+        ));
+    }
+    out
+}
+
+/// `a → b → c` for a chooser.
+pub fn join_path_text(path: &JoinPath) -> String {
+    path.tables
+        .iter()
+        .map(|t| bare(t))
+        .collect::<Vec<_>>()
+        .join(" → ")
+}
+
+/// Declared foreign keys (indexes into `relations`) of tables whose indexes
+/// are known, where no index (nor the primary key) starts with the key
+/// columns: lookups from the parent and deletes on it scan the child table.
+pub fn fk_without_index(model: &DiagramModel) -> Vec<usize> {
+    model
+        .relations
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| !r.inferred)
+        .filter(|(_, r)| {
+            model
+                .tables
+                .iter()
+                .find(|t| t.key() == r.from_table)
+                .is_some_and(|t| t.has_details && !t.has_index_on(&r.from_columns))
+        })
+        .map(|(i, _)| i)
+        .collect()
+}
+
+/// Colour groups of `tables`: by schema when there are several, else by the
+/// name prefix before the first `_` that at least two tables share
+/// (`booking_*`, `sys_*`). Returns the group names (sorted) and each
+/// table's group; tables in no group get `None`.
+pub fn color_groups(tables: &[&TableNode]) -> (Vec<String>, Vec<Option<usize>>) {
+    use std::collections::BTreeMap;
+    let schemas: std::collections::BTreeSet<&str> =
+        tables.iter().map(|t| t.schema.as_str()).collect();
+    let label = |t: &TableNode| -> Option<String> {
+        if schemas.len() > 1 {
+            Some(t.schema.clone())
+        } else {
+            t.name
+                .split_once('_')
+                .map(|(p, _)| p.to_lowercase())
+                .filter(|p| !p.is_empty())
+        }
+    };
+    let labels: Vec<Option<String>> = tables.iter().map(|t| label(t)).collect();
+    let mut count: BTreeMap<&str, usize> = BTreeMap::new();
+    for l in labels.iter().flatten() {
+        *count.entry(l.as_str()).or_default() += 1;
+    }
+    let names: Vec<String> = count
+        .iter()
+        .filter(|(_, n)| schemas.len() > 1 || **n >= 2)
+        .map(|(k, _)| k.to_string())
+        .collect();
+    let of = labels
+        .iter()
+        .map(|l| l.as_ref().and_then(|l| names.iter().position(|n| n == l)))
+        .collect();
+    (names, of)
+}
+
+impl DiagramModel {
+    /// Add relations guessed from names (e.g. from `locus_core::joinsug`).
+    /// They are flagged `inferred`; one that duplicates a relation already in
+    /// the model (same table and columns) or names an unknown table is skipped.
+    pub fn add_inferred(&mut self, rels: Vec<Relation>) {
+        let known: std::collections::HashSet<String> =
+            self.tables.iter().map(|t| t.key()).collect();
+        for mut r in rels {
+            let dup = self
+                .relations
+                .iter()
+                .any(|x| x.from_table == r.from_table && x.from_columns == r.from_columns);
+            if dup || !known.contains(&r.from_table) || !known.contains(&r.to_table) {
+                continue;
+            }
+            r.inferred = true;
+            self.relations.push(r);
+        }
+    }
 }
 
 fn mermaid_name(s: &str) -> String {
@@ -386,6 +629,9 @@ pub fn to_mermaid(model: &DiagramModel, tables: &[String]) -> String {
     let mut out = String::from("erDiagram\n");
     let mut linked: std::collections::HashSet<&str> = std::collections::HashSet::new();
     for r in &model.relations {
+        if r.inferred {
+            continue;
+        }
         if set.contains(r.from_table.as_str()) && set.contains(r.to_table.as_str()) {
             linked.insert(&r.from_table);
             linked.insert(&r.to_table);
@@ -535,6 +781,7 @@ mod tests {
             from_columns: vec![format!("{to}_id")],
             to_table: format!("s.{to}"),
             to_columns: vec!["id".into()],
+            ..Default::default()
         };
         DiagramModel {
             tables: ["a", "b", "c", "d", "x", "e"]
@@ -610,6 +857,7 @@ mod tests {
             from_columns: vec!["order_id".into(), "tenant".into()],
             to_table: "s.orders".into(),
             to_columns: vec!["id".into(), "tenant".into()],
+            ..Default::default()
         };
         assert_eq!(
             join_clause(&r),
@@ -651,6 +899,7 @@ mod tests {
             from_columns: cols.iter().map(|s| s.to_string()).collect(),
             to_table: "s.p".into(),
             to_columns: vec!["id".into()],
+            ..Default::default()
         }
     }
 
@@ -800,5 +1049,173 @@ mod tests {
         // older saves without camera fields still load
         let old: DiagramLayout = serde_json::from_str(r#"{"tables":{"s.a":[1,2]}}"#).unwrap();
         assert!(old.zoom.is_none() && old.pan.is_none());
+    }
+
+    /// a <- b <- c, a <- d <- c (two equal ways from a to c), e alone,
+    /// f -> a; table names are bare in `tables`.
+    fn graph() -> DiagramModel {
+        let t = |n: &str| TableNode {
+            schema: "s".into(),
+            name: n.into(),
+            columns: vec![col("id", true, false)],
+            ..Default::default()
+        };
+        let r = |name: &str, f: &str, fc: &str, to: &str| Relation {
+            name: name.into(),
+            from_table: format!("s.{f}"),
+            from_columns: vec![fc.into()],
+            to_table: format!("s.{to}"),
+            to_columns: vec!["id".into()],
+            ..Default::default()
+        };
+        DiagramModel {
+            tables: ["a", "b", "c", "d", "e", "f"]
+                .iter()
+                .map(|n| t(n))
+                .collect(),
+            relations: vec![
+                r("fk_b_a", "b", "a_id", "a"),
+                r("fk_c_b", "c", "b_id", "b"),
+                r("fk_d_a", "d", "a_id", "a"),
+                r("fk_c_d", "c", "d_id", "d"),
+                r("fk_f_a", "f", "a_id", "a"),
+            ],
+        }
+    }
+
+    fn keys_of(p: &JoinPath) -> Vec<&str> {
+        p.tables.iter().map(|t| bare(t)).collect()
+    }
+
+    #[test]
+    fn join_path_direct_and_through_intermediates() {
+        let m = graph();
+        let p = join_paths(&m, &["s.b".into(), "s.a".into()], 8);
+        assert_eq!(p.len(), 1);
+        assert_eq!(keys_of(&p[0]), ["b", "a"]);
+        assert_eq!(p[0].relations, [0]);
+        // f to b goes through a
+        let p = join_paths(&m, &["s.f".into(), "s.b".into()], 8);
+        assert_eq!(p.len(), 1);
+        assert_eq!(keys_of(&p[0]), ["f", "a", "b"]);
+        assert_eq!(join_path_text(&p[0]), "f → a → b");
+        // three tables: the third joins onto what is joined already
+        let p = join_paths(&m, &["s.f".into(), "s.a".into(), "s.d".into()], 8);
+        assert_eq!(p.len(), 1);
+        assert_eq!(keys_of(&p[0]), ["f", "a", "d"]);
+    }
+
+    #[test]
+    fn join_path_lists_ties_and_fails_cleanly() {
+        let m = graph();
+        // a to c: through b or through d
+        let p = join_paths(&m, &["s.a".into(), "s.c".into()], 8);
+        let mut ways: Vec<Vec<&str>> = p.iter().map(keys_of).collect();
+        ways.sort();
+        assert_eq!(ways, [vec!["a", "b", "c"], vec!["a", "d", "c"]]);
+        assert_eq!(join_paths(&m, &["s.a".into(), "s.c".into()], 1).len(), 1);
+        // unreachable, unknown, too few
+        assert!(join_paths(&m, &["s.a".into(), "s.e".into()], 8).is_empty());
+        assert!(join_paths(&m, &["s.a".into(), "s.zz".into()], 8).is_empty());
+        assert!(join_paths(&m, &["s.a".into()], 8).is_empty());
+        // inferred relations are not used
+        let mut m2 = graph();
+        m2.relations.push(Relation {
+            name: String::new(),
+            from_table: "s.e".into(),
+            from_columns: vec!["a_id".into()],
+            to_table: "s.a".into(),
+            to_columns: vec!["id".into()],
+            inferred: true,
+        });
+        assert!(join_paths(&m2, &["s.a".into(), "s.e".into()], 8).is_empty());
+    }
+
+    #[test]
+    fn join_sql_joins_each_table_once_in_either_direction() {
+        let m = graph();
+        let p = &join_paths(&m, &["s.f".into(), "s.b".into()], 8)[0];
+        assert_eq!(
+            join_sql(&m, p, |s| s.to_string()),
+            "SELECT *\nFROM f\nJOIN a ON a.id = f.a_id\nJOIN b ON a.id = b.a_id"
+        );
+        assert_eq!(
+            join_sql(&m, p, |s| format!("`{s}`")),
+            "SELECT *\nFROM `f`\nJOIN `a` ON `a`.`id` = `f`.`a_id`\nJOIN `b` ON `a`.`id` = `b`.`a_id`"
+        );
+    }
+
+    #[test]
+    fn foreign_keys_without_an_index() {
+        let mut m = graph();
+        // nothing known yet: nothing reported
+        assert!(fk_without_index(&m).is_empty());
+        for t in &mut m.tables {
+            t.apply_detail(&TableDetail::default());
+        }
+        // only primary keys: every key column lacks an index
+        assert_eq!(fk_without_index(&m), [0, 1, 2, 3, 4]);
+        m.tables[1].indexes.push(Index {
+            name: "ix".into(),
+            columns: vec!["a_id".into(), "x".into()],
+            ..Default::default()
+        });
+        assert_eq!(
+            fk_without_index(&m),
+            [1, 2, 3, 4],
+            "b.a_id leads an index now"
+        );
+    }
+
+    #[test]
+    fn colour_groups_by_prefix_or_schema() {
+        let t = |s: &str, n: &str| TableNode {
+            schema: s.into(),
+            name: n.into(),
+            ..Default::default()
+        };
+        let one = [
+            t("s", "booking_room"),
+            t("s", "booking_guest"),
+            t("s", "sys_user"),
+            t("s", "sys_role"),
+            t("s", "orders"),
+            t("s", "misc_x"),
+        ];
+        let refs: Vec<&TableNode> = one.iter().collect();
+        let (names, of) = color_groups(&refs);
+        assert_eq!(names, ["booking", "sys"]);
+        assert_eq!(of, [Some(0), Some(0), Some(1), Some(1), None, None]);
+        let two = [t("a", "x"), t("b", "y"), t("a", "z")];
+        let refs: Vec<&TableNode> = two.iter().collect();
+        assert_eq!(
+            color_groups(&refs),
+            (
+                vec!["a".into(), "b".into()],
+                vec![Some(0), Some(1), Some(0)]
+            )
+        );
+    }
+
+    #[test]
+    fn inferred_relations_are_flagged_and_deduplicated() {
+        let mut m = graph();
+        let n = m.relations.len();
+        let r = |f: &str, c: &str, to: &str| Relation {
+            from_table: format!("s.{f}"),
+            from_columns: vec![c.into()],
+            to_table: format!("s.{to}"),
+            to_columns: vec!["id".into()],
+            ..Default::default()
+        };
+        m.add_inferred(vec![
+            r("e", "a_id", "a"),
+            r("b", "a_id", "a"),  // declared already
+            r("e", "q_id", "zz"), // unknown table
+        ]);
+        assert_eq!(m.relations.len(), n + 1);
+        assert!(m.relations[n].inferred);
+        // not in the Mermaid text
+        assert!(!to_mermaid(&m, &tables_in_scope(&m, &Scope::All)).contains(" e : "));
     }
 }
