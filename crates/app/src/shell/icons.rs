@@ -16,6 +16,7 @@ macro_rules! glyphs {
 
 const GLYPHS: &[(&str, &str)] = glyphs![
     "analysis",
+    "space-dot",
     "database",
     "layers",
     "eye",

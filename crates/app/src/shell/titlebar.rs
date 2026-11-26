@@ -39,11 +39,11 @@ impl Locus {
     /// The Space chip: click for the list of Spaces (switch, new, options).
     fn space_chip(&self, col: Hsla, chip_bg: Hsla, cx: &mut Context<Self>) -> impl IntoElement {
         let me = cx.entity().downgrade();
-        let names: Vec<(usize, String)> = self
+        let spaces: Vec<(usize, String, Option<String>, Hsla)> = self
             .spaces
             .iter()
             .enumerate()
-            .map(|(i, s)| (i, s.name.clone()))
+            .map(|(i, s)| (i, s.name.clone(), s.icon.clone(), s.accent(cx)))
             .collect();
         let active = self.active_space;
         let icon = crate::shell::space_popover::space_icon(self.space().icon.as_deref());
@@ -63,10 +63,18 @@ impl Locus {
             .label(self.space().name.clone())
             .tooltip(t!("space.menu").to_string())
             .dropdown_menu(move |mut menu, _, _| {
-                for (i, name) in names.iter().cloned() {
+                for (i, name, key, c) in spaces.iter().cloned() {
                     let me = me.clone();
-                    menu = menu.item(PopupMenuItem::new(name).checked(i == active).on_click(
-                        move |_, window, cx| {
+                    let icon = match crate::shell::space_popover::space_icon(key.as_deref()) {
+                        Some(n) => Icon::new(n),
+                        None => crate::shell::icons::icon("space-dot"),
+                    }
+                    .text_color(c);
+                    menu = menu.item(crate::shell::menu::choice(
+                        name,
+                        icon,
+                        i == active,
+                        move |window, cx| {
                             let _ = me.update(cx, |this, cx| this.switch_space(i, window, cx));
                         },
                     ));
