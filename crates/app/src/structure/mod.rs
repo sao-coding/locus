@@ -48,6 +48,8 @@ pub struct Structure {
     pub section: Section,
     pub data: Load<Arc<TableStructure>>,
     pub ddl: Load<String>,
+    /// Sideways scroll of the structure tables (the name column stays put).
+    pub hscroll: ScrollHandle,
 }
 
 /// The section last chosen per table, so a reopened tab comes back to it (this run only).
@@ -136,6 +138,7 @@ impl Locus {
                 r,
                 data: Load::Loading,
                 ddl: Load::Loading,
+                hscroll: Default::default(),
             })
         });
         let s = self.space_mut();

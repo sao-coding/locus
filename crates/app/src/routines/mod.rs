@@ -1120,6 +1120,7 @@ impl Locus {
                         r,
                         data: crate::structure::Load::Loading,
                         ddl: crate::structure::Load::Loading,
+                        hscroll: Default::default(),
                     })
                 });
                 self.load_structure(tab.clone(), false, window, cx);

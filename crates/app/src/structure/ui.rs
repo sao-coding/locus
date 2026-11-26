@@ -42,43 +42,215 @@ fn cell(text: impl Into<SharedString>, w: Option<f32>, color: Hsla, mono: bool) 
     }
 }
 
-fn head_row(cols: &[(String, Option<f32>)], cx: &App) -> Div {
-    let t = crate::shell::theme::tokens(cx);
-    let mut r = h_flex()
-        .flex_none()
-        .h(px(H_ROW))
-        .items_center()
-        .border_b_1()
-        .border_color(t.ln)
-        .bg(t.hv)
-        .text_size(px(TX_SM))
-        .font_weight(FontWeight::MEDIUM);
-    for (label, w) in cols {
-        r = r.child(cell(label.clone(), *w, t.tx2, false));
+/// Width that fits the header and the longest value (estimated from
+/// character count), capped so one huge value cannot take the whole table.
+fn fit<S: AsRef<str>>(header: &str, vals: impl IntoIterator<Item = S>, max: f32) -> f32 {
+    let w = |s: &str| -> f32 {
+        s.chars()
+            .map(|c| if (c as u32) > 0x2E80 { 12.5 } else { 7.3 })
+            .sum::<f32>()
+    };
+    let longest = vals
+        .into_iter()
+        .map(|s| w(s.as_ref()))
+        .fold(w(header), f32::max);
+    (longest + S3 * 2. + 6.).clamp(44., max)
+}
+
+type Cols = [(String, Option<f32>)];
+
+/// Widths of a structure table: the frozen name column and the narrowest the
+/// rest may get before the table scrolls sideways (fixed columns plus a
+/// readable width for the flexible last one).
+#[derive(Clone)]
+struct Tbl {
+    first_w: f32,
+    rest_min: f32,
+    h: ScrollHandle,
+    ln: Hsla,
+}
+
+impl Tbl {
+    fn new(cols: &Cols, h: ScrollHandle, cx: &App) -> Self {
+        let first_w = cols.first().and_then(|c| c.1).unwrap_or(200.);
+        let rest_min = cols
+            .iter()
+            .skip(1)
+            .map(|(_, w)| w.unwrap_or(120.))
+            .sum::<f32>();
+        Self {
+            first_w,
+            rest_min,
+            h,
+            ln: crate::shell::theme::tokens(cx).ln,
+        }
     }
-    r
+
+    /// The scrolled part of a row, moved left by the sideways offset.
+    fn rest(&self, cells: Vec<Div>) -> Div {
+        div().flex_1().min_w_0().h_full().overflow_hidden().child(
+            h_flex()
+                .relative()
+                .left(self.h.offset().x)
+                .h_full()
+                .w_full()
+                .min_w(px(self.rest_min))
+                .items_center()
+                .children(cells),
+        )
+    }
+
+    fn split<E: ParentElement>(&self, base: E, mut cells: Vec<Div>) -> E {
+        let rest = cells.split_off(1.min(cells.len()));
+        let first = cells.pop().unwrap_or_else(div);
+        base.child(
+            div()
+                .flex_none()
+                .w(px(self.first_w))
+                .h_full()
+                .flex()
+                .items_center()
+                .border_r_1()
+                .border_color(self.ln)
+                .child(first.w_full()),
+        )
+        .child(self.rest(rest))
+    }
+
+    fn head(&self, cols: &Cols, cx: &App) -> AnyElement {
+        let t = crate::shell::theme::tokens(cx);
+        let base = h_flex()
+            .flex_none()
+            .h(px(H_ROW))
+            .items_center()
+            .border_b_1()
+            .border_color(t.ln)
+            .bg(t.hv)
+            .text_size(px(TX_SM))
+            .font_weight(FontWeight::MEDIUM);
+        let cells = cols
+            .iter()
+            .enumerate()
+            .map(|(i, (label, w))| {
+                let w = if i + 1 == cols.len() { None } else { *w };
+                cell(label.clone(), w, t.tx2, false)
+            })
+            .collect();
+        self.split(base, cells).into_any_element()
+    }
+
+    fn row(&self, id: impl Into<ElementId>, cx: &App) -> Row {
+        let t = crate::shell::theme::tokens(cx);
+        Row {
+            base: h_flex()
+                .id(id)
+                .flex_none()
+                .h(px(H_ROW))
+                .items_center()
+                .border_b_1()
+                .border_color(t.ln)
+                .text_size(px(TX_SM))
+                .text_color(t.tx1),
+            cells: Vec::new(),
+            tbl: self.clone(),
+        }
+    }
+
+    /// The framed table: rows scroll up and down inside the frame, and the
+    /// sideways scrollbar sits along its bottom edge, under the scrolled part.
+    fn frame(&self, id: &'static str, rows: Vec<AnyElement>, cx: &App) -> AnyElement {
+        let t = crate::shell::theme::tokens(cx);
+        let h = self.h.clone();
+        let wheel = move |ev: &ScrollEvent, window: &mut Window, _: &mut App| {
+            let d = ev.delta.pixel_delta(px(20.));
+            let dx = if ev.modifiers.shift && d.x == px(0.) {
+                d.y
+            } else {
+                d.x
+            };
+            if dx == px(0.) {
+                return;
+            }
+            let mut o = h.offset();
+            let max = h.max_offset().x;
+            o.x = (o.x + dx).clamp(-max, px(0.));
+            h.set_offset(o);
+            window.refresh();
+        };
+        v_flex()
+            .size_full()
+            .rounded(px(6.))
+            .border_1()
+            .border_color(t.ln)
+            .overflow_hidden()
+            .on_scroll(wheel)
+            .child(
+                div()
+                    .id(id)
+                    .flex_1()
+                    .min_h_0()
+                    .overflow_y_scrollbar()
+                    .child(v_flex().w_full().children(rows)),
+            )
+            .child(
+                h_flex()
+                    .flex_none()
+                    .h(px(10.))
+                    .child(div().flex_none().w(px(self.first_w)))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .h_full()
+                            .relative()
+                            .child(
+                                div()
+                                    .id(SharedString::from(format!("{id}-x")))
+                                    .size_full()
+                                    .overflow_x_scroll()
+                                    .track_scroll(&self.h)
+                                    .child(div().h(px(1.)).w(px(self.rest_min))),
+                            )
+                            .child(div().absolute().inset_0().child(
+                                gpui_kit::component::scroll::Scrollbar::horizontal(&self.h),
+                            )),
+                    ),
+            )
+            .into_any_element()
+    }
 }
 
-fn body_row(id: impl Into<ElementId>, cx: &App) -> Stateful<Div> {
-    let t = crate::shell::theme::tokens(cx);
-    h_flex()
-        .id(id)
-        .flex_none()
-        .h(px(H_ROW))
-        .items_center()
-        .border_b_1()
-        .border_color(t.ln)
-        .text_size(px(TX_SM))
-        .text_color(t.tx1)
+/// A body row being built: cells first, then hover / click like a `div`.
+struct Row {
+    base: Stateful<Div>,
+    cells: Vec<Div>,
+    tbl: Tbl,
 }
 
-fn scroll(id: &'static str, rows: Vec<AnyElement>) -> AnyElement {
-    div()
-        .id(id)
-        .size_full()
-        .overflow_y_scrollbar()
-        .child(v_flex().w_full().children(rows))
-        .into_any_element()
+impl Row {
+    fn child(mut self, c: Div) -> Self {
+        self.cells.push(c);
+        self
+    }
+
+    fn cursor_pointer(mut self) -> Self {
+        self.base = self.base.cursor_pointer();
+        self
+    }
+
+    fn hover(mut self, f: impl FnOnce(StyleRefinement) -> StyleRefinement) -> Self {
+        self.base = self.base.hover(f);
+        self
+    }
+
+    fn on_click(mut self, f: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static) -> Self {
+        self.base = self.base.on_click(f);
+        self
+    }
+
+    fn into_any_element(self) -> AnyElement {
+        self.tbl.split(self.base, self.cells).into_any_element()
+    }
 }
 
 fn flag(on: bool, cx: &App) -> String {
@@ -87,6 +259,13 @@ fn flag(on: bool, cx: &App) -> String {
 }
 
 impl QueryTab {
+    fn hscroll(&self) -> ScrollHandle {
+        self.structure
+            .as_ref()
+            .map(|s| s.hscroll.clone())
+            .unwrap_or_default()
+    }
+
     fn structure_empty(&self, text: String, cx: &App) -> AnyElement {
         crate::query::tab::empty(text, cx)
     }
@@ -124,6 +303,7 @@ impl QueryTab {
                         let _ = weak.update(cx, |tab, cx| {
                             if let Some(s) = tab.structure.as_mut() {
                                 s.section = sec;
+                                s.hscroll.set_offset(point(px(0.), px(0.)));
                                 super::remember_section(&s.r, sec);
                             }
                             cx.notify();
@@ -160,7 +340,11 @@ impl QueryTab {
                     .border_color(t.ln)
                     .child(seg(items, cx)),
             )
-            .child(div().flex_1().min_h_0().child(body))
+            .child(
+                // Same left/right inset as the section switcher above, so the
+                // table lines up with the tabs instead of running past them.
+                div().flex_1().min_h_0().px(px(S5)).py(px(S3)).child(body),
+            )
             .into_any_element()
     }
 
@@ -169,36 +353,56 @@ impl QueryTab {
         if d.columns.is_empty() {
             return self.structure_empty(t!("structure.empty_columns").into_owned(), cx);
         }
-        let cols = [
-            (t!("structure.col_name").into_owned(), Some(200.)),
-            (t!("structure.col_type").into_owned(), Some(180.)),
-            (t!("structure.col_nullable").into_owned(), Some(70.)),
-            (t!("structure.col_default").into_owned(), Some(180.)),
-            (t!("structure.col_pk").into_owned(), Some(50.)),
-            (t!("structure.col_auto").into_owned(), Some(90.)),
-            (t!("structure.col_comment").into_owned(), None),
+        let h = [
+            t!("structure.col_name").into_owned(),
+            t!("structure.col_type").into_owned(),
+            t!("structure.col_nullable").into_owned(),
+            t!("structure.col_default").into_owned(),
+            t!("structure.col_pk").into_owned(),
+            t!("structure.col_auto").into_owned(),
+            t!("structure.col_comment").into_owned(),
         ];
-        let mut rows = vec![head_row(&cols, cx).into_any_element()];
+        let cs = &d.columns;
+        let w = [
+            fit(&h[0], cs.iter().map(|c| c.name.as_str()), 280.),
+            fit(&h[1], cs.iter().map(|c| c.type_name.as_str()), 260.),
+            fit(&h[2], ["✓"], 120.),
+            fit(
+                &h[3],
+                cs.iter().map(|c| c.default.as_deref().unwrap_or("")),
+                280.,
+            ),
+            fit(&h[4], ["✓"], 120.),
+            fit(&h[5], ["✓"], 120.),
+            fit(
+                &h[6],
+                cs.iter().map(|c| c.comment.as_deref().unwrap_or("")),
+                400.,
+            ),
+        ];
+        let cols: Vec<_> = h.into_iter().zip(w.map(Some)).collect();
+        let tb = Tbl::new(&cols, self.hscroll(), cx);
+        let mut rows = vec![tb.head(&cols, cx)];
         for (i, c) in d.columns.iter().enumerate() {
             rows.push(
-                body_row(("st-col", i), cx)
-                    .child(cell(c.name.clone(), Some(200.), t.tx1, false).font_weight(
+                tb.row(("st-col", i), cx)
+                    .child(cell(c.name.clone(), Some(w[0]), t.tx1, false).font_weight(
                         if c.primary_key {
                             FontWeight::SEMIBOLD
                         } else {
                             FontWeight::NORMAL
                         },
                     ))
-                    .child(cell(c.type_name.clone(), Some(180.), t.tx2, true))
-                    .child(cell(flag(c.nullable, cx), Some(70.), t.tx2, false))
+                    .child(cell(c.type_name.clone(), Some(w[1]), t.tx2, true))
+                    .child(cell(flag(c.nullable, cx), Some(w[2]), t.tx2, false))
                     .child(cell(
                         c.default.clone().unwrap_or_default(),
-                        Some(180.),
+                        Some(w[3]),
                         t.tx2,
                         true,
                     ))
-                    .child(cell(flag(c.primary_key, cx), Some(50.), t.tx2, false))
-                    .child(cell(flag(c.auto_increment, cx), Some(90.), t.tx2, false))
+                    .child(cell(flag(c.primary_key, cx), Some(w[4]), t.tx2, false))
+                    .child(cell(flag(c.auto_increment, cx), Some(w[5]), t.tx2, false))
                     .child(cell(
                         c.comment.clone().unwrap_or_default(),
                         None,
@@ -208,7 +412,7 @@ impl QueryTab {
                     .into_any_element(),
             );
         }
-        scroll("st-columns", rows)
+        tb.frame("st-columns", rows, cx)
     }
 
     fn sec_indexes(&self, d: &TableStructure, cx: &App) -> AnyElement {
@@ -216,30 +420,42 @@ impl QueryTab {
         if d.indexes.is_empty() {
             return self.structure_empty(t!("structure.empty_indexes").into_owned(), cx);
         }
-        let cols = [
-            (t!("structure.col_name").into_owned(), Some(240.)),
-            (t!("structure.col_columns").into_owned(), Some(360.)),
-            (t!("structure.col_unique").into_owned(), Some(70.)),
-            (t!("structure.col_pk").into_owned(), Some(50.)),
-            (t!("structure.col_type").into_owned(), None),
+        let h = [
+            t!("structure.col_name").into_owned(),
+            t!("structure.col_columns").into_owned(),
+            t!("structure.col_unique").into_owned(),
+            t!("structure.col_pk").into_owned(),
+            t!("structure.col_type").into_owned(),
         ];
-        let mut rows = vec![head_row(&cols, cx).into_any_element()];
+        let xs = &d.indexes;
+        let w = [
+            fit(&h[0], xs.iter().map(|x| x.name.as_str()), 300.),
+            fit(&h[1], xs.iter().map(|x| x.columns.join(", ")), 400.),
+            fit(&h[2], ["✓"], 120.),
+            fit(&h[3], ["✓"], 120.),
+            fit(&h[4], xs.iter().map(|x| x.kind.as_str()), 200.),
+        ];
+        let cols: Vec<_> = h.into_iter().zip(w.map(Some)).collect();
+        let tb = Tbl::new(&cols, self.hscroll(), cx);
+        let mut rows = vec![tb.head(&cols, cx)];
         for (i, x) in d.indexes.iter().enumerate() {
             rows.push(
-                body_row(("st-idx", i), cx)
-                    .child(cell(x.name.clone(), Some(240.), t.tx1, false))
-                    .child(cell(x.columns.join(", "), Some(360.), t.tx2, true))
-                    .child(cell(flag(x.unique, cx), Some(70.), t.tx2, false))
-                    .child(cell(flag(x.primary, cx), Some(50.), t.tx2, false))
+                tb.row(("st-idx", i), cx)
+                    .child(cell(x.name.clone(), Some(w[0]), t.tx1, false))
+                    .child(cell(x.columns.join(", "), Some(w[1]), t.tx2, true))
+                    .child(cell(flag(x.unique, cx), Some(w[2]), t.tx2, false))
+                    .child(cell(flag(x.primary, cx), Some(w[3]), t.tx2, false))
                     .child(cell(x.kind.clone(), None, t.tx3, false))
                     .into_any_element(),
             );
         }
-        scroll("st-indexes", rows)
+        tb.frame("st-indexes", rows, cx)
     }
 
     fn fk_rows(
         &self,
+        tb: &Tbl,
+        w: [f32; 5],
         list: &[StructForeignKey],
         incoming: bool,
         base: usize,
@@ -275,13 +491,13 @@ impl QueryTab {
                     )
                 };
                 let conn = conn_id.clone();
-                body_row(("st-fk", base + i), cx)
+                tb.row(("st-fk", base + i), cx)
                     .cursor_pointer()
                     .hover(|h| h.bg(t.hv))
-                    .child(cell(k.name.clone(), Some(220.), t.tx1, false))
-                    .child(cell(local, Some(320.), t.tx2, true))
-                    .child(cell(remote, Some(320.), t.acc_text, true))
-                    .child(cell(k.on_delete.clone(), Some(110.), t.tx2, false))
+                    .child(cell(k.name.clone(), Some(w[0]), t.tx1, false))
+                    .child(cell(local, Some(w[1]), t.tx2, true))
+                    .child(cell(remote, Some(w[2]), t.acc_text, true))
+                    .child(cell(k.on_delete.clone(), Some(w[3]), t.tx2, false))
                     .child(cell(k.on_update.clone(), None, t.tx2, false))
                     .on_click(cx.listener(move |_, _, _, cx| {
                         cx.emit(TabEvent::ShowStructure {
@@ -300,13 +516,38 @@ impl QueryTab {
         if d.foreign_keys.is_empty() && d.referenced_by.is_empty() {
             return self.structure_empty(t!("structure.empty_fks").into_owned(), cx);
         }
-        let cols = [
-            (t!("structure.col_name").into_owned(), Some(220.)),
-            (t!("structure.col_columns").into_owned(), Some(320.)),
-            (t!("structure.col_references").into_owned(), Some(320.)),
-            (t!("structure.col_on_delete").into_owned(), Some(110.)),
-            (t!("structure.col_on_update").into_owned(), None),
+        let h = [
+            t!("structure.col_name").into_owned(),
+            t!("structure.col_columns").into_owned(),
+            t!("structure.col_references").into_owned(),
+            t!("structure.col_on_delete").into_owned(),
+            t!("structure.col_on_update").into_owned(),
         ];
+        // Both lists share the columns, so fit them to either end's text.
+        let all = || d.foreign_keys.iter().chain(d.referenced_by.iter());
+        let ends = |k: &StructForeignKey| {
+            [
+                k.columns.join(", "),
+                format!("{}.{}({})", k.schema, k.table, k.columns.join(", ")),
+                k.ref_columns.join(", "),
+                format!(
+                    "{}.{}({})",
+                    k.ref_schema,
+                    k.ref_table,
+                    k.ref_columns.join(", ")
+                ),
+            ]
+        };
+        let end_w = fit(&t!("structure.col_from"), all().flat_map(ends), 420.);
+        let w = [
+            fit(&h[0], all().map(|k| k.name.as_str()), 300.),
+            end_w,
+            end_w,
+            fit(&h[3], all().map(|k| k.on_delete.as_str()), 160.),
+            fit(&h[4], all().map(|k| k.on_update.as_str()), 160.),
+        ];
+        let cols: Vec<_> = h.into_iter().zip(w.map(Some)).collect();
+        let tb = Tbl::new(&cols, self.hscroll(), cx);
         let title = |text: String| {
             div()
                 .flex_none()
@@ -330,8 +571,8 @@ impl QueryTab {
             )
             .into_any_element(),
         );
-        rows.push(head_row(&cols, cx).into_any_element());
-        rows.extend(self.fk_rows(&d.foreign_keys, false, 0, cx));
+        rows.push(tb.head(&cols, cx));
+        rows.extend(self.fk_rows(&tb, w, &d.foreign_keys, false, 0, cx));
         rows.push(
             title(
                 t!(
@@ -345,9 +586,9 @@ impl QueryTab {
         let mut incoming_cols = cols.clone();
         incoming_cols[1].0 = t!("structure.col_from").into_owned();
         incoming_cols[2].0 = t!("structure.col_columns").into_owned();
-        rows.push(head_row(&incoming_cols, cx).into_any_element());
-        rows.extend(self.fk_rows(&d.referenced_by, true, 10_000, cx));
-        scroll("st-fks", rows)
+        rows.push(tb.head(&incoming_cols, cx));
+        rows.extend(self.fk_rows(&tb, w, &d.referenced_by, true, 10_000, cx));
+        tb.frame("st-fks", rows, cx)
     }
 
     fn sec_triggers(&self, d: &TableStructure, cx: &mut Context<Self>) -> AnyElement {
@@ -358,18 +599,29 @@ impl QueryTab {
         let Some(r) = self.structure.as_ref().map(|s| s.r.clone()) else {
             return div().into_any_element();
         };
-        let cols = [
-            (t!("structure.col_name").into_owned(), Some(300.)),
-            (t!("structure.col_event").into_owned(), None),
+        let h = [
+            t!("structure.col_name").into_owned(),
+            t!("structure.col_event").into_owned(),
         ];
-        let mut rows = vec![head_row(&cols, cx).into_any_element()];
+        let xs = &d.triggers;
+        let w = [
+            fit(&h[0], xs.iter().map(|x| x.name.as_str()), 320.),
+            fit(
+                &h[1],
+                xs.iter().map(|x| x.detail.as_deref().unwrap_or("")),
+                400.,
+            ),
+        ];
+        let cols: Vec<_> = h.into_iter().zip(w.map(Some)).collect();
+        let tb = Tbl::new(&cols, self.hscroll(), cx);
+        let mut rows = vec![tb.head(&cols, cx)];
         for (i, x) in d.triggers.iter().enumerate() {
             let (conn, schema, name) = (r.conn_id.clone(), r.schema.clone(), x.name.clone());
             rows.push(
-                body_row(("st-trg", i), cx)
+                tb.row(("st-trg", i), cx)
                     .cursor_pointer()
                     .hover(|h| h.bg(t.hv))
-                    .child(cell(x.name.clone(), Some(300.), t.acc_text, false))
+                    .child(cell(x.name.clone(), Some(w[0]), t.acc_text, false))
                     .child(cell(
                         x.detail.clone().unwrap_or_default(),
                         None,
@@ -386,7 +638,7 @@ impl QueryTab {
                     .into_any_element(),
             );
         }
-        scroll("st-triggers", rows)
+        tb.frame("st-triggers", rows, cx)
     }
 
     fn sec_checks(&self, d: &TableStructure, cx: &App) -> AnyElement {
@@ -394,20 +646,27 @@ impl QueryTab {
         if d.checks.is_empty() {
             return self.structure_empty(t!("structure.empty_checks").into_owned(), cx);
         }
-        let cols = [
-            (t!("structure.col_name").into_owned(), Some(260.)),
-            (t!("structure.col_expression").into_owned(), None),
+        let h = [
+            t!("structure.col_name").into_owned(),
+            t!("structure.col_expression").into_owned(),
         ];
-        let mut rows = vec![head_row(&cols, cx).into_any_element()];
+        let xs = &d.checks;
+        let w = [
+            fit(&h[0], xs.iter().map(|x| x.name.as_str()), 320.),
+            fit(&h[1], xs.iter().map(|x| x.expression.as_str()), 400.),
+        ];
+        let cols: Vec<_> = h.into_iter().zip(w.map(Some)).collect();
+        let tb = Tbl::new(&cols, self.hscroll(), cx);
+        let mut rows = vec![tb.head(&cols, cx)];
         for (i, x) in d.checks.iter().enumerate() {
             rows.push(
-                body_row(("st-chk", i), cx)
-                    .child(cell(x.name.clone(), Some(260.), t.tx1, false))
+                tb.row(("st-chk", i), cx)
+                    .child(cell(x.name.clone(), Some(w[0]), t.tx1, false))
                     .child(cell(x.expression.clone(), None, t.tx2, true))
                     .into_any_element(),
             );
         }
-        scroll("st-checks", rows)
+        tb.frame("st-checks", rows, cx)
     }
 
     fn render_ddl(&self, _d: &TableStructure, cx: &mut Context<Self>) -> AnyElement {
@@ -423,39 +682,40 @@ impl QueryTab {
             Load::Ready(text) => {
                 let text = text.clone();
                 let editor = self.editor.read(cx).state.clone();
-                v_flex()
+                // Copy sits as an icon in the top-right corner of the code, like
+                // a code block, clear of the vertical scrollbar.
+                div()
                     .size_full()
+                    .relative()
+                    .group("st-ddl")
+                    .rounded(px(6.))
+                    .border_1()
+                    .border_color(t.ln)
+                    .overflow_hidden()
+                    .child(Editor::new(&editor).bordered(false).h_full())
                     .child(
-                        h_flex()
-                            .flex_none()
-                            .px(px(S5))
-                            .py(px(S2))
-                            .gap(px(S4))
-                            .items_center()
-                            .border_b_1()
-                            .border_color(t.ln)
-                            .child(div().flex_1())
-                            .child(
-                                Button::new("st-copy-ddl")
-                                    .ghost()
-                                    .xsmall()
-                                    .label(t!("structure.copy_ddl").to_string())
-                                    .on_click(move |_, _, cx| {
-                                        cx.write_to_clipboard(ClipboardItem::new_string(
-                                            text.clone(),
-                                        ));
-                                        crate::shell::toast::show(
-                                            t!("structure.copied").to_string(),
-                                            cx,
-                                        );
-                                    }),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_h_0()
-                            .child(Editor::new(&editor).bordered(false).h_full()),
+                        crate::shell::style::ib(
+                            "st-copy-ddl",
+                            crate::shell::icons::icon("copy"),
+                            H_CONTROL,
+                            false,
+                            cx,
+                        )
+                        .absolute()
+                        .top(px(S3))
+                        .invisible()
+                        .group_hover("st-ddl", |s| s.visible())
+                        .right(px(S6))
+                        .border_1()
+                        .border_color(t.ln)
+                        .bg(cx.theme().background)
+                        .tooltip(crate::shell::style::tip(
+                            t!("structure.copy_ddl").into_owned(),
+                        ))
+                        .on_click(move |_, _, cx| {
+                            cx.write_to_clipboard(ClipboardItem::new_string(text.clone()));
+                            crate::shell::toast::show(t!("structure.copied").to_string(), cx);
+                        }),
                     )
                     .into_any_element()
             }
