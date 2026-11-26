@@ -62,17 +62,18 @@ impl Locus {
             .font_weight(FontWeight::MEDIUM)
             .label(self.space().name.clone())
             .tooltip(t!("space.menu").to_string())
-            .dropdown_menu(move |mut menu, _, _| {
+            .dropdown_menu(move |mut menu, _, cx| {
+                use crate::shell::menu::Lead;
+                let t = crate::shell::theme::tokens(cx);
                 for (i, name, key, c) in spaces.iter().cloned() {
                     let me = me.clone();
-                    let icon = match crate::shell::space_popover::space_icon(key.as_deref()) {
-                        Some(n) => Icon::new(n),
-                        None => crate::shell::icons::icon("space-dot"),
-                    }
-                    .text_color(c);
+                    let lead = match crate::shell::space_popover::space_icon(key.as_deref()) {
+                        Some(n) => Lead::Icon(Icon::new(n), c),
+                        None => Lead::Dot(c),
+                    };
                     menu = menu.item(crate::shell::menu::choice(
                         name,
-                        icon,
+                        lead,
                         i == active,
                         move |window, cx| {
                             let _ = me.update(cx, |this, cx| this.switch_space(i, window, cx));
@@ -81,16 +82,16 @@ impl Locus {
                 }
                 let (m1, m2) = (me.clone(), me.clone());
                 menu.separator()
-                    .item(crate::shell::menu::item(
+                    .item(crate::shell::menu::lead_item(
                         t!("space.new").into_owned(),
-                        Some("plus"),
+                        Lead::Icon(crate::shell::icons::icon("plus"), t.tx2),
                         move |window, cx| {
                             let _ = m1.update(cx, |this, cx| this.new_space(window, cx));
                         },
                     ))
-                    .item(crate::shell::menu::item(
+                    .item(crate::shell::menu::lead_item(
                         t!("space.menu").into_owned(),
-                        Some("gear"),
+                        Lead::Icon(crate::shell::icons::icon("gear"), t.tx2),
                         move |window, cx| {
                             let at = window.mouse_position();
                             let _ = m2.update(cx, |this, cx| {
