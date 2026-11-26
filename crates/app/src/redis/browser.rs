@@ -3,7 +3,6 @@
 //! `DBSIZE`, DB switch, multi-select bulk delete, "+ key", context menus.
 use super::*;
 use crate::shell::menu;
-use crate::shell::seg::{SegItem, seg};
 use gpui_kit::component::Disableable as _;
 use locus_core::redis::{self as core, KeyTree, TreeRow};
 use std::collections::{HashMap, HashSet};
@@ -651,27 +650,37 @@ impl Browser {
                 }
             });
         let ty = self.ty;
-        let types = seg(
-            TYPES
-                .iter()
-                .map(|v| {
-                    let v: &'static str = v;
-                    let l = cx.listener(move |this, _: &ClickEvent, _, cx| this.set_type(v, cx));
-                    let label = if v.is_empty() {
-                        t!("redis.type_all").into_owned()
-                    } else {
-                        core::type_badge(v).to_string()
-                    };
-                    SegItem::new(
-                        format!("redis-type-{v}"),
-                        label,
-                        ty == v,
-                        Rc::new(move |e, w, cx| l(e, w, cx)),
-                    )
-                })
-                .collect(),
-            cx,
-        );
+        // Tag-style chips that wrap as a row: one rounded outline each, the active one filled.
+        let types = h_flex()
+            .flex_wrap()
+            .gap(px(S3))
+            .children(TYPES.iter().map(|v| {
+                let v: &'static str = v;
+                let on = ty == v;
+                let label = if v.is_empty() {
+                    t!("redis.type_all").into_owned()
+                } else {
+                    core::type_badge(v).to_string()
+                };
+                div()
+                    .id(format!("redis-type-{v}"))
+                    .flex_none()
+                    .h(px(22.))
+                    .px(px(S4))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(px(R_SM))
+                    .border_1()
+                    .border_color(if on { t.tx4 } else { t.ln })
+                    .cursor_pointer()
+                    .text_size(px(TX_XS))
+                    .text_color(if on { t.tx } else { t.tx2 })
+                    .when(on, |d| d.bg(t.on).font_weight(FontWeight::MEDIUM))
+                    .hover(|d| d.bg(t.hv))
+                    .child(label)
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| this.set_type(v, cx)))
+            }));
         let list_mode = self.list_mode;
         v_flex()
             .flex_none()
