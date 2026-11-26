@@ -6,6 +6,8 @@ use crate::query::tab::{Message, ResultTab};
 pub struct RunOutput {
     pub results: Vec<ResultTab>,
     pub messages: Vec<Message>,
+    /// `@echo` lines of the run, shown first in Messages.
+    pub echoes: Vec<String>,
     /// Index into `results`; `results.len()` = the Messages tab.
     pub active: usize,
     pub(crate) rows_total: u64,

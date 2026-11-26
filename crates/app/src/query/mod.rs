@@ -19,3 +19,4 @@ pub mod tab;
 pub mod tools;
 pub mod txn;
 pub mod txn_slots;
+pub mod vars_view;

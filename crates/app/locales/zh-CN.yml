@@ -645,6 +645,16 @@ sp:
   d_idle: 分页查询会占用服务器游标，空闲这么久后释放。
   d_auto_plan: 单条 SELECT 执行完后，在后台跑普通 EXPLAIN（不会用 ANALYZE），执行计划标签页就会有内容。仅限 MySQL 与 PostgreSQL。
   d_count: 在后台统计分页 SELECT 的总行数，显示“共 N 行”。
+  param_enabled: "查询参数"
+  d_param_enabled: "执行含参数（:name、? 等）的语句前先询问值。关闭：语句按原样发送。"
+  param_colon: "参数前缀  :name"
+  d_param_colon: "冒号后接名称（如 :id）视为参数。"
+  param_at: "参数前缀  @name"
+  d_param_at: "也将 @name 视为参数。MySQL / MariaDB 与 SQL Server：同一脚本用 SET @x =、@x :=、INTO @x、DECLARE @x 设置或声明的 @name 仍是会话变量。PostgreSQL：只有 @ 后面紧接名称才算，运算符“@ x”不算。Oracle：行首的 @文件 是脚本调用。SQLite 始终把 @name 视为参数。"
+  param_dollar: "参数前缀  $name"
+  d_param_dollar: "也将 $name 视为参数。PostgreSQL 的 $1 与 $tag$ 引号保持原意。SQLite 始终把 $name 视为参数。"
+  param_anon: "匿名参数  ?"
+  d_param_anon: "? 视为参数（MySQL、SQLite、SQL Server）。PostgreSQL 的 ? 是运算符，不算参数。"
   no_match: "没有匹配“%{q}”的设置"
   k_space: 切换空间
   k_copy: 复制选中的单元格
@@ -1107,7 +1117,10 @@ act:
   oracle_type: "请输入 %{name} 以确认。会话会立刻在服务器上结束。"
 qp:
   title: 查询参数
-  hint: "参数值以绑定参数发送，不会拼进 SQL 文本。按 Enter 执行。"
+  hint: "参数值以绑定值发送，不会拼进 SQL 文本。"
+  hint_vars: "变量 ${name} 会以文本拼进 SQL，并保留在此标签页。按 Enter 执行，按 Esc 取消。"
+  kind_var: 变量
+  kind_param: 参数
   run: 执行
   one_statement: 参数一次只能搭配一条语句。请选中单条语句后再执行。
   type_tip: "点击切换类型：文本、数字、日期、NULL"
@@ -1313,3 +1326,15 @@ upd:
   not_ready: "更新尚未下载完成。"
   cannot_write: "Locus 无法在这个文件夹中替换自己（%{msg}）。请从发布页面下载新版本。"
   updated: "已更新到 Locus %{v}。"
+vars:
+  act_show: "显示变量"
+  title: "变量"
+  hint: "变量是文本：语句中的 ${name} 会在检查与执行前换成其值。用 @set name = value 定义。"
+  empty: "尚无变量。在编辑器写下 @set name = value 并执行。"
+  new_name: "新名称"
+  new_value: "值"
+  delete: "删除变量"
+  add: "添加变量"
+  bad_name: "变量名只能含字母、数字与 _。"
+  bad_command: "不是有效的命令：%{line}"
+  done: "变量：此标签页已定义 %{n} 个。"

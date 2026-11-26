@@ -1,9 +1,10 @@
 //! Query parameters: finding the placeholders of a statement per engine and
 //! turning a statement plus typed values into `?` SQL plus bound values.
 //! Values are never spliced into the text, so the Production classifier and
-//! the audit still see the statement the user wrote.
+//! the audit still see the statement the user wrote. (Client-side variables,
+//! `${name}`, are the opposite: text substitution, see `vars`.)
 //!
-//! Placeholder styles by engine:
+//! Placeholder styles by engine (default settings):
 //!
 //! | Engine | Detected |
 //! |---|---|
@@ -13,7 +14,10 @@
 //! | SQLite | `?`, `?NNN`, `:name`, `@name`, `$name` |
 //! | SQL Server | `?`, `:name` (`@name` is a T-SQL variable, not a parameter) |
 //!
-//! `@name` is a user variable on MySQL, so it is only a parameter on SQLite.
+//! `ParamOpts` (Settings › Queries) switches `:name`, `?`, and, on the engines
+//! where they are not native, `@name` and `$name` on or off, like DBeaver's
+//! "Named parameter prefix". `@name` stays an engine variable where the script
+//! assigns it itself (see `detect_with`).
 //! Strings, quoted identifiers, comments, dollar quotes, `::` casts and `:=`
 //! assignments never count. A `:` right after a word character (`a[1:n]`,
 //! `12:30`) is not a placeholder either.
@@ -74,9 +78,92 @@ fn word(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
 }
 
-/// Placeholders of `sql` in order of appearance.
+/// Which placeholder styles count (Settings › Queries). The default is what
+/// Locus always did: `:name` and anonymous `?`, plus each engine's own styles
+/// (`$1` on PostgreSQL, `&name` on Oracle, `@name` / `$name` on SQLite).
+///
+/// `at` and `dollar` add `@name` / `$name` on the other engines, like
+/// DBeaver's "Named parameter prefix" setting. A variable of the engine itself
+/// stays untouched; see `detect_with`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ParamOpts {
+    /// Master switch: off, nothing is a parameter.
+    pub enabled: bool,
+    /// `:name`.
+    pub colon: bool,
+    /// `@name` on engines where it is not native.
+    pub at: bool,
+    /// `$name` on engines where it is not native.
+    pub dollar: bool,
+    /// Anonymous `?` (where the engine has it).
+    pub anon: bool,
+}
+
+impl Default for ParamOpts {
+    fn default() -> Self {
+        ParamOpts {
+            enabled: true,
+            colon: true,
+            at: false,
+            dollar: false,
+            anon: true,
+        }
+    }
+}
+
+/// Placeholders of `sql` in order of appearance, with the default options.
 pub fn detect(sql: &str, kind: DbKind) -> Vec<Placeholder> {
-    if matches!(kind, DbKind::Redis) {
+    detect_with(sql, kind, &ParamOpts::default())
+}
+
+/// If a quoted run, identifier or comment starts at `i`, the index after it.
+fn skip_region(sql: &str, i: usize, kind: DbKind) -> Option<usize> {
+    let b = sql.as_bytes();
+    let mysql = kind == DbKind::Mysql;
+    let line_end = |from: usize| {
+        b[from..]
+            .iter()
+            .position(|x| *x == b'\n')
+            .map_or(b.len(), |p| from + p + 1)
+    };
+    Some(match b[i] {
+        b'\'' => skip_quoted(b, i, b'\'', mysql),
+        b'"' => skip_quoted(b, i, b'"', mysql),
+        b'`' if mysql || kind == DbKind::Sqlite => skip_quoted(b, i, b'`', false),
+        b'[' if matches!(kind, DbKind::Sqlite | DbKind::SqlServer) => b[i..]
+            .iter()
+            .position(|x| *x == b']')
+            .map_or(b.len(), |p| i + p + 1),
+        b'-' if b.get(i + 1) == Some(&b'-')
+            && (!mysql || b.get(i + 2).is_none_or(|x| x.is_ascii_whitespace())) =>
+        {
+            line_end(i)
+        }
+        b'#' if mysql => line_end(i),
+        b'/' if b.get(i + 1) == Some(&b'*') => {
+            sql[i + 2..].find("*/").map_or(b.len(), |p| i + 2 + p + 2)
+        }
+        b'q' | b'Q'
+            if kind == DbKind::Oracle && b.get(i + 1) == Some(&b'\'') && !prev_word(sql, i) =>
+        {
+            skip_q_quote(sql, i)
+        }
+        _ => return None,
+    })
+}
+
+/// Placeholders of `sql` in order of appearance.
+///
+/// `@name` outside SQLite (only with `opts.at`):
+/// - MySQL / MariaDB and SQL Server: a name that the script itself assigns or
+///   declares (`SET @n =`, `@n :=`, `SELECT .. INTO @n`, `DECLARE @n`,
+///   `SELECT @n = ..`) is a session / T-SQL variable and stays untouched;
+///   `@@system` variables never count.
+/// - PostgreSQL: `@` is an operator (`@>`, `@@`, `@ x`); only `@` directly
+///   followed by an identifier character counts.
+/// - Oracle: `@file` at the start of a line is a SQL*Plus script call.
+pub fn detect_with(sql: &str, kind: DbKind, opts: &ParamOpts) -> Vec<Placeholder> {
+    if !opts.enabled || matches!(kind, DbKind::Redis) {
         return Vec::new();
     }
     if kind == DbKind::Oracle && is_plsql(sql) {
@@ -87,6 +174,12 @@ pub fn detect(sql: &str, kind: DbKind) -> Vec<Placeholder> {
     let mut qmarks = 0;
     let mut i = 0;
     let mysql = kind == DbKind::Mysql;
+    let sqlite = kind == DbKind::Sqlite;
+    let own_vars = if opts.at && matches!(kind, DbKind::Mysql | DbKind::SqlServer) {
+        script_vars(sql, kind)
+    } else {
+        Default::default()
+    };
     let push = |out: &mut Vec<Placeholder>, name: &str, r: Range<usize>| {
         out.push(Placeholder {
             name: name.to_string(),
@@ -94,38 +187,11 @@ pub fn detect(sql: &str, kind: DbKind) -> Vec<Placeholder> {
         })
     };
     while i < b.len() {
+        if let Some(next) = skip_region(sql, i, kind) {
+            i = next;
+            continue;
+        }
         match b[i] {
-            b'\'' => i = skip_quoted(b, i, b'\'', mysql),
-            b'"' => i = skip_quoted(b, i, b'"', mysql),
-            b'`' if mysql || kind == DbKind::Sqlite => i = skip_quoted(b, i, b'`', false),
-            b'[' if matches!(kind, DbKind::Sqlite | DbKind::SqlServer) => {
-                i = b[i..]
-                    .iter()
-                    .position(|x| *x == b']')
-                    .map_or(b.len(), |p| i + p + 1)
-            }
-            b'-' if b.get(i + 1) == Some(&b'-')
-                && (!mysql || b.get(i + 2).is_none_or(|x| x.is_ascii_whitespace())) =>
-            {
-                i = b[i..]
-                    .iter()
-                    .position(|x| *x == b'\n')
-                    .map_or(b.len(), |p| i + p + 1)
-            }
-            b'#' if mysql => {
-                i = b[i..]
-                    .iter()
-                    .position(|x| *x == b'\n')
-                    .map_or(b.len(), |p| i + p + 1)
-            }
-            b'/' if b.get(i + 1) == Some(&b'*') => {
-                i = sql[i + 2..].find("*/").map_or(b.len(), |p| i + 2 + p + 2)
-            }
-            b'q' | b'Q'
-                if kind == DbKind::Oracle && b.get(i + 1) == Some(&b'\'') && !prev_word(sql, i) =>
-            {
-                i = skip_q_quote(sql, i)
-            }
             b'$' if kind == DbKind::Postgres => {
                 // `$1` parameter, or a dollar quote `$tag$ ... $tag$`.
                 let mut j = i + 1;
@@ -146,11 +212,14 @@ pub fn detect(sql: &str, kind: DbKind) -> Vec<Placeholder> {
                     i = sql[j + 1..]
                         .find(tag)
                         .map_or(b.len(), |p| j + 1 + p + tag.len());
+                } else if opts.dollar && j > i + 1 && !prev_word(sql, i) {
+                    push(&mut out, &sql[i + 1..j], i..j);
+                    i = j;
                 } else {
                     i += 1;
                 }
             }
-            b'$' | b'@' if kind == DbKind::Sqlite => {
+            b'$' if sqlite || opts.dollar => {
                 let n = name_len(&sql[i + 1..]);
                 if n > 0 && !prev_word(sql, i) {
                     push(&mut out, &sql[i + 1..i + 1 + n], i..i + 1 + n);
@@ -159,9 +228,30 @@ pub fn detect(sql: &str, kind: DbKind) -> Vec<Placeholder> {
                     i += 1;
                 }
             }
-            b'?' if mysql || matches!(kind, DbKind::Sqlite | DbKind::SqlServer) => {
+            b'@' if sqlite || opts.at => {
+                if b.get(i + 1) == Some(&b'@') {
+                    i += 2; // `@@system` variable, `@@` operator
+                    continue;
+                }
+                let n = name_len(&sql[i + 1..]);
+                let name = &sql[i + 1..i + 1 + n];
+                let line_start = sql[..i]
+                    .rsplit('\n')
+                    .next()
+                    .is_some_and(|l| l.trim().is_empty());
+                let own = !sqlite
+                    && (own_vars.contains(&name.to_ascii_lowercase())
+                        || (kind == DbKind::Oracle && line_start));
+                if n > 0 && !prev_word(sql, i) && !own {
+                    push(&mut out, name, i..i + 1 + n);
+                    i += 1 + n;
+                } else {
+                    i += 1;
+                }
+            }
+            b'?' if opts.anon && (mysql || matches!(kind, DbKind::Sqlite | DbKind::SqlServer)) => {
                 let mut j = i + 1;
-                if kind == DbKind::Sqlite {
+                if sqlite {
                     while j < b.len() && b[j].is_ascii_digit() {
                         j += 1;
                     }
@@ -183,7 +273,10 @@ pub fn detect(sql: &str, kind: DbKind) -> Vec<Placeholder> {
                 let ok_start = !prev_word(sql, i) && !prev_is(sql, i, b']');
                 let digits = sql[i + 1..i + 1 + n].chars().all(|c| c.is_ascii_digit());
                 // `:1` is positional on Oracle / SQLite only.
-                if n > 0 && ok_start && (!digits || matches!(kind, DbKind::Oracle | DbKind::Sqlite))
+                if opts.colon
+                    && n > 0
+                    && ok_start
+                    && (!digits || matches!(kind, DbKind::Oracle | DbKind::Sqlite))
                 {
                     push(&mut out, &sql[i + 1..i + 1 + n], i..i + 1 + n);
                     i += 1 + n;
@@ -205,6 +298,58 @@ pub fn detect(sql: &str, kind: DbKind) -> Vec<Placeholder> {
         }
     }
     out
+}
+
+/// Names (lower-case, no `@`) that the script assigns or declares itself on
+/// MySQL / SQL Server: those `@name` are session variables, not parameters.
+fn script_vars(sql: &str, kind: DbKind) -> std::collections::HashSet<String> {
+    let b = sql.as_bytes();
+    let mut set = std::collections::HashSet::new();
+    let mut i = 0;
+    while i < b.len() {
+        if let Some(next) = skip_region(sql, i, kind) {
+            i = next;
+            continue;
+        }
+        if b[i] != b'@' {
+            i += sql[i..].chars().next().map_or(1, char::len_utf8);
+            continue;
+        }
+        if b.get(i + 1) == Some(&b'@') {
+            i += 2;
+            continue;
+        }
+        let n = name_len(&sql[i + 1..]);
+        let end = i + 1 + n;
+        if n > 0 && !prev_word(sql, i) {
+            let after = sql[end..].trim_start();
+            let before = sql[..i].trim_end();
+            let prev_w = before
+                .rsplit(|c: char| !word(c))
+                .next()
+                .unwrap_or("")
+                .to_ascii_uppercase();
+            let head = before[before.rfind(';').map_or(0, |p| p + 1)..].to_ascii_uppercase();
+            let in_list = before.ends_with(',');
+            let assign = after.starts_with(":=")
+                || (after.starts_with('=')
+                    && !after.starts_with("==")
+                    && (prev_w == "SET"
+                        || (prev_w == "SELECT" && kind == DbKind::SqlServer)
+                        || (in_list
+                            && (head.contains("SET ")
+                                || (head.contains("SELECT ") && kind == DbKind::SqlServer)))));
+            let declared = matches!(prev_w.as_str(), "DECLARE" | "INTO")
+                || (in_list
+                    && (head.contains("DECLARE ")
+                        || (head.contains("INTO ") && !head.contains("FROM "))));
+            if assign || declared {
+                set.insert(sql[i + 1..end].to_ascii_lowercase());
+            }
+        }
+        i = end.max(i + 1);
+    }
+    set
 }
 
 /// Length in bytes of the identifier at the start of `s`.
@@ -562,5 +707,279 @@ mod tests {
     #[test]
     fn number_check() {
         assert!(number_ok("1.5") && number_ok(" -3 ") && !number_ok("") && !number_ok("abc"));
+    }
+
+    // ---- configurable prefixes (ParamOpts) ----------------------------------
+
+    fn o(colon: bool, at: bool, dollar: bool, anon: bool) -> ParamOpts {
+        ParamOpts {
+            enabled: true,
+            colon,
+            at,
+            dollar,
+            anon,
+        }
+    }
+
+    fn nw(sql: &str, k: DbKind, opts: ParamOpts) -> Vec<String> {
+        detect_with(sql, k, &opts)
+            .into_iter()
+            .map(|p| p.name)
+            .collect()
+    }
+
+    const ALL_KINDS: [DbKind; 5] = [
+        DbKind::Mysql,
+        DbKind::Postgres,
+        DbKind::Oracle,
+        DbKind::Sqlite,
+        DbKind::SqlServer,
+    ];
+
+    #[test]
+    fn defaults_are_todays_behaviour() {
+        assert_eq!(ParamOpts::default(), o(true, false, false, true));
+        // `@name` / `$name` stay off outside SQLite.
+        for k in [
+            DbKind::Mysql,
+            DbKind::Postgres,
+            DbKind::Oracle,
+            DbKind::SqlServer,
+        ] {
+            assert!(n("select @a, $b from t", k).is_empty(), "{k:?}");
+        }
+    }
+
+    #[test]
+    fn master_switch_off_disables_everything() {
+        let off = ParamOpts {
+            enabled: false,
+            ..o(true, true, true, true)
+        };
+        for k in ALL_KINDS {
+            assert!(nw("select :a, ?, @b, $1, &c", k, off).is_empty(), "{k:?}");
+        }
+    }
+
+    #[test]
+    fn colon_prefix_toggle() {
+        for k in ALL_KINDS {
+            assert_eq!(
+                nw("select :a", k, o(true, false, false, true)),
+                ["a"],
+                "{k:?}"
+            );
+            assert!(
+                nw("select :a", k, o(false, false, false, true)).is_empty(),
+                "{k:?}"
+            );
+        }
+        assert_eq!(
+            nw("select ?, :a", DbKind::Mysql, o(false, false, false, true)),
+            ["?1"]
+        );
+        assert_eq!(
+            nw("select ?, :a", DbKind::Mysql, o(true, false, false, false)),
+            ["a"]
+        );
+    }
+
+    #[test]
+    fn anon_switch_only_where_the_engine_has_it() {
+        let off = o(true, false, false, false);
+        for k in [DbKind::Mysql, DbKind::Sqlite, DbKind::SqlServer] {
+            assert_eq!(n("select ?", k), ["?1"], "{k:?}");
+            assert!(nw("select ?", k, off).is_empty(), "{k:?}");
+        }
+        assert!(n("select a ? 'k'", DbKind::Postgres).is_empty());
+        assert!(n("select ?", DbKind::Oracle).is_empty());
+        // Postgres `$1` is the engine's own style, not the `?` switch.
+        assert_eq!(nw("select $1", DbKind::Postgres, off), ["1"]);
+    }
+
+    #[test]
+    fn at_prefix_on_every_engine() {
+        let at = o(true, true, false, true);
+        for k in ALL_KINDS {
+            assert_eq!(nw("select * from t where id = @id", k, at), ["id"], "{k:?}");
+        }
+        // `@` without the switch: only SQLite.
+        let no = o(true, false, false, true);
+        for k in [
+            DbKind::Mysql,
+            DbKind::Postgres,
+            DbKind::Oracle,
+            DbKind::SqlServer,
+        ] {
+            assert!(nw("select @id", k, no).is_empty(), "{k:?}");
+        }
+        assert_eq!(nw("select @id", DbKind::Sqlite, no), ["id"]);
+    }
+
+    #[test]
+    fn dollar_prefix_on_every_engine() {
+        let d = o(true, false, true, true);
+        for k in ALL_KINDS {
+            assert_eq!(nw("select * from t where id = $id", k, d), ["id"], "{k:?}");
+        }
+        assert!(nw("select $id", DbKind::Mysql, o(true, false, false, true)).is_empty());
+        assert!(nw("select $id", DbKind::Oracle, o(true, false, false, true)).is_empty());
+        // Postgres: `$1` and dollar quotes keep their meaning.
+        assert_eq!(nw("select $1, $name", DbKind::Postgres, d), ["1", "name"]);
+        assert_eq!(nw("select $t$ $x $t$, $y", DbKind::Postgres, d), ["y"]);
+        assert_eq!(
+            nw("do $$ select $x $$; select $z", DbKind::Postgres, d),
+            ["z"]
+        );
+        // A `$` inside a word is not a parameter (Oracle `v$session`).
+        assert!(nw("select * from v$session", DbKind::Oracle, d).is_empty());
+        // `${var}` is a client variable, never a `$` parameter.
+        assert!(nw("select ${v}", DbKind::Mysql, d).is_empty());
+    }
+
+    #[test]
+    fn all_prefixes_together() {
+        let all = o(true, true, true, true);
+        assert_eq!(
+            nw("select :a, @b, $c, ?", DbKind::Mysql, all),
+            ["a", "b", "c", "?1"]
+        );
+        assert_eq!(
+            nw("select :a, @b, $c, $1", DbKind::Postgres, all),
+            ["a", "b", "c", "1"]
+        );
+    }
+
+    #[test]
+    fn at_skips_strings_comments_and_words() {
+        let at = o(true, true, true, true);
+        let sql = "select '@a', \"@b\", `@c` -- @d\n, /* @e */ x@y, @real";
+        assert_eq!(nw(sql, DbKind::Mysql, at), ["real"]);
+        assert_eq!(nw("select 'it''s @a', @b", DbKind::Postgres, at), ["b"]);
+        assert_eq!(
+            nw("select q'[@a]', @b from dual", DbKind::Oracle, at),
+            ["b"]
+        );
+        assert_eq!(nw("select $$ @a $$, @b", DbKind::Postgres, at), ["b"]);
+        assert_eq!(nw("select [@a], @b", DbKind::SqlServer, at), ["b"]);
+    }
+
+    #[test]
+    fn mysql_at_keeps_script_variables() {
+        let at = o(true, true, false, true);
+        let k = DbKind::Mysql;
+        assert!(nw("set @x = 1; select @x", k, at).is_empty());
+        assert!(nw("SET @x := 1; select @x + 1", k, at).is_empty());
+        assert!(nw("select @a := 1, @a + 1", k, at).is_empty());
+        assert!(nw("select count(*) into @n from t; select @n", k, at).is_empty());
+        assert!(nw("set @a = 1, @b = 2; select @a, @b", k, at).is_empty());
+        // Not assigned in the script: a parameter; the assigned one is not.
+        assert_eq!(nw("set @x = 1; select @x, @id", k, at), ["id"]);
+        assert_eq!(nw("select * from t where id = @id", k, at), ["id"]);
+        // System variables and a comparison are not assignments.
+        assert!(nw("select @@global.max_connections, @@version", k, at).is_empty());
+        assert_eq!(nw("select @a = 1", k, at), ["a"]);
+        // An assignment in a string does not count.
+        assert_eq!(nw("select 'set @x = 1', @x", k, at), ["x"]);
+        // Case-insensitive names.
+        assert!(nw("set @Foo = 1; select @foo", k, at).is_empty());
+        assert_eq!(nw("set @x = 1; select @x, :id", k, at), ["id"]);
+    }
+
+    #[test]
+    fn sqlserver_at_keeps_declared_variables() {
+        let at = o(true, true, false, true);
+        let k = DbKind::SqlServer;
+        assert!(nw("declare @x int = 1; select @x from #t", k, at).is_empty());
+        assert!(nw("declare @a int, @b int; set @a = 1; select @a, @b", k, at).is_empty());
+        assert!(
+            nw(
+                "declare @a int; select @a = max(id) from t; select @a",
+                k,
+                at
+            )
+            .is_empty()
+        );
+        assert_eq!(nw("declare @x int = 1; select @x, @id", k, at), ["id"]);
+        assert!(nw("select @@rowcount, @@version", k, at).is_empty());
+    }
+
+    #[test]
+    fn postgres_at_is_an_operator_unless_glued_to_a_name() {
+        let at = o(true, true, false, true);
+        let k = DbKind::Postgres;
+        assert!(nw("select a @> b, c @@ to_tsquery('x'), d @ e from t", k, at).is_empty());
+        assert!(nw("select @ x, @ 1, @-@ y", k, at).is_empty());
+        assert_eq!(nw("select @ x, @id", k, at), ["id"]);
+        assert_eq!(nw("select abs(@id) , @-@ y", k, at), ["id"]);
+        assert!(nw("select a@b from t", k, at).is_empty());
+        assert!(nw("select a ?| b, c ? 'k'", k, at).is_empty());
+    }
+
+    #[test]
+    fn oracle_at_line_start_is_a_script_call() {
+        let at = o(true, true, false, true);
+        let k = DbKind::Oracle;
+        assert!(nw("@script.sql", k, at).is_empty());
+        assert!(nw("  @c:/dir/file.sql", k, at).is_empty());
+        assert!(nw("select 1 from dual;\n@file\nselect 2 from dual", k, at).is_empty());
+        assert_eq!(nw("select 1 from dual where x = @id", k, at), ["id"]);
+        // A database link is glued to a word: not a parameter.
+        assert!(nw("select * from t@remote", k, at).is_empty());
+        assert_eq!(nw("select * from t\nwhere a = @id", k, at), ["id"]);
+        // PL/SQL blocks are left alone as before.
+        assert!(nw("begin x := @id; end;", k, at).is_empty());
+    }
+
+    #[test]
+    fn sqlite_native_styles_stay_on() {
+        // `@name` / `$name` are SQLite's own styles: not tied to the switches.
+        let none = o(true, false, false, true);
+        assert_eq!(
+            nw("select @a, $b, :c, ?", DbKind::Sqlite, none),
+            ["a", "b", "c", "?1"]
+        );
+        assert_eq!(
+            nw(
+                "select @a, $b, :c",
+                DbKind::Sqlite,
+                o(false, false, false, false)
+            ),
+            ["a", "b"]
+        );
+    }
+
+    #[test]
+    fn redis_never() {
+        assert!(nw("GET @a :b $c ?", DbKind::Redis, o(true, true, true, true)).is_empty());
+    }
+
+    #[test]
+    fn unicode_names_with_at() {
+        assert_eq!(
+            nw(
+                "select '測試', @名稱 from t",
+                DbKind::Mysql,
+                o(true, true, false, true)
+            ),
+            ["名稱"]
+        );
+    }
+
+    #[test]
+    fn bind_works_for_at_and_dollar() {
+        let sql = "select * from t where a = @a and b = $b";
+        let phs = detect_with(sql, DbKind::Mysql, &o(true, true, true, true));
+        let mut v = HashMap::new();
+        v.insert(
+            "a".to_string(),
+            ParamValue {
+                ty: ParamType::Number,
+                text: "1".into(),
+            },
+        );
+        let (q, p) = bind(sql, &phs, &v);
+        assert_eq!(q, "select * from t where a = ? and b = ?");
+        assert_eq!(p, vec![Param::Text("1".into()), Param::Null]);
     }
 }

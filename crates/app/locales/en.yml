@@ -645,6 +645,16 @@ sp:
   d_idle: A paged query holds a server cursor; it is released after this long unused.
   d_auto_plan: Runs a plain EXPLAIN (never ANALYZE) in the background after a single SELECT, so the Plan tab is ready. MySQL and PostgreSQL only.
   d_count: Counts the rows of a paged SELECT in the background to show "of N".
+  param_enabled: "Query parameters"
+  d_param_enabled: "Ask for values before running a statement that has parameters (:name, ?, ...). Off: the statement is sent as written."
+  param_colon: "Parameter prefix  :name"
+  d_param_colon: "A word after a colon, as in :id, is a parameter."
+  param_at: "Parameter prefix  @name"
+  d_param_at: "Also treat @name as a parameter. MySQL / MariaDB and SQL Server: an @name that the same script sets or declares (SET @x =, @x :=, INTO @x, DECLARE @x) stays a session variable. PostgreSQL: only @ directly followed by a name counts, never the operator in \"@ x\". Oracle: @file at the start of a line is a script call. SQLite always treats @name as a parameter."
+  param_dollar: "Parameter prefix  $name"
+  d_param_dollar: "Also treat $name as a parameter. PostgreSQL $1 and $tag$ quotes keep their meaning. SQLite always treats $name as a parameter."
+  param_anon: "Anonymous parameters  ?"
+  d_param_anon: "A ? is a parameter (MySQL, SQLite, SQL Server). The ? of PostgreSQL is an operator and never counts."
   no_match: "No settings match “%{q}”"
   k_space: Switch Space
   k_copy: Copy the selected cells
@@ -1106,7 +1116,10 @@ act:
   oracle_type: "Type %{name} to confirm. The session ends on the server at once."
 qp:
   title: Query parameters
-  hint: "Values are sent as bound parameters, never pasted into the SQL. Enter runs."
+  hint: "Parameter values are sent as bound values, never pasted into the SQL."
+  hint_vars: "Variables ${name} are pasted into the SQL as text, and kept for this tab. Enter runs, Esc cancels."
+  kind_var: Variable
+  kind_param: Parameter
   run: Run
   one_statement: Parameters work with one statement at a time. Select a single statement and run again.
   type_tip: "Click to change the type: text, number, date, NULL"
@@ -1312,3 +1325,15 @@ upd:
   not_ready: "The update is not downloaded yet."
   cannot_write: "Locus cannot replace itself in this folder (%{msg}). Download the new version from the release page."
   updated: "Updated to Locus %{v}."
+vars:
+  act_show: "Show variables"
+  title: "Variables"
+  hint: "Variables are text: ${name} in a statement is replaced by the value before it is checked and run. Define one with @set name = value."
+  empty: "No variables yet. Write @set name = value in the editor and run it."
+  new_name: "New name"
+  new_value: "Value"
+  delete: "Delete variable"
+  add: "Add variable"
+  bad_name: "A variable name has letters, digits and _ only."
+  bad_command: "Not a valid command: %{line}"
+  done: "Variables: %{n} defined for this tab."

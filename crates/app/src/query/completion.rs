@@ -131,6 +131,8 @@ pub struct Target {
     pub conn_id: Option<String>,
     /// The shared connection slot; empty until the connection is opened.
     pub slot: Option<locus_core::pool::Slot>,
+    /// Names of the tab's client variables (`${name}`), kept from earlier runs.
+    pub vars: Vec<String>,
 }
 
 pub struct SqlCompletions {
@@ -591,6 +593,34 @@ impl CompletionProvider for SqlCompletions {
             start: at(span.start),
             end: at(span.end),
         };
+        // After `${`: names of the client variables (kept ones and `@set` lines of this text).
+        if let Some(typed) = locus_core::vars::completion_prefix(before) {
+            let mut names = target.vars.clone();
+            for n in locus_core::vars::defined_names(&text.to_string()) {
+                if !names.contains(&n) {
+                    names.push(n);
+                }
+            }
+            let range = lsp_types::Range {
+                start: at(cur - typed.len()),
+                end: at(cur),
+            };
+            let items = names
+                .into_iter()
+                .filter(|n| n.to_lowercase().starts_with(&typed.to_lowercase()))
+                .map(|n| CompletionItem {
+                    label: n.clone(),
+                    kind: Some(CompletionItemKind::VARIABLE),
+                    detail: Some(t!("vars.title").into_owned()),
+                    text_edit: Some(lsp_types::CompletionTextEdit::Edit(lsp_types::TextEdit {
+                        range,
+                        new_text: format!("{n}}}"),
+                    })),
+                    ..Default::default()
+                })
+                .collect();
+            return Task::ready(Ok(CompletionResponse::Array(items)));
+        }
         let quote = span.quote;
         // Snippets by prefix (not after `alias.` or inside quotes), replacing the typed word.
         let snippets: Vec<CompletionItem> = if qualifier.is_some() || quote.is_some() {
