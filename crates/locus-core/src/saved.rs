@@ -154,22 +154,22 @@ pub fn builtin_snippets() -> Vec<Snippet> {
         s(
             "sel",
             "SELECT ... FROM",
-            "SELECT ${1:*}\nFROM ${2:table}\nWHERE ${3:1 = 1}",
+            "SELECT ${1:*}\nFROM ${2:table}\nWHERE ${3:1 = 1}$0",
         ),
         s(
             "ins",
             "INSERT INTO ... VALUES",
-            "INSERT INTO ${1:table} (${2:columns})\nVALUES (${3:values})",
+            "INSERT INTO ${1:table} (${2:columns})\nVALUES (${3:values})$0",
         ),
         s(
             "upd",
             "UPDATE ... SET ... WHERE",
-            "UPDATE ${1:table}\nSET ${2:column} = ${3:value}\nWHERE ${4:condition}",
+            "UPDATE ${1:table}\nSET ${2:column} = ${3:value}\nWHERE ${4:condition}$0",
         ),
         s(
             "cte",
             "WITH ... AS",
-            "WITH ${1:name} AS (\n  SELECT ${2:*}\n  FROM ${3:table}\n)\nSELECT *\nFROM ${1:name}",
+            "WITH ${1:name} AS (\n  SELECT ${2:*}\n  FROM ${3:table}\n)\nSELECT *\nFROM ${1:name}$0",
         ),
     ]
 }
@@ -214,6 +214,13 @@ pub fn matching<'a>(all: &'a [Snippet], typed: &str) -> Vec<&'a Snippet> {
 /// elsewhere (or nothing), `$0` disappears, `\$` is a dollar sign. Returns
 /// the text and the byte range of each tab stop in order (1, 2, ... then 0).
 pub fn expand(body: &str) -> (String, Vec<std::ops::Range<usize>>) {
+    let (text, stops) = expand_numbered(body);
+    (text, stops.into_iter().map(|(_, r)| r).collect())
+}
+
+/// Like [`expand`], but every stop keeps its number (0 sorts last), so the
+/// editor can tell mirrors (the same number twice) and the final `$0` apart.
+pub fn expand_numbered(body: &str) -> (String, Vec<(u32, std::ops::Range<usize>)>) {
     // First pass: default text per number.
     let mut defaults: std::collections::HashMap<u32, String> = Default::default();
     let b: Vec<char> = body.chars().collect();
@@ -280,7 +287,7 @@ pub fn expand(body: &str) -> (String, Vec<std::ops::Range<usize>>) {
     }
     // Stops in order 1, 2, ...; 0 (the end) last.
     stops.sort_by_key(|(n, r)| (if *n == 0 { u32::MAX } else { *n }, r.start));
-    (out, stops.into_iter().map(|(_, r)| r).collect())
+    (out, stops)
 }
 
 /// `${n:default}` or `${n}` at `b[i..]`: number, default text, index after `}`.

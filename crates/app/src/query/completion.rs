@@ -117,6 +117,18 @@ fn snippet_store() -> &'static Mutex<Vec<Snippet>> {
     S.get_or_init(|| Mutex::new(saved::all_snippets(&saved::load_snippets())))
 }
 
+/// The tab stops of the snippet whose expanded text is exactly `inserted`
+/// (the editor calls this for each insertion to know a snippet was accepted).
+pub fn snippet_stops_for(inserted: &str) -> Option<Vec<(u32, std::ops::Range<usize>)>> {
+    if inserted.len() < 2 {
+        return None;
+    }
+    snippet_store().lock().iter().find_map(|s| {
+        let (text, stops) = saved::expand_numbered(&s.body);
+        (text == inserted && stops.iter().any(|(n, _)| *n > 0)).then_some(stops)
+    })
+}
+
 pub fn set_user_snippets(user: &[Snippet]) {
     *snippet_store().lock() = saved::all_snippets(user);
 }

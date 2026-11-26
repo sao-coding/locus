@@ -8,8 +8,9 @@
 //! buffer, so the bound has to be on the buffer size instead. The limit was
 //! picked by measurement.
 
-use gpui_kit::component::input::{EditorState, InputEvent};
+use gpui_kit::component::input::{EditorState, InputEditsEvent, InputEvent};
 use gpui_kit::*;
+use locus_core::snippet::{Session, Step};
 
 /// Default limit for syntax highlighting, in bytes of buffer text.
 pub const DEFAULT_SYNTAX_LIMIT: usize = 1024 * 1024;
@@ -19,7 +20,10 @@ pub struct SqlEditor {
     limit: usize,
     /// True while the buffer is over the limit and shown as plain text.
     pub plain: bool,
+    /// The snippet being filled in (Tab / Shift+Tab visit its stops), if any.
+    pub snippet: Option<Session>,
     _sub: Subscription,
+    _edits: Subscription,
 }
 
 impl SqlEditor {
@@ -45,11 +49,16 @@ impl SqlEditor {
                 this.apply_policy(cx);
             }
         });
+        let _edits = cx.subscribe(&state, |this: &mut Self, _, ev: &InputEditsEvent, cx| {
+            this.track_snippet(ev, cx)
+        });
         Self {
             state,
             limit,
             plain,
+            snippet: None,
             _sub,
+            _edits,
         }
     }
 
@@ -81,6 +90,10 @@ impl crate::query::tab::QueryTab {
         let composing = state.update(cx, |s, cx| {
             gpui::EntityInputHandler::marked_text_range(s, window, cx).is_some()
         });
+        if !open && !composing && self.editor.update(cx, |e, cx| e.snippet_active(cx)) {
+            self.editor.update(cx, |e, cx| e.snippet_next(cx));
+            return;
+        }
         let action: Box<dyn Action> = if open && !composing {
             Box::new(Enter {
                 secondary: false,
@@ -90,5 +103,85 @@ impl crate::query::tab::QueryTab {
             Box::new(IndentInline)
         };
         window.dispatch_action(action, cx);
+    }
+
+    /// Shift+Tab while a snippet is being filled in: back to the previous stop.
+    pub fn snippet_prev(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let state = self.editor.read(cx).state.clone();
+        let composing = state.update(cx, |s, cx| {
+            gpui::EntityInputHandler::marked_text_range(s, window, cx).is_some()
+        });
+        if !composing {
+            self.editor.update(cx, |e, cx| e.snippet_prev(cx));
+        }
+    }
+
+    /// Esc while a snippet is being filled in: leave snippet mode.
+    pub fn snippet_exit(&mut self, cx: &mut Context<Self>) {
+        self.editor.update(cx, |e, cx| e.snippet_exit(cx));
+    }
+}
+
+impl SqlEditor {
+    /// Follows every edit: a text equal to a snippet's expansion means it was
+    /// just accepted (start its stops, select the first); later edits move the
+    /// stops, and one that cuts across them ends snippet mode.
+    fn track_snippet(&mut self, ev: &InputEditsEvent, cx: &mut Context<Self>) {
+        for (edit, rope) in ev.edits() {
+            let new_len = edit.new_end_byte - edit.start_byte;
+            if let Some(s) = &mut self.snippet {
+                if !s.on_edit(edit.start_byte, edit.old_end_byte, new_len) {
+                    self.snippet = None;
+                }
+                continue;
+            }
+            if !(2..=4096).contains(&new_len) {
+                continue;
+            }
+            let inserted = rope.slice(edit.start_byte..edit.new_end_byte).to_string();
+            if let Some(stops) = super::completion::snippet_stops_for(&inserted)
+                && let Some(s) = Session::new(edit.start_byte, inserted.len(), &stops)
+            {
+                let first = s.first();
+                self.snippet = Some(s);
+                self.state
+                    .update(cx, |st, cx| st.set_selected_range(first, cx));
+            }
+        }
+        cx.notify();
+    }
+
+    /// Whether snippet mode is on: a snippet is live and the caret is in it.
+    pub fn snippet_active(&self, cx: &App) -> bool {
+        self.snippet
+            .as_ref()
+            .is_some_and(|s| s.contains(&self.state.read(cx).selected_range()))
+    }
+
+    pub fn snippet_next(&mut self, cx: &mut Context<Self>) {
+        let Some(s) = &mut self.snippet else { return };
+        let step = s.advance();
+        let range = match step {
+            Step::Select(r) => r,
+            Step::Finish(at) => {
+                self.snippet = None;
+                at..at
+            }
+        };
+        self.state
+            .update(cx, |st, cx| st.set_selected_range(range, cx));
+        cx.notify();
+    }
+
+    pub fn snippet_prev(&mut self, cx: &mut Context<Self>) {
+        let Some(s) = &mut self.snippet else { return };
+        let range = s.retreat();
+        self.state
+            .update(cx, |st, cx| st.set_selected_range(range, cx));
+    }
+
+    pub fn snippet_exit(&mut self, cx: &mut Context<Self>) {
+        self.snippet = None;
+        cx.notify();
     }
 }

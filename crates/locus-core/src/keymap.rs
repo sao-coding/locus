@@ -99,6 +99,14 @@ pub const GRID_DEFAULTS: &[(&str, &str)] = &[
 pub const EDITOR: &str = "Editor > Input";
 pub const EDITOR_DEFAULTS: &[(&str, &str)] = &[("tab", "AcceptCompletion")];
 
+/// While a snippet is being filled in the editor also has the key context
+/// `SnippetMode`: Shift+Tab goes back a stop and Esc leaves snippet mode. (Tab
+/// stays `AcceptCompletion`, which picks: popup open → accept, snippet → next
+/// stop, otherwise indent.)
+pub const SNIPPET: &str = "SnippetMode > Input";
+pub const SNIPPET_DEFAULTS: &[(&str, &str)] =
+    &[("shift-tab", "PrevSnippetStop"), ("escape", "ExitSnippet")];
+
 /// Every default as (context, keystrokes, action name without namespace),
 /// in the order they are bound.
 pub fn default_bindings() -> Vec<(String, String, String)> {
@@ -119,6 +127,9 @@ pub fn default_bindings() -> Vec<(String, String, String)> {
     }
     for (k, a) in GRID_DEFAULTS {
         out.push((GRID.to_string(), k.to_string(), a.to_string()));
+    }
+    for (k, a) in SNIPPET_DEFAULTS {
+        out.push((SNIPPET.to_string(), k.to_string(), a.to_string()));
     }
     for (k, a) in EDITOR_DEFAULTS {
         out.push((EDITOR.to_string(), k.to_string(), a.to_string()));
@@ -342,7 +353,10 @@ mod tests {
         let n = DEFAULTS.len() + 9 * 4;
         assert_eq!(
             d.len(),
-            n * (1 + MIRRORED.len()) + GRID_DEFAULTS.len() + EDITOR_DEFAULTS.len()
+            n * (1 + MIRRORED.len())
+                + GRID_DEFAULTS.len()
+                + EDITOR_DEFAULTS.len()
+                + SNIPPET_DEFAULTS.len()
         );
         assert!(
             d.iter()

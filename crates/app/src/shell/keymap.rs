@@ -23,6 +23,10 @@ macro_rules! commands {
                 GridExtendRight, GridEdit,
                 /// Tab in the SQL editor: accept the highlighted completion (popup open) or indent.
                 AcceptCompletion,
+                /// Shift+Tab while a snippet is being filled in: the previous tab stop.
+                PrevSnippetStop,
+                /// Esc while a snippet is being filled in: leave snippet mode.
+                ExitSnippet,
             ]);
         }
 
@@ -63,6 +67,7 @@ macro_rules! commands {
             "Space1", "Space2", "Space3", "Space4", "Space5", "Space6", "Space7", "Space8", "Space9",
             "GridCopy", "GridCopyColumns", "GridExtendUp", "GridExtendDown", "GridExtendLeft",
             "GridExtendRight", "GridEdit", "AcceptCompletion",
+            "PrevSnippetStop", "ExitSnippet",
         ];
     };
 }
