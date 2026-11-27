@@ -64,7 +64,7 @@ impl Locus {
         data.diagram = want;
         data.diagram_state = serde_json::to_value(crate::diagram::tab::DiagramState {
             scope,
-            hidden: Vec::new(),
+            ..Default::default()
         })
         .ok();
         let tab = self.make_tab(&data, window, cx);

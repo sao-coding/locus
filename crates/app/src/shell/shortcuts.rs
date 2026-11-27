@@ -128,6 +128,12 @@ impl Locus {
             Shortcut::Run => self.run_tab(tab, RunMode::Current, None, window, cx),
             Shortcut::RunScript => self.run_tab(tab, RunMode::Script, None, window, cx),
             Shortcut::Cancel => {
+                // A diagram first closes its search, then clears its selection.
+                if tab.read(cx).diagram.is_some()
+                    && tab.update(cx, |t, cx| t.diagram_escape(window, cx))
+                {
+                    return true;
+                }
                 // The order is `locus_core::keymap::esc_step` (unit-tested there).
                 use locus_core::keymap::{EscState, EscStep, esc_step};
                 let t = tab.read(cx);

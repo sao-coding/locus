@@ -571,6 +571,16 @@ erv3:
   depth_all: All connected
   show_whole: Show whole schema
   show_hidden: Show hidden tables
+  search: Find a table
+  density: Card detail
+  density_full: All columns
+  density_keys: Keys only
+  density_header: Headers only
+  minimap: Minimap
+  view: View
+  edge_style: Line style
+  edge_smooth: Smooth lines
+  edge_curved: Curved lines
   zoom_out: Zoom out (Ctrl+wheel)
   zoom_in: Zoom in
   export: Export
@@ -579,7 +589,7 @@ erv3:
   copied_mermaid: Mermaid copied
   copied_ddl: "CREATE TABLE of %{n} tables copied"
   counts: "%{n} tables · %{fk} foreign keys"
-  hint: Drag a header to move · double-click opens a query · click a line to insert a JOIN · Ctrl+wheel zooms
+  hint: Drag a header to move · double-click opens a query · click a line to insert a JOIN · Ctrl+F finds a table · Ctrl+wheel zooms
   m_centre: Centre on this table
   m_query: Open query
   m_schema: Show in Schema panel

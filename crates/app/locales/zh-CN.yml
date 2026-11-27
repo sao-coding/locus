@@ -571,6 +571,16 @@ erv3:
   depth_all: 全部相连
   show_whole: 显示整个模式
   show_hidden: 显示已隐藏的表
+  search: 查找表
+  density: 卡片内容
+  density_full: 所有列
+  density_keys: 只显示键
+  density_header: 只显示表头
+  minimap: 小地图
+  view: 视图
+  edge_style: 连线样式
+  edge_smooth: 圆角折线
+  edge_curved: 曲线
   zoom_out: 缩小（Ctrl+滚轮）
   zoom_in: 放大
   export: 导出
@@ -579,7 +589,7 @@ erv3:
   copied_mermaid: 已复制 Mermaid
   copied_ddl: "已复制 %{n} 张表的 CREATE TABLE"
   counts: "%{n} 张表 · %{fk} 个外键"
-  hint: 拖动表头移动 · 双击打开查询 · 点连线插入 JOIN · Ctrl+滚轮缩放
+  hint: 拖动表头移动 · 双击打开查询 · 点连线插入 JOIN · Ctrl+F 查找表 · Ctrl+滚轮缩放
   m_centre: 以此表为核心
   m_query: 打开查询
   m_schema: 在模式面板显示

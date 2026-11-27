@@ -8,7 +8,8 @@
 #![windows_subsystem = "windows"]
 
 use er_diagram::{
-    Depth, DiagramModel, ErDiagram, ErDiagramEvent, Labels, Scope, join_clause, sample,
+    Density, Depth, DiagramModel, EdgeStyle, ErDiagram, ErDiagramEvent, Labels, Scope, join_clause,
+    sample,
 };
 use gpui_kit::component::button::Button;
 use gpui_kit::component::{
@@ -198,6 +199,52 @@ impl Demo {
                         cx.notify();
                     },
                 )));
+        let (style, density, minimap) = {
+            let d = self.diagram.read(cx);
+            (d.edge_style(), d.density(), d.minimap())
+        };
+        bar = bar.child(div().w(px(12.)));
+        for (id, label, s) in [
+            ("e-smooth", "Smooth", EdgeStyle::Smooth),
+            ("e-bezier", "Bezier", EdgeStyle::Bezier),
+        ] {
+            bar = bar.child(
+                btn(id, label.into())
+                    .selected(style == s)
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        t.diagram.update(cx, |d, cx| d.set_edge_style(s, cx));
+                        cx.notify();
+                    })),
+            );
+        }
+        bar = bar.child(div().w(px(12.)));
+        for (id, label, v) in [
+            ("dn-full", "Columns", Density::Full),
+            ("dn-keys", "Keys", Density::Keys),
+            ("dn-head", "Headers", Density::Header),
+        ] {
+            bar = bar.child(
+                btn(id, label.into())
+                    .selected(density == v)
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        t.diagram.update(cx, |d, cx| d.set_density(v, cx));
+                        cx.notify();
+                    })),
+            );
+        }
+        bar = bar
+            .child(div().w(px(12.)))
+            .child(
+                btn("minimap", "Minimap".into())
+                    .selected(minimap)
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        t.diagram.update(cx, |d, cx| d.set_minimap(!minimap, cx));
+                        cx.notify();
+                    })),
+            )
+            .child(btn("find", "Find (Ctrl+F)".into()).on_click(cx.listener(
+                |t, _, window, cx| t.diagram.update(cx, |d, cx| d.open_search(window, cx)),
+            )));
         if nhidden > 0 {
             bar = bar.child(btn("unhide", format!("Show hidden ({nhidden})")).on_click(
                 cx.listener(|t, _, _, cx| {
@@ -285,6 +332,14 @@ impl Render for Demo {
                     me.update(cx, |b, cx| b.on_frame(w, cx));
                 } else {
                     me.update(cx, |b, cx| b.apply_scope(cx));
+                    // ER_FOCUS=<table> flies to a table (as Enter in the search does)
+                    if let Ok(t) = std::env::var("ER_FOCUS") {
+                        diagram.update(cx, |d, cx| d.focus_table(&format!("demo.{t}"), cx));
+                    }
+                    // ER_SEARCH=<text> opens the search with it typed in
+                    if let Ok(q) = std::env::var("ER_SEARCH") {
+                        diagram.update(cx, |d, cx| d.search_for(&q, w, cx));
+                    }
                 }
             });
         }
@@ -420,6 +475,7 @@ fn main() {
             fit: "Fit".into(),
             reset_zoom: "100%".into(),
             relayout: "Re-layout".into(),
+            search: "Find a table".into(),
         };
         gpui_kit::open_window(opts, cx, move |_, cx| {
             let mut hub = String::new();
@@ -461,7 +517,23 @@ fn main() {
                     Default::default()
                 };
             let diagram = cx.new(|cx| ErDiagram::new(model, labels, None, cx));
-            diagram.update(cx, |d, cx| d.set_row_counts(counts, cx));
+            diagram.update(cx, |d, cx| {
+                d.set_row_counts(counts, cx);
+                // ER_EDGE=smooth|bezier, ER_DENSITY=keys|header, ER_MINIMAP=0
+                match std::env::var("ER_EDGE").as_deref() {
+                    Ok("smooth") => d.set_edge_style(EdgeStyle::Smooth, cx),
+                    Ok("bezier") => d.set_edge_style(EdgeStyle::Bezier, cx),
+                    _ => {}
+                }
+                match std::env::var("ER_DENSITY").as_deref() {
+                    Ok("keys") => d.set_density(Density::Keys, cx),
+                    Ok("header") => d.set_density(Density::Header, cx),
+                    _ => {}
+                }
+                if std::env::var("ER_MINIMAP").as_deref() == Ok("0") {
+                    d.set_minimap(false, cx);
+                }
+            });
             let scope_mode = match std::env::var("ER_SCOPE").as_deref() {
                 Ok("centre") => ScopeMode::Centre,
                 Ok("list") => ScopeMode::List,

@@ -61,7 +61,12 @@ impl Locus {
         cx: &mut Context<Self>,
     ) {
         let tab = self.active_tab(cx);
-        if tab.read(cx).diagram.is_some() || tab.read(cx).structure.is_some() {
+        if tab.read(cx).diagram.is_some() {
+            // Ctrl+F in a diagram: find a table
+            tab.update(cx, |t, cx| t.diagram_search(window, cx));
+            return;
+        }
+        if tab.read(cx).structure.is_some() {
             return;
         }
         tab.update(cx, |t, cx| t.open_find(replace, window, cx));

@@ -8,9 +8,11 @@ mod route;
 pub mod sample;
 mod view;
 
-pub use layout::{auto_layout, level_layout};
+pub use layout::{auto_layout, crossings, level_layout};
 pub use model::{
-    Column, Depth, DiagramLayout, DiagramModel, Relation, Scope, TableNode, card_size, join_clause,
-    join_clause_with, scoped_tables, tables_in_scope, to_mermaid,
+    Column, Density, Depth, DiagramLayout, DiagramModel, End, Index, Relation, Scope, TableDetail,
+    TableNode, card_size, cardinality, join_clause, join_clause_with, scoped_tables,
+    tables_in_scope, to_mermaid,
 };
+pub use route::{EdgePath, EdgeStyle, Route, Seg, edge_path, route, slot_offset};
 pub use view::{ErDiagram, ErDiagramEvent, Labels, MAX_ZOOM, MIN_ZOOM, Selection};

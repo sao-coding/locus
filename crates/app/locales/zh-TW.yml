@@ -571,6 +571,16 @@ erv3:
   depth_all: 全部相連
   show_whole: 顯示整個結構描述
   show_hidden: 顯示已隱藏的資料表
+  search: 尋找資料表
+  density: 卡片內容
+  density_full: 所有欄位
+  density_keys: 只顯示鍵
+  density_header: 只顯示表頭
+  minimap: 小地圖
+  view: 檢視
+  edge_style: 連線樣式
+  edge_smooth: 圓角折線
+  edge_curved: 曲線
   zoom_out: 縮小（Ctrl+滾輪）
   zoom_in: 放大
   export: 匯出
@@ -579,7 +589,7 @@ erv3:
   copied_mermaid: 已複製 Mermaid
   copied_ddl: "已複製 %{n} 張表的 CREATE TABLE"
   counts: "%{n} 張表 · %{fk} 個外部索引鍵"
-  hint: 拖曳表頭移動 · 雙擊開啟查詢 · 點連線插入 JOIN · Ctrl+滾輪縮放
+  hint: 拖曳表頭移動 · 雙擊開啟查詢 · 點連線插入 JOIN · Ctrl+F 尋找資料表 · Ctrl+滾輪縮放
   m_centre: 以此表為中心
   m_query: 開啟查詢
   m_schema: 在結構描述面板顯示

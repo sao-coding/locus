@@ -289,6 +289,7 @@ impl QueryTab {
                 loading: false,
                 task: None,
                 save: None,
+                details: None,
                 sub: None,
                 menu: None,
                 menu_req: None,

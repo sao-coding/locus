@@ -15,6 +15,8 @@ pub struct DiagramPane {
     pub loading: bool,
     pub(crate) task: Option<Task<()>>,
     pub(crate) save: Option<Task<()>>,
+    /// Loads indexes and comments of the tables after the diagram shows.
+    pub(crate) details: Option<Task<()>>,
     pub(crate) sub: Option<Subscription>,
     pub(crate) menu: Option<(Entity<PopupMenu>, Point<Pixels>, Subscription)>,
     /// Right click on a card, turned into a menu by the next render (it needs the window).
