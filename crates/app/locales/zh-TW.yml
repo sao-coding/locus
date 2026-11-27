@@ -578,6 +578,26 @@ erv3:
   density_header: 只顯示表頭
   minimap: 小地圖
   view: 檢視
+  show_inferred: 推測的關聯（無外部索引鍵）
+  color_groups: 顏色分組
+  inferred_tip: 推測，未宣告外部索引鍵
+  fk_no_index: 沒有以此外部索引鍵開頭的索引，查詢或刪除父資料表時會掃描這張表
+  fk_no_index_n: "%{n} 個外部索引鍵沒有索引"
+  p_columns: 欄位
+  p_indexes: 索引
+  p_rows: 列
+  p_open_data: 資料
+  p_structure: 結構
+  p_select: SELECT
+  p_copy: 複製
+  choose_path: 有多條同樣長度的 JOIN 路徑
+  join_path_tip: JOIN 路徑
+  join_need_two: 請先選取兩張以上的資料表（Shift+點選）
+  join_no_path: 這些資料表之間沒有外部索引鍵相連
+  save_png: 另存為 PNG…
+  save_svg: 另存為 SVG…
+  image_saved: "已儲存 %{path}"
+  image_failed: "無法儲存圖片：%{msg}"
   edge_style: 連線樣式
   edge_smooth: 圓角折線
   edge_curved: 曲線

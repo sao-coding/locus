@@ -65,3 +65,25 @@ Ctrl+wheel = zoom at pointer. Toolbar: fit, 100 %, re-layout (texts from `Labels
 
 Demo: `ER_EDGE=smooth|bezier`, `ER_DENSITY=keys|header`, `ER_MINIMAP=0`, `ER_SEARCH=<text>`,
 `ER_FOCUS=<table>`; the toolbar has the same switches.
+
+## Insights and export (issue #23, second part)
+
+- Detail panel: with one table selected, a panel on the right lists its columns (type, PK / FK /
+  NULL tags, default, comment), indexes and row count, with buttons that send `OpenTable`,
+  `OpenStructure(key)`, `InsertSelect(key)` (the host writes `SELECT *` for its dialect) and copy
+  the name. × or Esc closes it until the selection changes.
+- JOIN path: `join_path(quote)` on the selected tables (Shift+click) finds the shortest chain of
+  declared foreign keys (`join_paths`, intermediate tables allowed), highlights it and sends
+  `InsertSql(join_sql(..))`; several of the same length open a chooser. Pure and tested.
+- Inferred relations: `DiagramModel::add_inferred` (the app feeds `locus_core::joinsug::infer_fks`:
+  `customer_id` / `customerId` → `customer(s)` with a compatible one-column PK, no FK declared).
+  Drawn dashed and grey, tooltip `Labels::inferred`; `set_show_inferred` (default on). Not used for
+  JOIN paths or Mermaid, not counted as foreign keys.
+- FK without index (`fk_without_index`, once `set_table_details` gave the indexes): a warning dot on
+  the column with a tooltip; `unindexed_fk_count()` for a footer.
+- Colour groups (`set_color_groups`, default off): headers tinted by schema when several are shown,
+  else by a name prefix shared by two or more tables (`booking_*`, `sys_*`), muted theme colours,
+  legend bottom left (`color_groups`, tested).
+- Export: `export_svg(selection)` (vector paths and text, current theme; the selection when there is
+  one) and `svg_to_png(svg, scale)` (resvg =0.45.1, system fonts loaded once). Demo:
+  `ER_SELECT=a,b`, `ER_JOIN=1`, `ER_GROUPS=1`, `ER_EXPORT=svg|png`, `ER_EXPORT_DIR`.

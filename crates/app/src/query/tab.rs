@@ -62,6 +62,8 @@ pub enum TabEvent {
     },
     /// Diagram tab: a relation line was clicked; `sql` is the JOIN clause.
     DiagramJoin { sql: String },
+    /// SQL from a diagram (JOIN path, `SELECT *`): into a query pane, else a new tab.
+    DiagramSql { conn_id: String, sql: String },
     /// Diagram tab: show this table in the Schema panel.
     DiagramShowInSchema { table: String },
     /// Diagram tab: header or footer must be redrawn (zoom, scope, counts).

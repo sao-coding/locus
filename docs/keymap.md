@@ -44,7 +44,8 @@ The file has the same shape as Zed's keymap:
 | `Palette` | the command palette (a dialog: shell commands do not run there) |
 
 Esc runs `locus::Escape`, which goes in this order: close a rename, in a
-relationship diagram close its table search or else clear its selection, stop a
+relationship diagram close its table search, the JOIN path chooser, the table
+detail panel or the JOIN path highlight, or else clear its selection, stop a
 running query, close the find bar, cancel a cell edit, let the editor have it
 (completion popup), leave a maximised pane; otherwise the focused element gets
 the key.

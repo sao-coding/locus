@@ -1,12 +1,13 @@
 use crate::layout::{auto_layout, level_layout};
 use crate::model::{
-    CARD_PAD_BOTTOM, Density, DiagramLayout, DiagramModel, End, HEADER_H, ROW_H, Relation, Scope,
-    TableDetail, card_size, cardinality, scoped_tables, to_mermaid,
+    CARD_PAD_BOTTOM, Density, DiagramLayout, DiagramModel, End, HEADER_H, JoinPath, ROW_H,
+    Relation, Scope, TableDetail, TableNode, card_size, cardinality, color_groups,
+    fk_without_index, join_path_text, join_paths, join_sql, scoped_tables, to_mermaid,
 };
 use crate::route::{self, EdgePath, EdgeStyle, Rect};
 use gpui_kit::component::button::Button;
 use gpui_kit::component::input::{Input, InputEvent, InputState};
-use gpui_kit::component::{ActiveTheme as _, Sizable as _, h_flex};
+use gpui_kit::component::{ActiveTheme as _, Sizable as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 use std::cell::Cell;
@@ -34,6 +35,10 @@ const HIT_TOL: f32 = 4.0;
 const FLY_S: f32 = 0.36;
 /// The border pulse on a search hit, seconds.
 const PULSE_S: f32 = 0.9;
+/// Height of the detail panel's action buttons.
+const PANEL_BTN_H: f32 = 28.0;
+/// Width of the detail panel (screen pixels).
+const PANEL_W: f32 = 300.0;
 /// Width of the chevron area at the right of a card header (world units).
 const CHEVRON_W: f32 = 24.0;
 
@@ -48,6 +53,33 @@ pub struct Labels {
     pub relayout: SharedString,
     /// Placeholder of the Ctrl+F search field.
     pub search: SharedString,
+    /// Tooltip line of a dashed (inferred) relation, e.g. "inferred, no FK".
+    pub inferred: SharedString,
+    /// Tooltip of the warning on a foreign-key column without an index.
+    pub fk_no_index: SharedString,
+    /// Detail panel: section titles and buttons.
+    pub columns: SharedString,
+    pub indexes: SharedString,
+    pub rows: SharedString,
+    pub open_data: SharedString,
+    pub structure: SharedString,
+    pub select_star: SharedString,
+    pub copy_name: SharedString,
+    /// Title of the chooser between JOIN paths of the same length.
+    pub choose_path: SharedString,
+}
+
+/// What [`ErDiagram::join_path`] did.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum JoinPathResult {
+    /// Fewer than two tables are selected.
+    NeedTables,
+    /// No chain of foreign keys connects them.
+    NoPath,
+    /// One shortest path: highlighted, `InsertSql` sent.
+    Inserted,
+    /// Several of the same length: the chooser is open.
+    Choose,
 }
 
 /// Current selection; relation index refers to `DiagramModel::relations`.
@@ -75,6 +107,12 @@ pub enum ErDiagramEvent {
         table: String,
         position: Point<Pixels>,
     },
+    /// SQL for the host to put into a query editor (a JOIN path).
+    InsertSql(String),
+    /// Detail panel "SELECT *": the host writes it for its dialect.
+    InsertSelect(String),
+    /// Detail panel "structure" of a table (its key).
+    OpenStructure(String),
     /// Density, a card's collapse chevron, the minimap or the edge style
     /// changed; save them (`density`, `collapsed_cards`, `minimap`, `edge_style`).
     ViewOptionsChanged,
@@ -260,6 +298,24 @@ pub struct ErDiagram {
     chan_ix: Vec<usize>,
     chan_scratch: Vec<usize>,
     chan_off: Vec<f32>,
+    // insights
+    /// Draw the dashed, inferred relations.
+    show_inferred: bool,
+    /// Tint card headers by schema / name prefix.
+    color_groups: bool,
+    /// Group names and each table's group.
+    groups: (Vec<String>, Vec<Option<usize>>),
+    /// Per table, per column: a foreign key without an index.
+    fk_warn: Vec<Vec<bool>>,
+    unindexed: usize,
+    /// The row under the pointer when it has a warning: (table, column).
+    hover_warn: Option<(usize, usize)>,
+    /// The detail panel was closed for the current selection.
+    panel_closed: bool,
+    /// Highlighted JOIN path: tables and relations (indexes into `rels`).
+    path_hl: Option<(Vec<usize>, Vec<usize>)>,
+    /// JOIN paths to choose from: (text, SQL, tables, relations).
+    chooser: Option<Vec<(String, String, Vec<usize>, Vec<usize>)>>,
 }
 
 impl EventEmitter<ErDiagramEvent> for ErDiagram {}
@@ -389,6 +445,15 @@ impl ErDiagram {
             chan_ix: vec![],
             chan_scratch: vec![],
             chan_off: vec![],
+            show_inferred: true,
+            color_groups: false,
+            groups: (vec![], vec![]),
+            fk_warn: vec![],
+            unindexed: 0,
+            hover_warn: None,
+            panel_closed: false,
+            path_hl: None,
+            chooser: None,
         };
         s.set_model(model, layout, cx);
         s
@@ -414,7 +479,11 @@ impl ErDiagram {
             .map(|t| {
                 let (w, h) = card_size(t);
                 let mut fk = vec![false; t.columns.len()];
-                for r in model.relations.iter().filter(|r| r.from_table == t.key()) {
+                for r in model
+                    .relations
+                    .iter()
+                    .filter(|r| r.from_table == t.key() && !r.inferred)
+                {
                     for c in &r.from_columns {
                         if let Some(i) = t.columns.iter().position(|x| &x.name == c) {
                             fk[i] = true;
@@ -475,6 +544,10 @@ impl ErDiagram {
         for i in 0..self.nodes.len() {
             self.apply_rows(i);
         }
+        self.recompute_checks();
+        self.path_hl = None;
+        self.chooser = None;
+        self.hover_warn = None;
         self.sel.clear();
         self.sel_rel = None;
         self.hover_rel = None;
@@ -519,6 +592,7 @@ impl ErDiagram {
                 &self.model.tables[r.from],
             );
         }
+        self.recompute_checks();
         cx.notify();
     }
 
@@ -628,6 +702,18 @@ impl ErDiagram {
         }
     }
 
+    /// Select these tables (keys; unknown or hidden ones are skipped).
+    pub fn set_selection(&mut self, keys: &[String], cx: &mut Context<Self>) {
+        self.sel = keys
+            .iter()
+            .filter_map(|k| self.index.get(k).copied())
+            .filter(|&i| self.vis[i])
+            .collect();
+        self.sel_rel = None;
+        self.emit_selection(cx);
+        cx.notify();
+    }
+
     /// Number of tables in the model (not only the visible ones).
     pub fn table_count(&self) -> usize {
         self.nodes.len()
@@ -726,6 +812,260 @@ impl ErDiagram {
         }
     }
 
+    // ---- insights -----------------------------------------------------------
+
+    /// Foreign keys without an index (`fk_without_index`) and colour groups.
+    fn recompute_checks(&mut self) {
+        self.fk_warn = self
+            .model
+            .tables
+            .iter()
+            .map(|t| vec![false; t.columns.len()])
+            .collect();
+        let bad = fk_without_index(&self.model);
+        self.unindexed = bad.len();
+        for ri in bad {
+            let r = &self.model.relations[ri];
+            if let Some(&ti) = self.index.get(&r.from_table) {
+                for c in &r.from_columns {
+                    if let Some(ci) = self.model.tables[ti]
+                        .columns
+                        .iter()
+                        .position(|x| &x.name == c)
+                    {
+                        self.fk_warn[ti][ci] = true;
+                    }
+                }
+            }
+        }
+        let refs: Vec<&TableNode> = self.model.tables.iter().collect();
+        self.groups = color_groups(&refs);
+    }
+
+    /// Declared foreign keys whose columns start no index (indexes known).
+    pub fn unindexed_fk_count(&self) -> usize {
+        self.unindexed
+    }
+
+    pub fn show_inferred(&self) -> bool {
+        self.show_inferred
+    }
+
+    /// Show or hide the dashed relations guessed from names (default shown).
+    pub fn set_show_inferred(&mut self, on: bool, cx: &mut Context<Self>) {
+        if on != self.show_inferred {
+            self.show_inferred = on;
+            self.recompute_vis();
+            cx.notify();
+            cx.emit(ErDiagramEvent::ViewOptionsChanged);
+        }
+    }
+
+    pub fn color_groups(&self) -> bool {
+        self.color_groups
+    }
+
+    /// Tint card headers by schema (several shown) or name prefix, with a legend.
+    pub fn set_color_groups(&mut self, on: bool, cx: &mut Context<Self>) {
+        if on != self.color_groups {
+            self.color_groups = on;
+            cx.notify();
+            cx.emit(ErDiagramEvent::ViewOptionsChanged);
+        }
+    }
+
+    /// Names of the colour groups (empty when nothing groups).
+    pub fn color_group_names(&self) -> &[String] {
+        &self.groups.0
+    }
+
+    /// Shortest JOIN path through declared foreign keys between the selected
+    /// tables (intermediate tables allowed). One path: highlighted and sent
+    /// as `InsertSql`; several of the same length: a chooser opens.
+    pub fn join_path(
+        &mut self,
+        quote: impl Fn(&str) -> String,
+        cx: &mut Context<Self>,
+    ) -> JoinPathResult {
+        let keys: Vec<String> = self
+            .sel
+            .iter()
+            .map(|&i| self.nodes[i].key.clone())
+            .collect();
+        if keys.len() < 2 {
+            return JoinPathResult::NeedTables;
+        }
+        let paths = join_paths(&self.model, &keys, 8);
+        let to_view = |p: &JoinPath| -> (Vec<usize>, Vec<usize>) {
+            let t = p
+                .tables
+                .iter()
+                .filter_map(|k| self.index.get(k).copied())
+                .collect();
+            let r = p
+                .relations
+                .iter()
+                .filter_map(|&mi| self.rels.iter().position(|r| r.model_ix == mi))
+                .collect();
+            (t, r)
+        };
+        let result = match paths.len() {
+            0 => JoinPathResult::NoPath,
+            1 => {
+                let (t, r) = to_view(&paths[0]);
+                self.path_hl = Some((t, r));
+                self.chooser = None;
+                cx.emit(ErDiagramEvent::InsertSql(join_sql(
+                    &self.model,
+                    &paths[0],
+                    &quote,
+                )));
+                JoinPathResult::Inserted
+            }
+            _ => {
+                self.chooser = Some(
+                    paths
+                        .iter()
+                        .map(|p| {
+                            let (t, r) = to_view(p);
+                            (join_path_text(p), join_sql(&self.model, p, &quote), t, r)
+                        })
+                        .collect(),
+                );
+                JoinPathResult::Choose
+            }
+        };
+        cx.notify();
+        result
+    }
+
+    fn pick_path(&mut self, k: usize, cx: &mut Context<Self>) {
+        let Some(list) = self.chooser.take() else {
+            return;
+        };
+        if let Some((_, sql, t, r)) = list.into_iter().nth(k) {
+            self.path_hl = Some((t, r));
+            cx.emit(ErDiagramEvent::InsertSql(sql));
+        }
+        cx.notify();
+    }
+
+    /// The diagram as SVG (vector paths and text) in the current theme: the
+    /// selected tables when `selection` and something is selected, else all
+    /// tables on the canvas; lines between the exported tables.
+    pub fn export_svg(&mut self, selection: bool, cx: &mut Context<Self>) -> String {
+        use crate::export::{SvgCard, SvgColors, SvgEdge, SvgRow, SvgScene};
+        self.refresh_geoms();
+        let only_sel = selection && !self.sel.is_empty();
+        let take: Vec<bool> = (0..self.nodes.len())
+            .map(|i| self.vis[i] && (!only_sel || self.sel.contains(&i)))
+            .collect();
+        let t = cx.theme();
+        let hex = |c: Hsla| {
+            let r = Rgba::from(c);
+            let b = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+            if r.a >= 0.999 {
+                format!("#{:02x}{:02x}{:02x}", b(r.r), b(r.g), b(r.b))
+            } else {
+                format!("#{:02x}{:02x}{:02x}{:02x}", b(r.r), b(r.g), b(r.b), b(r.a))
+            }
+        };
+        let tints = [t.blue, t.green, t.yellow, t.magenta, t.cyan, t.red];
+        let colors = SvgColors {
+            bg: hex(t.background),
+            card: hex(t.popover),
+            header: hex(t.muted),
+            border: hex(t.border),
+            fg: hex(t.foreground),
+            muted: hex(t.muted_foreground),
+            line: hex(t.muted_foreground),
+            key: hex(t.warning),
+            info: hex(t.info),
+            warn: hex(t.warning),
+        };
+        let font = crate::export::css_font(&t.font_family, "sans-serif");
+        let mono = crate::export::css_font(&t.mono_font_family, "monospace");
+        let mut cards = vec![];
+        for (i, &keep) in take.iter().enumerate() {
+            if !keep {
+                continue;
+            }
+            let n = &self.nodes[i];
+            let tm = &self.model.tables[i];
+            let tint = self
+                .color_groups
+                .then(|| self.groups.1.get(i).copied().flatten())
+                .flatten()
+                .map(|g| hex(tints[g % tints.len()].opacity(0.22)));
+            cards.push(SvgCard {
+                x: n.x,
+                y: n.y,
+                w: n.w,
+                h: n.h,
+                title: tm.name.clone(),
+                count: self.counts.get(&n.key).map(|c| fmt_count(*c)),
+                rows: n
+                    .shown
+                    .iter()
+                    .map(|&c| {
+                        let col = &tm.columns[c];
+                        SvgRow {
+                            name: col.name.clone(),
+                            type_name: if col.nullable {
+                                format!("{}?", col.type_name)
+                            } else {
+                                col.type_name.clone()
+                            },
+                            tag: if col.primary_key {
+                                Some("PK")
+                            } else if n.fk[c] {
+                                Some("FK")
+                            } else {
+                                None
+                            },
+                            warn: self.fk_warn[i][c],
+                        }
+                    })
+                    .collect(),
+                tint,
+            });
+        }
+        let edges = self
+            .rels
+            .iter()
+            .enumerate()
+            .filter(|(ri, r)| self.rel_vis[*ri] && take[r.from] && take[r.to])
+            .filter_map(|(_, r)| {
+                let (_, e) = r.geom.as_ref()?;
+                Some(SvgEdge {
+                    path: e.clone(),
+                    ends: r.ends,
+                    dashed: self.model.relations[r.model_ix].inferred,
+                })
+            })
+            .collect();
+        crate::export::to_svg(&SvgScene {
+            cards,
+            edges,
+            colors,
+            font,
+            mono,
+        })
+    }
+
+    /// The single selected table, when the detail panel shows it.
+    fn panel_table(&self) -> Option<usize> {
+        if self.panel_closed || self.sel.len() != 1 {
+            return None;
+        }
+        self.sel.iter().next().copied()
+    }
+
+    fn close_panel(&mut self, cx: &mut Context<Self>) {
+        self.panel_closed = true;
+        cx.notify();
+    }
+
     // ---- scope ------------------------------------------------------------
 
     pub fn scope(&self) -> &Scope {
@@ -778,9 +1118,13 @@ impl ErDiagram {
         self.vis.iter().filter(|v| **v).count()
     }
 
-    /// Foreign keys between visible tables.
+    /// Declared foreign keys between visible tables (inferred ones not counted).
     pub fn visible_relation_count(&self) -> usize {
-        self.rel_vis.iter().filter(|v| **v).count()
+        self.rels
+            .iter()
+            .zip(&self.rel_vis)
+            .filter(|(r, v)| **v && !self.model.relations[r.model_ix].inferred)
+            .count()
     }
 
     /// Remove a table from the canvas (the model is untouched).
@@ -853,7 +1197,11 @@ impl ErDiagram {
         self.rel_vis = self
             .rels
             .iter()
-            .map(|r| self.vis[r.from] && self.vis[r.to])
+            .map(|r| {
+                self.vis[r.from]
+                    && self.vis[r.to]
+                    && (self.show_inferred || !self.model.relations[r.model_ix].inferred)
+            })
             .collect();
         // the channel groups change with what is visible
         for r in &mut self.rels {
@@ -1281,15 +1629,32 @@ impl ErDiagram {
             .map(|(i, _)| i)
     }
 
-    fn emit_selection(&self, cx: &mut Context<Self>) {
+    fn emit_selection(&mut self, cx: &mut Context<Self>) {
+        // a new selection: the detail panel opens again, a JOIN path is done
+        self.panel_closed = false;
+        self.path_hl = None;
+        self.chooser = None;
         cx.emit(ErDiagramEvent::SelectionChanged(self.selection()));
     }
 
-    /// Esc: close the search, else clear the selection. False when there was
+    /// Esc: close the search, the JOIN path chooser, the detail panel, the
+    /// path highlight, else clear the selection. False when there was
     /// nothing to do (the host may use Esc for something else).
     pub fn escape(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         if self.search.is_some() {
             self.close_search(window, cx);
+            return true;
+        }
+        if self.chooser.take().is_some() {
+            cx.notify();
+            return true;
+        }
+        if self.panel_table().is_some() {
+            self.close_panel(cx);
+            return true;
+        }
+        if self.path_hl.take().is_some() {
+            cx.notify();
             return true;
         }
         if self.sel.is_empty() && self.sel_rel.is_none() {
@@ -1555,7 +1920,9 @@ impl ErDiagram {
                 self.pan_to_minimap(mm, p, cx);
             }
             Drag::None => {
-                let on_mm = self.minimap && self.mm.get().is_some_and(|m| m.contains(p));
+                let panel_x = self.bounds.get().size.width.as_f32() - PANEL_W;
+                let on_mm = self.minimap && self.mm.get().is_some_and(|m| m.contains(p))
+                    || (self.panel_table().is_some() && p.0 >= panel_x);
                 let w = self.to_world(p);
                 let t = if on_mm { None } else { self.hit_table(w) };
                 let h = if on_mm || t.is_some() {
@@ -1564,11 +1931,25 @@ impl ErDiagram {
                     self.refresh_geoms();
                     self.hit_rel(w)
                 };
-                let moved_tip = h.is_some() && p != self.hover_pos;
+                // a row with the foreign-key warning under the pointer
+                let warn = t.and_then(|ti| {
+                    let n = &self.nodes[ti];
+                    let slot = ((w.1 - n.y - HEADER_H) / ROW_H).floor();
+                    let col = (slot >= 0.0)
+                        .then(|| n.shown.get(slot as usize))
+                        .flatten()?;
+                    self.fk_warn[ti][*col].then_some((ti, *col))
+                });
+                let moved_tip = (h.is_some() || warn.is_some()) && p != self.hover_pos;
                 self.hover_pos = p;
-                if h != self.hover_rel || t != self.hover_table || moved_tip {
+                if h != self.hover_rel
+                    || t != self.hover_table
+                    || warn != self.hover_warn
+                    || moved_tip
+                {
                     self.hover_rel = h;
                     self.hover_table = t;
+                    self.hover_warn = warn;
                     cx.notify();
                 }
             }
@@ -1638,11 +2019,26 @@ impl ErDiagram {
     /// Tooltip of the hovered line: `orders.customer_id → customers.id` and
     /// the constraint name.
     fn relation_tip(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let ri = self.hover_rel?;
         if !matches!(self.drag, Drag::None) {
             return None;
         }
-        let r = &self.model.relations[self.rels[ri].model_ix];
+        // (monospace line, muted line)
+        let (main, sub): (String, SharedString) = if let Some(ri) = self.hover_rel {
+            let r = &self.model.relations[self.rels[ri].model_ix];
+            let sub = if r.inferred {
+                self.labels.inferred.clone()
+            } else {
+                r.name.clone().into()
+            };
+            (relation_text(r), sub)
+        } else {
+            let (ti, ci) = self.hover_warn?;
+            let t = &self.model.tables[ti];
+            (
+                format!("{}.{}", t.name, t.columns[ci].name),
+                self.labels.fk_no_index.clone(),
+            )
+        };
         let t = cx.theme();
         let b = self.bounds.get();
         let (x, y) = self.hover_pos;
@@ -1666,16 +2062,339 @@ impl ErDiagram {
                 .shadow_md()
                 .text_xs()
                 .text_color(t.popover_foreground)
-                .child(
-                    div()
-                        .font_family(t.mono_font_family.clone())
-                        .child(relation_text(r)),
-                )
-                .when(!r.name.is_empty(), |d| {
-                    d.child(div().text_color(t.muted_foreground).child(r.name.clone()))
+                .child(div().font_family(t.mono_font_family.clone()).child(main))
+                .when(!sub.is_empty(), |d| {
+                    d.child(div().text_color(t.muted_foreground).child(sub))
                 })
                 .into_any_element(),
         )
+    }
+
+    /// Right-side panel of the single selected table: columns (type, PK /
+    /// FK / NULL, default, comment), indexes, row count, comment, and the
+    /// actions open data, structure, `SELECT *`, copy name.
+    fn detail_panel(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let i = self.panel_table()?;
+        let tm = &self.model.tables[i];
+        let key = self.nodes[i].key.clone();
+        let t = cx.theme().clone();
+        let l = &self.labels;
+        let small = |s: SharedString| div().text_xs().text_color(t.muted_foreground).child(s);
+        let tag = |text: &'static str, c: Hsla| {
+            div()
+                .flex_none()
+                .px_1()
+                .rounded_sm()
+                .bg(c.opacity(0.15))
+                .text_color(c)
+                .text_size(px(10.0))
+                .font_weight(FontWeight::SEMIBOLD)
+                .child(text)
+        };
+        let mut cols = v_flex().gap_1();
+        for (c, col) in tm.columns.iter().enumerate() {
+            let mut tags = h_flex().gap_1().items_center();
+            if col.primary_key {
+                tags = tags.child(tag("PK", t.warning));
+            }
+            if self.nodes[i].fk[c] {
+                tags = tags.child(tag("FK", t.info));
+            }
+            if col.nullable {
+                tags = tags.child(tag("NULL", t.muted_foreground));
+            }
+            if self.fk_warn[i][c] {
+                tags = tags.child(tag("!", t.warning));
+            }
+            cols = cols.child(
+                v_flex()
+                    .py_1()
+                    .border_b_1()
+                    .border_color(t.border.opacity(0.5))
+                    .child(
+                        h_flex()
+                            .gap_2()
+                            .items_center()
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .truncate()
+                                    .font_family(t.mono_font_family.clone())
+                                    .text_sm()
+                                    .child(col.name.clone()),
+                            )
+                            .child(tags),
+                    )
+                    .child(
+                        h_flex()
+                            .gap_2()
+                            .text_xs()
+                            .text_color(t.muted_foreground)
+                            .font_family(t.mono_font_family.clone())
+                            .child(col.type_name.clone())
+                            .children(col.default.clone().map(|d| format!("= {d}"))),
+                    )
+                    .children(col.comment.clone().map(|c| small(c.into()))),
+            );
+        }
+        let mut idx = v_flex().gap_1();
+        for ix in &tm.indexes {
+            idx = idx.child(
+                h_flex()
+                    .gap_2()
+                    .items_center()
+                    .text_xs()
+                    .child(
+                        div()
+                            .flex_none()
+                            .font_family(t.mono_font_family.clone())
+                            .child(ix.name.clone()),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
+                            .text_color(t.muted_foreground)
+                            .child(format!("({})", ix.columns.join(", "))),
+                    )
+                    .when(ix.primary || ix.unique, |d| {
+                        d.child(tag(if ix.primary { "PK" } else { "UNIQUE" }, t.warning))
+                    }),
+            );
+        }
+        // one action button: glyph + short label, centred, half the row wide
+        let (border, hover, fg, muted) =
+            (t.border, t.muted, t.popover_foreground, t.muted_foreground);
+        let action = move |id: &'static str, g: Glyph, text: SharedString| {
+            h_flex()
+                .id(id)
+                .flex_1()
+                .min_w_0()
+                .h(px(PANEL_BTN_H))
+                .px_2()
+                .gap(px(6.0))
+                .items_center()
+                .justify_center()
+                .rounded_md()
+                .border_1()
+                .border_color(border)
+                .cursor_pointer()
+                .hover(move |s| s.bg(hover))
+                .text_xs()
+                .text_color(fg)
+                .child(glyph(g, muted, 12.0))
+                .child(div().min_w_0().truncate().child(text))
+        };
+        let (k1, k2, k3, name) = (key.clone(), key.clone(), key, tm.name.clone());
+        let count = self.counts.get(&self.nodes[i].key).copied();
+        Some(
+            v_flex()
+                .id("er-panel")
+                .absolute()
+                .top_0()
+                .right_0()
+                .bottom_0()
+                .w(px(PANEL_W))
+                .bg(t.popover)
+                .border_l_1()
+                .border_color(t.border)
+                .text_color(t.popover_foreground)
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_scroll(|_, _, cx| cx.stop_propagation())
+                .child(
+                    h_flex()
+                        .flex_none()
+                        .h(px(40.0))
+                        .pl_3()
+                        .pr(px(8.0))
+                        .gap_2()
+                        .items_center()
+                        .border_b_1()
+                        .border_color(t.border)
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .truncate()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child(tm.name.clone()),
+                        )
+                        .children(
+                            count.map(|c| small(format!("{} {}", fmt_count(c), l.rows).into())),
+                        )
+                        .child(
+                            div()
+                                .id("er-panel-close")
+                                .flex_none()
+                                .size(px(24.0))
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .rounded_sm()
+                                .cursor_pointer()
+                                .hover(|s| s.bg(t.muted))
+                                .child(glyph(Glyph::Close, t.muted_foreground, 12.0))
+                                .on_click(cx.listener(|this, _, _, cx| this.close_panel(cx))),
+                        ),
+                )
+                .child(
+                    // 2 x 2 grid of equal-width actions
+                    v_flex()
+                        .flex_none()
+                        .gap(px(6.0))
+                        .px_3()
+                        .py_2()
+                        .border_b_1()
+                        .border_color(t.border)
+                        .child(
+                            h_flex()
+                                .gap(px(6.0))
+                                .child(
+                                    action("er-p-data", Glyph::Table, l.open_data.clone())
+                                        .on_click(cx.listener(move |_, _, _, cx| {
+                                            cx.emit(ErDiagramEvent::OpenTable(k1.clone()))
+                                        })),
+                                )
+                                .child(
+                                    action("er-p-struct", Glyph::Structure, l.structure.clone())
+                                        .on_click(cx.listener(move |_, _, _, cx| {
+                                            cx.emit(ErDiagramEvent::OpenStructure(k2.clone()))
+                                        })),
+                                ),
+                        )
+                        .child(
+                            h_flex()
+                                .gap(px(6.0))
+                                .child(
+                                    action("er-p-select", Glyph::Insert, l.select_star.clone())
+                                        .on_click(cx.listener(move |_, _, _, cx| {
+                                            cx.emit(ErDiagramEvent::InsertSelect(k3.clone()))
+                                        })),
+                                )
+                                .child(
+                                    action("er-p-copy", Glyph::Copy, l.copy_name.clone()).on_click(
+                                        cx.listener(move |_, _, _, cx| {
+                                            cx.write_to_clipboard(ClipboardItem::new_string(
+                                                name.clone(),
+                                            ))
+                                        }),
+                                    ),
+                                ),
+                        ),
+                )
+                .child(
+                    v_flex()
+                        .id("er-panel-body")
+                        .flex_1()
+                        .min_h_0()
+                        .overflow_y_scroll()
+                        .px_3()
+                        .py_2()
+                        .gap_3()
+                        .children(tm.comment.clone().map(|c| small(c.into())))
+                        .child(
+                            v_flex()
+                                .child(small(l.columns.clone()).font_weight(FontWeight::SEMIBOLD))
+                                .child(cols),
+                        )
+                        .when(!tm.indexes.is_empty(), |d| {
+                            d.child(
+                                v_flex()
+                                    .gap_1()
+                                    .child(
+                                        small(l.indexes.clone()).font_weight(FontWeight::SEMIBOLD),
+                                    )
+                                    .child(idx),
+                            )
+                        }),
+                )
+                .into_any_element(),
+        )
+    }
+
+    /// Chooser between JOIN paths of the same length.
+    fn path_chooser(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let list = self.chooser.as_ref()?;
+        let t = cx.theme().clone();
+        let mut col = v_flex()
+            .id("er-paths")
+            .absolute()
+            .top(px(48.0))
+            .left_2()
+            .w(px(340.0))
+            .p_1()
+            .gap(px(2.0))
+            .rounded_md()
+            .border_1()
+            .border_color(t.border)
+            .bg(t.popover)
+            .shadow_md()
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .child(
+                div()
+                    .px_2()
+                    .py_1()
+                    .text_xs()
+                    .text_color(t.muted_foreground)
+                    .child(self.labels.choose_path.clone()),
+            );
+        for (k, (text, ..)) in list.iter().enumerate() {
+            col = col.child(
+                div()
+                    .id(("er-path", k))
+                    .px_2()
+                    .py_1()
+                    .rounded_sm()
+                    .cursor_pointer()
+                    .text_sm()
+                    .hover(|s| s.bg(t.muted))
+                    .child(text.clone())
+                    .on_click(cx.listener(move |this, _, _, cx| this.pick_path(k, cx))),
+            );
+        }
+        Some(col.into_any_element())
+    }
+
+    /// Legend of the colour groups (bottom left).
+    fn group_legend(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        if !self.color_groups || self.groups.0.is_empty() {
+            return None;
+        }
+        let t = cx.theme();
+        let tints = [t.blue, t.green, t.yellow, t.magenta, t.cyan, t.red];
+        let mut col = v_flex()
+            .absolute()
+            .bottom(px(12.0))
+            .left(px(12.0))
+            .px_2()
+            .py_1()
+            .gap_1()
+            .rounded_md()
+            .border_1()
+            .border_color(t.border)
+            .bg(t.popover.opacity(0.94))
+            .text_xs()
+            .text_color(t.popover_foreground);
+        for (g, name) in self.groups.0.iter().enumerate().take(12) {
+            col = col.child(
+                h_flex()
+                    .gap_2()
+                    .items_center()
+                    .child(
+                        div()
+                            .flex_none()
+                            .size(px(10.0))
+                            .rounded_sm()
+                            .bg(t.muted.blend(tints[g % tints.len()].opacity(0.24)))
+                            .border_1()
+                            .border_color(tints[g % tints.len()].opacity(0.6)),
+                    )
+                    .child(name.clone()),
+            );
+        }
+        Some(col.into_any_element())
     }
 
     /// The Ctrl+F field: input, hit count, close.
@@ -1744,6 +2463,14 @@ impl ErDiagram {
 enum Glyph {
     Search,
     Close,
+    /// A small table (open data).
+    Table,
+    /// Rows of a list (structure).
+    Structure,
+    /// An arrow into a line (insert into the editor).
+    Insert,
+    /// Two sheets (copy).
+    Copy,
 }
 
 /// A `size`-pixel square with the glyph stroked in `color`.
@@ -1774,6 +2501,45 @@ fn glyph(kind: Glyph, color: Hsla, size: f32) -> impl IntoElement {
                     pb.line_to(p(0.85, 0.85));
                     pb.move_to(p(0.85, 0.15));
                     pb.line_to(p(0.15, 0.85));
+                }
+                Glyph::Table => {
+                    pb.add_polygon(
+                        &[p(0.1, 0.15), p(0.9, 0.15), p(0.9, 0.85), p(0.1, 0.85)],
+                        true,
+                    );
+                    pb.move_to(p(0.1, 0.4));
+                    pb.line_to(p(0.9, 0.4));
+                    pb.move_to(p(0.5, 0.4));
+                    pb.line_to(p(0.5, 0.85));
+                }
+                Glyph::Structure => {
+                    for y in [0.2, 0.5, 0.8] {
+                        pb.move_to(p(0.1, y));
+                        pb.line_to(p(0.2, y));
+                        pb.move_to(p(0.35, y));
+                        pb.line_to(p(0.9, y));
+                    }
+                }
+                Glyph::Insert => {
+                    // arrow down into a bar
+                    pb.move_to(p(0.5, 0.1));
+                    pb.line_to(p(0.5, 0.62));
+                    pb.move_to(p(0.28, 0.42));
+                    pb.line_to(p(0.5, 0.64));
+                    pb.line_to(p(0.72, 0.42));
+                    pb.move_to(p(0.12, 0.88));
+                    pb.line_to(p(0.88, 0.88));
+                }
+                Glyph::Copy => {
+                    pb.add_polygon(
+                        &[p(0.32, 0.32), p(0.88, 0.32), p(0.88, 0.88), p(0.32, 0.88)],
+                        true,
+                    );
+                    pb.move_to(p(0.2, 0.68));
+                    pb.line_to(p(0.12, 0.68));
+                    pb.line_to(p(0.12, 0.12));
+                    pb.line_to(p(0.68, 0.12));
+                    pb.line_to(p(0.68, 0.2));
                 }
             }
             if let Ok(path) = pb.build() {
@@ -1856,6 +2622,9 @@ impl Render for ErDiagram {
             );
         }
         root.children(self.relation_tip(cx))
+            .children(self.group_legend(cx))
+            .children(self.detail_panel(cx))
+            .children(self.path_chooser(cx))
             .children(self.search_bar(cx))
     }
 }
@@ -1884,6 +2653,7 @@ mod tests {
             from_columns: fc.iter().map(|s| s.to_string()).collect(),
             to_table: "s.customers".into(),
             to_columns: tc.iter().map(|s| s.to_string()).collect(),
+            ..Default::default()
         };
         assert_eq!(
             relation_text(&r(&["customer_id"], &["id"])),
@@ -1928,6 +2698,9 @@ struct Pal {
     key: Hsla,
     info: Hsla,
     line: Hsla,
+    /// Colour-group tints (theme base colours, used muted) and the warning badge.
+    tints: [Hsla; 6],
+    warn: Hsla,
     mono: SharedString,
 }
 

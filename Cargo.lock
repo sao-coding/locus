@@ -2180,6 +2180,7 @@ dependencies = [
  "db-core",
  "db-mysql",
  "gpui-kit",
+ "resvg 0.45.1",
  "serde",
  "serde_json",
  "tokio",

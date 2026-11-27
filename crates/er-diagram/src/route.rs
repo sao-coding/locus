@@ -263,6 +263,28 @@ pub fn edge_path(r: &Route, style: EdgeStyle) -> EdgePath {
     }
 }
 
+/// Radius of the circle of an optional ("zero or one") end.
+pub const MARK_R: f32 = 3.5;
+
+/// The strokes of an end mark (crow's-foot notation) at `p`, the line
+/// leaving the card towards `d` (+1 right, -1 left), in world units: up to
+/// two segments (`count` of them are used) and, for an optional end, the
+/// centre of a hollow circle of radius [`MARK_R`].
+pub fn end_mark(end: crate::model::End, p: Pt, d: f32) -> ([(Pt, Pt); 2], usize, Option<Pt>) {
+    use crate::model::End;
+    let (x, y) = p;
+    let bar = |at: f32| ((x + d * at, y - 6.0), (x + d * at, y + 6.0));
+    match end {
+        End::Many => {
+            let tip = (x + d * 12.0, y);
+            ([(tip, (x, y - 6.5)), (tip, (x, y + 6.5))], 2, None)
+        }
+        End::One => ([bar(9.0), bar(9.0)], 1, None),
+        End::OnlyOne => ([bar(7.0), bar(12.0)], 2, None),
+        End::ZeroOrOne => ([bar(7.0), bar(7.0)], 1, Some((x + d * 15.0, y))),
+    }
+}
+
 /// Distance from `p` to the nearest point of the edge's polyline.
 pub fn distance(e: &EdgePath, p: Pt) -> f32 {
     let mut best = f32::MAX;

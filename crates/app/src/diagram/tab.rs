@@ -36,6 +36,12 @@ pub struct DiagramState {
     /// Curves (default) or rounded orthogonal lines.
     #[serde(default, skip_serializing_if = "is_curved")]
     pub edge_style: EdgeStyle,
+    /// Dashed relations guessed from column names are hidden.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub hide_inferred: bool,
+    /// Card headers tinted by schema / name prefix.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub color_groups: bool,
 }
 
 fn is_full(d: &Density) -> bool {
@@ -165,6 +171,26 @@ pub fn table_detail(st: &db_core::structure::TableStructure) -> er_diagram::Tabl
     }
 }
 
+/// Relations guessed from names (`customer_id` -> `customers.id`) that the
+/// schema does not declare; drawn dashed.
+pub fn inferred_relations(
+    schema: &str,
+    tables: &[(String, Vec<db_core::ColumnInfo>)],
+    fks: &[db_core::ForeignKey],
+) -> Vec<er_diagram::Relation> {
+    locus_core::joinsug::infer_fks(tables, fks)
+        .into_iter()
+        .map(|fk| er_diagram::Relation {
+            name: String::new(),
+            from_table: format!("{schema}.{}", fk.table),
+            from_columns: fk.columns,
+            to_table: format!("{schema}.{}", fk.ref_table),
+            to_columns: fk.ref_columns,
+            inferred: true,
+        })
+        .collect()
+}
+
 pub fn diagram_labels() -> er_diagram::Labels {
     er_diagram::Labels {
         empty: t!("diagram.empty").to_string().into(),
@@ -172,6 +198,16 @@ pub fn diagram_labels() -> er_diagram::Labels {
         reset_zoom: t!("diagram.reset_zoom").to_string().into(),
         relayout: t!("diagram.relayout").to_string().into(),
         search: t!("erv3.search").to_string().into(),
+        inferred: t!("erv3.inferred_tip").to_string().into(),
+        fk_no_index: t!("erv3.fk_no_index").to_string().into(),
+        columns: t!("erv3.p_columns").to_string().into(),
+        indexes: t!("erv3.p_indexes").to_string().into(),
+        rows: t!("erv3.p_rows").to_string().into(),
+        open_data: t!("erv3.p_open_data").to_string().into(),
+        structure: t!("erv3.p_structure").to_string().into(),
+        select_star: t!("erv3.p_select").to_string().into(),
+        copy_name: t!("erv3.p_copy").to_string().into(),
+        choose_path: t!("erv3.choose_path").to_string().into(),
     }
 }
 
@@ -200,6 +236,8 @@ impl QueryTab {
                     density: v.density(),
                     collapsed: v.collapsed_cards(),
                     edge_style: v.edge_style(),
+                    hide_inferred: !v.show_inferred(),
+                    color_groups: v.color_groups(),
                 }
             }
             None => self.dgm.state.clone(),
@@ -410,6 +448,92 @@ impl QueryTab {
         self.changed(cx);
     }
 
+    /// Header "JOIN path": the shortest FK path between the selected tables
+    /// into a query editor; a chooser when several are as short.
+    pub fn diagram_join_path(&mut self, cx: &mut Context<Self>) {
+        let Some(v) = self.dgm.view.clone() else {
+            return;
+        };
+        let quote = {
+            let me = &*self;
+            move |s: &str| me.quote(s)
+        };
+        let r = v.update(cx, |v, cx| v.join_path(quote, cx));
+        let msg = match r {
+            er_diagram::JoinPathResult::NeedTables => t!("erv3.join_need_two"),
+            er_diagram::JoinPathResult::NoPath => t!("erv3.join_no_path"),
+            _ => return,
+        };
+        crate::shell::toast::show(msg.to_string(), cx);
+    }
+
+    pub fn diagram_insights(&self, cx: &App) -> Option<(bool, bool, usize)> {
+        let v = self.dgm.view.as_ref()?.read(cx);
+        Some((v.show_inferred(), v.color_groups(), v.unindexed_fk_count()))
+    }
+
+    pub fn diagram_toggle_inferred(&mut self, cx: &mut Context<Self>) {
+        if let Some(v) = self.dgm.view.clone() {
+            v.update(cx, |v, cx| {
+                let on = !v.show_inferred();
+                v.set_show_inferred(on, cx)
+            });
+        }
+    }
+
+    pub fn diagram_toggle_groups(&mut self, cx: &mut Context<Self>) {
+        if let Some(v) = self.dgm.view.clone() {
+            v.update(cx, |v, cx| {
+                let on = !v.color_groups();
+                v.set_color_groups(on, cx)
+            });
+        }
+    }
+
+    /// Save the diagram (the selected tables when some are) as PNG or SVG,
+    /// in the current theme. Rendering runs off the UI thread.
+    pub fn export_diagram_image(&mut self, png: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(v) = self.dgm.view.clone() else {
+            return;
+        };
+        let svg = v.update(cx, |v, cx| v.export_svg(true, cx));
+        let dir = std::env::var_os("USERPROFILE")
+            .map(|h| std::path::PathBuf::from(h).join("Documents"))
+            .unwrap_or_default();
+        let schema = self
+            .diagram
+            .as_ref()
+            .map(|d| d.1.clone())
+            .unwrap_or_default();
+        let name = format!("{}.{}", clean(&schema), if png { "png" } else { "svg" });
+        let rx = cx.prompt_for_new_path(&dir, Some(&name));
+        cx.spawn_in(window, async move |_, cx| {
+            let Ok(Ok(Some(path))) = rx.await else {
+                return;
+            };
+            let res = cx
+                .background_executor()
+                .spawn(async move {
+                    let bytes = if png {
+                        er_diagram::svg_to_png(&svg, 2.0)?
+                    } else {
+                        svg.into_bytes()
+                    };
+                    locus_core::settings::write_atomic(&path, &bytes).map_err(|e| e.to_string())?;
+                    Ok::<_, String>(path)
+                })
+                .await;
+            let _ = cx.update(|_, cx| {
+                let msg = match res {
+                    Ok(p) => t!("erv3.image_saved", path = p.display().to_string()),
+                    Err(e) => t!("erv3.image_failed", msg = e),
+                };
+                crate::shell::toast::show(msg.to_string(), cx);
+            });
+        })
+        .detach();
+    }
+
     pub fn copy_mermaid(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         let Some(v) = &self.dgm.view else { return };
         let text = v.read(cx).mermaid();
@@ -497,9 +621,9 @@ impl QueryTab {
                     let cols = cat.columns(&schema, &o.name).await?;
                     tables.push((o.name, cols));
                 }
-                Ok(er_diagram::DiagramModel::from_catalog(
-                    &schema, &tables, &fks,
-                ))
+                let mut model = er_diagram::DiagramModel::from_catalog(&schema, &tables, &fks);
+                model.add_inferred(inferred_relations(&schema, &tables, &fks));
+                Ok(model)
             }
             .await;
             let (whole, own) = if persist {
@@ -529,6 +653,8 @@ impl QueryTab {
                             v.set_density(state.density, cx);
                             v.set_collapsed_cards(&state.collapsed, cx);
                             v.set_edge_style(state.edge_style, cx);
+                            v.set_show_inferred(!state.hide_inferred, cx);
+                            v.set_color_groups(state.color_groups, cx);
                             v.set_minimap(read_prefs().minimap, cx);
                             v
                         });
@@ -603,6 +729,31 @@ impl QueryTab {
                     cx.emit(TabEvent::OpenTable {
                         conn_id: conn,
                         sql: format!("SELECT * FROM {}.{}", self.quote(s), self.quote(n)),
+                    });
+                }
+            }
+            ErDiagramEvent::InsertSql(sql) => {
+                if let Some((conn_id, _)) = self.diagram.clone() {
+                    cx.emit(TabEvent::DiagramSql {
+                        conn_id,
+                        sql: sql.clone(),
+                    });
+                }
+            }
+            ErDiagramEvent::InsertSelect(key) => {
+                if let Some((conn_id, _)) = self.diagram.clone() {
+                    let (s, n) = key.split_once('.').unwrap_or(("", key.as_str()));
+                    let sql = format!("SELECT * FROM {}.{}", self.quote(s), self.quote(n));
+                    cx.emit(TabEvent::DiagramSql { conn_id, sql });
+                }
+            }
+            ErDiagramEvent::OpenStructure(key) => {
+                if let Some((conn_id, _)) = self.diagram.clone() {
+                    let (schema, table) = key.split_once('.').unwrap_or(("", key.as_str()));
+                    cx.emit(TabEvent::ShowStructure {
+                        conn_id,
+                        schema: schema.to_string(),
+                        table: table.to_string(),
                     });
                 }
             }
@@ -819,6 +970,8 @@ mod tests {
             density: Density::Keys,
             collapsed: vec!["db.x".into()],
             edge_style: EdgeStyle::Smooth,
+            hide_inferred: true,
+            color_groups: true,
         };
         let json = serde_json::to_string(&st).unwrap();
         assert_eq!(serde_json::from_str::<DiagramState>(&json).unwrap(), st);
@@ -844,5 +997,49 @@ mod tests {
     fn bare_name() {
         assert_eq!(bare("db.orders"), "orders");
         assert_eq!(bare("orders"), "orders");
+    }
+}
+
+#[cfg(test)]
+mod insight_tests {
+    use db_core::{ColumnInfo, ForeignKey};
+
+    fn c(n: &str, pk: bool) -> ColumnInfo {
+        ColumnInfo {
+            name: n.into(),
+            type_name: "int".into(),
+            nullable: !pk,
+            primary_key: pk,
+        }
+    }
+
+    #[test]
+    fn inferred_relations_use_table_keys() {
+        let tables = vec![
+            ("customers".to_string(), vec![c("id", true)]),
+            (
+                "orders".to_string(),
+                vec![c("id", true), c("customer_id", false)],
+            ),
+        ];
+        let r = super::inferred_relations("db", &tables, &[]);
+        assert_eq!(r.len(), 1);
+        assert_eq!(
+            (
+                r[0].from_table.as_str(),
+                r[0].to_table.as_str(),
+                r[0].inferred
+            ),
+            ("db.orders", "db.customers", true)
+        );
+        let declared = [ForeignKey {
+            name: "fk".into(),
+            table: "orders".into(),
+            columns: vec!["customer_id".into()],
+            ref_schema: "db".into(),
+            ref_table: "customers".into(),
+            ref_columns: vec!["id".into()],
+        }];
+        assert!(super::inferred_relations("db", &tables, &declared).is_empty());
     }
 }
