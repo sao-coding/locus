@@ -255,6 +255,7 @@ fn card_svg(o: &mut String, card: &SvgCard, s: &SvgScene) {
         );
     }
     for (k, r) in card.rows.iter().enumerate() {
+        let (shown_name, shown_type) = crate::model::fit_row(&r.name, &r.type_name, w);
         let ry = y + hh + k as f32 * ROW_H;
         let cy = ry + ROW_H / 2.0;
         if let Some(tag) = r.tag {
@@ -275,7 +276,7 @@ fn card_svg(o: &mut String, card: &SvgCard, s: &SvgScene) {
             n(cy),
             esc(&s.mono),
             c.fg,
-            esc(&r.name)
+            esc(&shown_name)
         );
         let _ = write!(
             o,
@@ -284,7 +285,7 @@ fn card_svg(o: &mut String, card: &SvgCard, s: &SvgScene) {
             n(cy),
             esc(&s.mono),
             c.muted,
-            esc(&r.type_name)
+            esc(&shown_type)
         );
         if r.warn {
             let _ = write!(

@@ -120,6 +120,8 @@ pub enum ErDiagramEvent {
 
 struct TextCache {
     px: u32,
+    /// Room for a column row's name and type, and the gap between them (screen px).
+    room: (i32, i32),
     sig: (Hsla, Hsla),
     header: ShapedLine,
     count: Option<ShapedLine>,
