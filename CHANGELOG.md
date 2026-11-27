@@ -1,4 +1,16 @@
 # Changelog
+## 0.3.0 (2026-11-27)
+
+### Features
+
+- Relationship diagrams show a detail panel for the selected table (columns, keys, defaults, indexes, row count; open data, structure, `SELECT *` into the editor, copy name). The JOIN path button finds the shortest chain of foreign keys between the Shift+clicked tables and inserts the `SELECT … JOIN …`, with a chooser when several are as short. Columns like `customer_id` that match a table but have no foreign key are drawn as dashed "inferred" relations (can be turned off), foreign keys without an index get a warning and a footer count, card headers can be tinted by schema or name prefix with a legend, and the Export menu saves the diagram (or the selection) as PNG or SVG in the current theme.
+- Relationship diagrams draw foreign keys as curved lines with crow's-foot ends (optional, mandatory, one-to-one). Lines are curved by default; the header View menu switches between curved and smooth (rounded orthogonal) lines per diagram, next to the card detail; lines entering the same table get their own vertical. Hovering a table highlights its relations and neighbours and dims the rest; hovering a line highlights its key columns and shows `orders.customer_id → customers.id` with the constraint name. A minimap (bottom right, can be turned off) pans the view, Ctrl+F finds a table and flies to it, cards can show all columns, keys only or headers only (also per card with the chevron), and Auto arrange produces fewer crossings.
+- Parameters follow DBeaver: Settings › Queries has switches for `:name`, `@name`, `$name` and `?` (and a master switch); on MySQL, SQL Server, PostgreSQL and Oracle an `@name` that the script itself sets, an operator or a SQL*Plus `@file` is left alone. New client-side variables: `@set name = value`, `@unset`, `@echo` and `${name}` text substitution (the Production guard and audit see the substituted statement), an undefined `${name}` asks in the Run dialog, "Show variables" in the palette lists, edits and deletes them, and `${` completes variable names. See docs/parameters.md.
+
+### Fixes
+
+- Space menu shows each Space's own icon (in its colour) with the check mark in a fixed column on the right; snippets now have tab stops: after accepting one the first stop is selected, Tab / Shift+Tab move between stops, `$0` is the last caret position and Esc leaves snippet mode.
+
 ## 0.2.1 (2026-11-26)
 
 ### Fixes
