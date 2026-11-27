@@ -39,11 +39,11 @@ impl Locus {
     /// The Space chip: click for the list of Spaces (switch, new, options).
     fn space_chip(&self, col: Hsla, chip_bg: Hsla, cx: &mut Context<Self>) -> impl IntoElement {
         let me = cx.entity().downgrade();
-        let names: Vec<(usize, String)> = self
+        let spaces: Vec<(usize, String, Option<String>, Hsla)> = self
             .spaces
             .iter()
             .enumerate()
-            .map(|(i, s)| (i, s.name.clone()))
+            .map(|(i, s)| (i, s.name.clone(), s.icon.clone(), s.accent(cx)))
             .collect();
         let active = self.active_space;
         let icon = crate::shell::space_popover::space_icon(self.space().icon.as_deref());
@@ -62,27 +62,36 @@ impl Locus {
             .font_weight(FontWeight::MEDIUM)
             .label(self.space().name.clone())
             .tooltip(t!("space.menu").to_string())
-            .dropdown_menu(move |mut menu, _, _| {
-                for (i, name) in names.iter().cloned() {
+            .dropdown_menu(move |mut menu, _, cx| {
+                use crate::shell::menu::Lead;
+                let t = crate::shell::theme::tokens(cx);
+                for (i, name, key, c) in spaces.iter().cloned() {
                     let me = me.clone();
-                    menu = menu.item(PopupMenuItem::new(name).checked(i == active).on_click(
-                        move |_, window, cx| {
+                    let lead = match crate::shell::space_popover::space_icon(key.as_deref()) {
+                        Some(n) => Lead::Icon(Icon::new(n), c),
+                        None => Lead::Dot(c),
+                    };
+                    menu = menu.item(crate::shell::menu::choice(
+                        name,
+                        lead,
+                        i == active,
+                        move |window, cx| {
                             let _ = me.update(cx, |this, cx| this.switch_space(i, window, cx));
                         },
                     ));
                 }
                 let (m1, m2) = (me.clone(), me.clone());
                 menu.separator()
-                    .item(crate::shell::menu::item(
+                    .item(crate::shell::menu::lead_item(
                         t!("space.new").into_owned(),
-                        Some("plus"),
+                        Lead::Icon(crate::shell::icons::icon("plus"), t.tx2),
                         move |window, cx| {
                             let _ = m1.update(cx, |this, cx| this.new_space(window, cx));
                         },
                     ))
-                    .item(crate::shell::menu::item(
+                    .item(crate::shell::menu::lead_item(
                         t!("space.menu").into_owned(),
-                        Some("gear"),
+                        Lead::Icon(crate::shell::icons::icon("gear"), t.tx2),
                         move |window, cx| {
                             let at = window.mouse_position();
                             let _ = m2.update(cx, |this, cx| {

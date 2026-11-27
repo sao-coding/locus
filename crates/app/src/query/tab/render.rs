@@ -413,6 +413,7 @@ impl QueryTab {
     ) -> impl IntoElement {
         let theme = cx.theme().clone();
         let editor = self.editor.read(cx).state.clone();
+        let snippet_mode = self.editor.read(cx).snippet_active(cx);
         let routine_bar = self.render_routine_bar(cx);
         let lower = match self.render_routine_errors(cx) {
             Some(e) => e,
@@ -433,13 +434,33 @@ impl QueryTab {
                         .child(
                             resizable_panel().size(editor_size).child(
                                 div()
-                                    .key_context("Editor")
+                                    .key_context(if snippet_mode {
+                                        "Editor SnippetMode"
+                                    } else {
+                                        "Editor"
+                                    })
                                     .on_action(cx.listener(
                                         |this,
                                          _: &crate::shell::keymap::act::AcceptCompletion,
                                          w,
                                          cx| {
                                             this.accept_completion(w, cx);
+                                        },
+                                    ))
+                                    .on_action(cx.listener(
+                                        |this,
+                                         _: &crate::shell::keymap::act::PrevSnippetStop,
+                                         w,
+                                         cx| {
+                                            this.snippet_prev(w, cx);
+                                        },
+                                    ))
+                                    .on_action(cx.listener(
+                                        |this,
+                                         _: &crate::shell::keymap::act::ExitSnippet,
+                                         _,
+                                         cx| {
+                                            this.snippet_exit(cx);
                                         },
                                     ))
                                     .size_full()

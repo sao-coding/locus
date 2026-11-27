@@ -108,6 +108,8 @@ Generated from the action list
 | `locus::GridExtendRight` | `shift-right` | `Grid` |
 | `locus::GridEdit` | `f2`, `enter` | `Grid` |
 | `locus::AcceptCompletion` | `tab` | `Editor > Input` |
+| `locus::PrevSnippetStop` | `shift-tab` | `SnippetMode > Input` |
+| `locus::ExitSnippet` | `escape` | `SnippetMode > Input` |
 | `locus::ImportData` | (palette only) | `Workspace` |
 | `locus::ExplainAnalyze` | (palette only) | `Workspace` |
 | `locus::LockAllProd` | (palette only) | `Workspace` |
