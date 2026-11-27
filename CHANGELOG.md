@@ -1,4 +1,12 @@
 # Changelog
+## 0.3.1 (2026-11-27)
+
+### Fixes
+
+#### Relationship diagram: long column names no longer overlap their type
+
+When a column's name and type do not both fit the card, the name is cut with an ellipsis (never below half the row) and then the type, instead of painting over each other. The SVG and PNG export does the same.
+
 ## 0.3.0 (2026-11-27)
 
 ### Features
