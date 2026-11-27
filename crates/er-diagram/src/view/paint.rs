@@ -174,11 +174,20 @@ impl ErDiagram {
         self.focus_active = active;
     }
 
-    fn ensure_text(&mut self, i: usize, fpx: f32, pal: &Pal, window: &mut Window) {
+    fn ensure_text(
+        &mut self,
+        i: usize,
+        fpx: f32,
+        room: (f32, f32),
+        pal: &Pal,
+        window: &mut Window,
+    ) {
         let key = (fpx * 2.0) as u32;
+        let room_key = (room.0.round() as i32, room.1.round() as i32);
         let sig = (pal.fg, pal.muted);
         if let Some(t) = &self.nodes[i].text
             && t.px == key
+            && t.room == room_key
             && t.sig == sig
         {
             return;
@@ -205,28 +214,62 @@ impl ErDiagram {
             .counts
             .get(&self.nodes[i].key)
             .map(|c| shape(&fmt_count(*c), &mono, fpx * 0.88, pal.muted));
+        // A row's name and type share the card's width: when both do not fit,
+        // the name gives way first (never below half the room), then the type;
+        // each is cut with an ellipsis instead of painting over its neighbour.
+        let (avail, gap) = room;
+        let fit = |s: &str, f: &Font, size: f32, color: Hsla, budget: f32| {
+            let full = shape(s, f, size, color);
+            if full.width.as_f32() <= budget {
+                return full;
+            }
+            let chars: Vec<usize> = s.char_indices().map(|(b, _)| b).collect();
+            let (mut lo, mut hi) = (0, chars.len());
+            while lo < hi {
+                let mid = (lo + hi).div_ceil(2);
+                let cut = format!("{}…", &s[..chars[mid - 1]]);
+                if shape(&cut, f, size, color).width.as_f32() <= budget {
+                    lo = mid;
+                } else {
+                    hi = mid - 1;
+                }
+            }
+            let cut = if lo == 0 {
+                "…".to_string()
+            } else {
+                format!("{}…", &s[..chars[lo - 1]])
+            };
+            shape(&cut, f, size, color)
+        };
+        let mut names = Vec::with_capacity(t.columns.len());
+        let mut types = Vec::with_capacity(t.columns.len());
+        for c in &t.columns {
+            let ty = if c.nullable {
+                format!("{}?", c.type_name)
+            } else {
+                c.type_name.clone()
+            };
+            let name = shape(&c.name, &mono, fpx * 0.96, pal.fg);
+            let kind = shape(&ty, &mono, fpx * 0.85, pal.muted);
+            if name.width.as_f32() + gap + kind.width.as_f32() <= avail {
+                names.push(name);
+                types.push(kind);
+                continue;
+            }
+            let name_budget = (avail - gap - kind.width.as_f32()).max(avail * 0.5);
+            let name = fit(&c.name, &mono, fpx * 0.96, pal.fg, name_budget);
+            let type_budget = (avail - gap - name.width.as_f32()).max(0.0);
+            names.push(name);
+            types.push(fit(&ty, &mono, fpx * 0.85, pal.muted, type_budget));
+        }
         let cache = TextCache {
             px: key,
+            room: room_key,
             sig,
             header: shape(&t.name, &bold, fpx, pal.fg),
             count,
-            names: t
-                .columns
-                .iter()
-                .map(|c| shape(&c.name, &mono, fpx * 0.96, pal.fg))
-                .collect(),
-            types: t
-                .columns
-                .iter()
-                .map(|c| {
-                    let s = if c.nullable {
-                        format!("{}?", c.type_name)
-                    } else {
-                        c.type_name.clone()
-                    };
-                    shape(&s, &mono, fpx * 0.85, pal.muted)
-                })
-                .collect(),
+            names,
+            types,
         };
         self.nodes[i].text = Some(cache);
     }
@@ -463,7 +506,7 @@ impl ErDiagram {
                 window.paint_quad(fill(rc(nx + 1.0, ny + hh, nw - 2.0, 1.0), pal.border));
             }
             if z >= 0.3 {
-                self.ensure_text(i, fpx, pal, window);
+                self.ensure_text(i, fpx, ((nw - 47.0 * z).max(0.0), 10.0 * z), pal, window);
                 self.paint_card_header(i, cb, is_centre, hovered, sc, window, cx);
                 if z >= 0.4 {
                     self.paint_card_rows(i, cb, sc, window, cx);

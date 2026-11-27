@@ -695,6 +695,39 @@ pub struct DiagramLayout {
     pub pan: Option<[f32; 2]>,
 }
 
+/// A column row's name and type cut to fit a card `w` wide (world units) when both
+/// do not fit: the name gives way first, never below half the room. Uses the
+/// same per-character estimate as [`card_size`].
+pub fn fit_row(name: &str, ty: &str, w: f32) -> (String, String) {
+    const GAP: f32 = 10.0;
+    let avail = (w - 47.0).max(0.0);
+    let (nw, tw) = (text_units(name) * 7.0, text_units(ty) * 6.4);
+    if nw + GAP + tw <= avail {
+        return (name.to_string(), ty.to_string());
+    }
+    let name_budget = (avail - GAP - tw).max(avail * 0.5);
+    let name = cut(name, name_budget, 7.0);
+    let ty_budget = (avail - GAP - text_units(&name) * 7.0).max(0.0);
+    (name, cut(ty, ty_budget, 6.4))
+}
+
+fn cut(s: &str, budget: f32, per_unit: f32) -> String {
+    if text_units(s) * per_unit <= budget {
+        return s.to_string();
+    }
+    let mut out = String::new();
+    let mut used = per_unit; // the ellipsis
+    for ch in s.chars() {
+        used += text_units(ch.encode_utf8(&mut [0; 4])) * per_unit;
+        if used > budget {
+            break;
+        }
+        out.push(ch);
+    }
+    out.push('…');
+    out
+}
+
 fn text_units(s: &str) -> f32 {
     s.chars()
         .map(|c| if (c as u32) >= 0x2E80 { 1.9 } else { 1.0 })
@@ -725,6 +758,21 @@ pub fn card_size(t: &TableNode) -> (f32, f32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn long_rows_are_cut_so_name_and_type_never_overlap() {
+        assert_eq!(
+            fit_row("id", "bigint", 170.0),
+            ("id".into(), "bigint".into())
+        );
+        let (n, t) = fit_row(
+            "a_very_long_column_name_that_keeps_going",
+            "timestamp with time zone",
+            200.0,
+        );
+        assert!(n.ends_with('…'));
+        assert!(text_units(&n) * 7.0 + 10.0 + text_units(&t) * 6.4 <= 200.0 - 47.0 + 0.01);
+    }
 
     fn ci(n: &str, pk: bool) -> ColumnInfo {
         ColumnInfo {
