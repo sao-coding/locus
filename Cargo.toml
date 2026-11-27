@@ -64,7 +64,7 @@ minisign-verify = "=0.3.0"
 # Update check only. native-tls (schannel, like the database drivers) with the Windows root
 # store, and the Windows system proxy as well as the *_PROXY variables.
 ureq = { version = "=3.5.1", default-features = false, features = ["native-tls-no-default", "win-system-proxy"] }
-parking_lot = "=0.12.5"
+parking_lot = "=0.13.0"
 uuid = { version = "=1.29.2", features = ["v7"] }
 hex = "=0.4.3"
 sha2 = "=0.10.9"
