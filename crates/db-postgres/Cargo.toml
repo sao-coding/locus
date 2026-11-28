@@ -13,7 +13,7 @@ tokio-postgres.workspace = true
 postgres-native-tls.workspace = true
 native-tls.workspace = true
 futures-util.workspace = true
-bytes = "=1.12.1"
+bytes = "=1.12.2"
 
 [dev-dependencies]
 windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_Security_Credentials"] }
