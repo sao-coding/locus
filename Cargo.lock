@@ -241,7 +241,7 @@ checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
 name = "app"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "db-core",
@@ -1703,7 +1703,7 @@ checksum = "be1e0bca6c3637f992fc1cc7cbc52a78c1ef6db076dbf1059c4323d6a2048376"
 
 [[package]]
 name = "db-core"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "futures",
  "tokio",
@@ -1711,7 +1711,7 @@ dependencies = [
 
 [[package]]
 name = "db-mysql"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "db-core",
  "mysql_async",
@@ -1721,7 +1721,7 @@ dependencies = [
 
 [[package]]
 name = "db-postgres"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "bytes",
  "db-core",
@@ -1736,7 +1736,7 @@ dependencies = [
 
 [[package]]
 name = "db-redis"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "redis",
  "tokio",
@@ -1744,7 +1744,7 @@ dependencies = [
 
 [[package]]
 name = "db-sidecar-client"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "db-core",
  "db-mysql",
@@ -1756,7 +1756,7 @@ dependencies = [
 
 [[package]]
 name = "db-sqlite"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "db-core",
  "parking_lot 0.13.0",
@@ -2175,7 +2175,7 @@ checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 
 [[package]]
 name = "er-diagram"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "db-core",
  "db-mysql",
@@ -4789,7 +4789,7 @@ dependencies = [
 
 [[package]]
 name = "locus-core"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "bigdecimal",
  "calamine",
