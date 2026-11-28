@@ -249,7 +249,7 @@ impl Render for InfoPage {
 /// `SLOWLOG GET`: the slowest recent commands, read-only.
 pub struct SlowLog {
     ctx: Ctx,
-    rows: Vec<(i64, i64, i64, String)>,
+    rows: Vec<locus_core::redis_edit::SlowEntry>,
     error: Option<String>,
     loading: bool,
     scroll: ScrollHandle,
@@ -304,6 +304,7 @@ impl SlowLog {
                                 )
                             })
                             .collect();
+                        locus_core::redis_edit::sort_slow_newest_first(&mut this.rows);
                     }
                     Err(e) => this.error = Some(e),
                 }

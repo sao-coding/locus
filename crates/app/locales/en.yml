@@ -1240,6 +1240,13 @@ exp2:
   copy_html: HTML table
 
 redis2:
+  revert: Revert
+  modified: Modified
+  unsaved_first: "Unsaved changes: save or revert them first."
+  discard_title: Discard unsaved changes?
+  discard_body: "%{key} has unsaved changes. Opening another key discards them."
+  discard: Discard
+  revert_tip: Restore the loaded value
   deleted: "Deleted %{n} keys"
   key_name: Key name
   new_key: "New %{ty} key"

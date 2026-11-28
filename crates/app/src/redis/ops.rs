@@ -265,6 +265,7 @@ impl Locus {
                 });
                 cx.notify();
             }
+            RedisEvent::ListWidth => self.schedule_save(cx),
             RedisEvent::Selected(_) | RedisEvent::DbChanged(_) => {
                 let (db, key) = ws.read_with(cx, |w, _| (w.db(), w.key()));
                 self.save_redis_spec(tab_id, Spec::Browser { db, key }, window, cx);

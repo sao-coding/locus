@@ -6,6 +6,7 @@ use db_redis::{KeyMeta, StreamEntry};
 use gpui_kit::component::Icon;
 use gpui_kit::component::{Disableable as _, Selectable as _};
 use locus_core::redis::{self as core, ValueView};
+use locus_core::redis_edit as core_edit;
 use std::ops::Range;
 
 /// Rows per page of lists and sorted sets; hash / set / stream scans use it as the batch size.
@@ -64,6 +65,23 @@ enum Body {
     Other,
 }
 
+/// The cell being edited in place (hash / list / zset / set rows).
+struct CellEditor {
+    ix: usize,
+    /// 0 = first column (hash field, zset score), 1 = second (value, member).
+    col: u8,
+    input: Entity<InputState>,
+    orig: String,
+    _sub: Subscription,
+}
+
+/// The inline editor of a string value: the text as loaded (`base`) decides Save / Revert.
+struct StrEditor {
+    state: Entity<TextareaState>,
+    base: String,
+    _sub: Subscription,
+}
+
 pub struct KeyView {
     ctx: Ctx,
     key: String,
@@ -79,6 +97,10 @@ pub struct KeyView {
     focus: FocusHandle,
     gen_: u64,
     task: Option<Task<()>>,
+    cell: Option<CellEditor>,
+    /// The cell F2 edits: (row, column).
+    sel: Option<(usize, u8)>,
+    text: Option<StrEditor>,
 }
 
 impl EventEmitter<RedisEvent> for KeyView {}
@@ -113,23 +135,106 @@ impl KeyView {
             focus: cx.focus_handle(),
             gen_: 0,
             task: None,
+            cell: None,
+            sel: None,
+            text: None,
         };
         me.load(cx);
         me
     }
 
-    fn set_str(raw: Vec<u8>, mode: StrMode) -> Body {
-        let text = match mode {
-            StrMode::Auto => match core::value_view(&raw) {
+    /// The text of a string value in a display mode.
+    fn str_text(raw: &[u8], mode: StrMode) -> String {
+        match mode {
+            StrMode::Auto => match core::value_view(raw) {
                 ValueView::Text(s) | ValueView::Json(s) | ValueView::Hex(s) => s,
             },
-            StrMode::Raw => String::from_utf8_lossy(&raw).into_owned(),
-            StrMode::Hex => core::hex_dump(&raw),
-        };
+            StrMode::Raw => String::from_utf8_lossy(raw).into_owned(),
+            StrMode::Hex => core::hex_dump(raw),
+        }
+    }
+
+    fn set_str(raw: Vec<u8>, mode: StrMode) -> Body {
         Body::Str {
-            lines: lines_of(&text),
+            lines: lines_of(&Self::str_text(&raw, mode)),
             raw,
         }
+    }
+
+    /// True while the string editor holds text that is not saved.
+    pub fn is_dirty(&self, cx: &App) -> bool {
+        self.text
+            .as_ref()
+            .is_some_and(|e| e.state.read(cx).value().as_ref() != e.base)
+    }
+
+    pub fn key_name(&self) -> &str {
+        &self.key
+    }
+
+    /// The string editor exists while the loaded value is whole, valid UTF-8 and not in Hex mode.
+    fn str_editable(&self) -> bool {
+        let Body::Str { raw, .. } = &self.body else {
+            return false;
+        };
+        let is_json = self.meta.as_ref().is_some_and(|m| m.ty == "ReJSON-RL");
+        let total = self.meta.as_ref().map_or(0, |m| m.len);
+        let whole = is_json || raw.len() as u64 == total;
+        self.mode != StrMode::Hex && whole && std::str::from_utf8(raw).is_ok()
+    }
+
+    /// Creates the editor of a string value on first render after a load (it needs a window).
+    fn ensure_editor(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.text.is_some() || !self.str_editable() {
+            return;
+        }
+        let Body::Str { raw, .. } = &self.body else {
+            return;
+        };
+        let shown = Self::str_text(raw, self.mode);
+        let state = cx.new(|cx| TextareaState::new(window, cx).default_value(shown));
+        // What the field reports is the baseline (it may normalise line endings).
+        let base = state.read(cx).value().to_string();
+        let sub = cx.subscribe(&state, |_, _, ev: &InputEvent, cx| {
+            if let InputEvent::Change = ev {
+                cx.notify();
+            }
+        });
+        self.text = Some(StrEditor {
+            state,
+            base,
+            _sub: sub,
+        });
+    }
+
+    fn revert_string(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(e) = &self.text {
+            let base = e.base.clone();
+            e.state.update(cx, |s, cx| s.set_value(base, window, cx));
+            cx.notify();
+        }
+    }
+
+    fn save_string(&mut self, cx: &mut Context<Self>) {
+        let Some(e) = &self.text else { return };
+        let value = e.state.read(cx).value().to_string();
+        if value == e.base || !self.guard(cx) {
+            return;
+        }
+        let key = self.key.clone().into_bytes();
+        if self.meta.as_ref().is_some_and(|m| m.ty == "ReJSON-RL") {
+            if serde_json::from_str::<serde_json::Value>(&value).is_err() {
+                crate::shell::toast::show(t!("redis.json_invalid").to_string(), cx);
+                return;
+            }
+            let cmd = vec![b"JSON.SET".to_vec(), key, b"$".to_vec(), value.into_bytes()];
+            return self.write(vec![cmd], cx);
+        }
+        let ttl = self.meta.as_ref().and_then(|m| m.ttl_ms);
+        let version = health(&self.ctx.conn_id).and_then(|h| h.version);
+        let keepttl = locus_core::redis_edit::supports_keepttl(version.as_deref());
+        let plan = locus_core::redis_edit::plan_set_string(&key, value.as_bytes(), ttl, keepttl);
+        self.write_plan(plan, cx);
     }
 
     /// Reads meta and the current page of the value in one round of commands.
@@ -194,6 +299,8 @@ impl KeyView {
                             _ => Body::Other,
                         };
                         this.meta = Some(meta);
+                        this.text = None;
+                        this.cell = None;
                     }
                     Err(e) => {
                         this.body = Body::Other;
@@ -204,6 +311,14 @@ impl KeyView {
             },
         ));
         cx.notify();
+    }
+
+    /// The refresh button: reloading would drop an unsaved string.
+    fn refresh(&mut self, cx: &mut Context<Self>) {
+        if self.is_dirty(cx) {
+            return crate::shell::toast::show(t!("redis2.unsaved_first").to_string(), cx);
+        }
+        self.load(cx);
     }
 
     /// Next batch of a cursor-scanned type (hash, set) or stream range.
@@ -315,7 +430,11 @@ impl KeyView {
     }
 
     fn set_mode(&mut self, mode: StrMode, cx: &mut Context<Self>) {
+        if mode != self.mode && self.is_dirty(cx) {
+            return crate::shell::toast::show(t!("redis2.unsaved_first").to_string(), cx);
+        }
         self.mode = mode;
+        self.text = None;
         if let Body::Str { raw, .. } = &self.body {
             self.body = Self::set_str(raw.clone(), mode);
         }
@@ -326,6 +445,17 @@ impl KeyView {
 
     /// Sends commands one after another, then reloads. Blocked while the Production lock is on.
     fn write(&mut self, cmds: Vec<Vec<Vec<u8>>>, cx: &mut Context<Self>) {
+        self.write_cmds(cmds, false, cx);
+    }
+
+    /// An edit plan: in one MULTI / EXEC when the plan says so.
+    fn write_plan(&mut self, plan: locus_core::redis_edit::EditPlan, cx: &mut Context<Self>) {
+        if !plan.cmds.is_empty() {
+            self.write_cmds(plan.cmds, plan.atomic, cx);
+        }
+    }
+
+    fn write_cmds(&mut self, cmds: Vec<Vec<Vec<u8>>>, atomic: bool, cx: &mut Context<Self>) {
         if self.ctx.locked() {
             cx.emit(RedisEvent::Locked);
             return;
@@ -334,6 +464,9 @@ impl KeyView {
             cx,
             &self.ctx,
             move |d| async move {
+                if atomic {
+                    return d.atomic(&cmds).await;
+                }
                 for c in cmds {
                     d.cmd(&c).await?;
                 }
@@ -341,9 +474,14 @@ impl KeyView {
             },
             |this: &mut Self, r: Result<(), String>, cx| {
                 if let Err(e) = r {
+                    crate::shell::toast::show(e.clone(), cx);
                     this.error = Some(e);
                     this.structural = false;
                     this.deleted = false;
+                    // A failed save keeps what was typed.
+                    if this.is_dirty(cx) {
+                        return cx.notify();
+                    }
                 }
                 let structural = std::mem::take(&mut this.structural);
                 if structural {
@@ -691,6 +829,152 @@ impl KeyView {
         }
     }
 
+    // ---- in-place cell edit -------------------------------------------------------------
+
+    /// The bytes of one cell, when that cell can be edited.
+    fn cell_bytes(&self, ix: usize, col: u8) -> Option<Vec<u8>> {
+        match (&self.body, col) {
+            (Body::Hash { rows, .. }, 0) => rows.get(ix).map(|r| r.0.clone()),
+            (Body::Hash { rows, .. }, 1) => rows.get(ix).map(|r| r.1.clone()),
+            (Body::List { rows }, 1) => rows.get(ix).cloned(),
+            (Body::Set { rows, .. }, 1) => rows.get(ix).cloned(),
+            (Body::Zset { rows }, 0) => rows.get(ix).map(|r| r.1.to_string().into_bytes()),
+            (Body::Zset { rows }, 1) => rows.get(ix).map(|r| r.0.clone()),
+            _ => None,
+        }
+    }
+
+    /// The edit that turns cell (`ix`, `col`) into `new`.
+    fn cell_edit(&self, ix: usize, col: u8, new: &str) -> Option<core_edit::CellEdit> {
+        use core_edit::CellEdit as E;
+        let nb = new.as_bytes().to_vec();
+        Some(match (&self.body, col) {
+            (Body::Hash { rows, .. }, 1) => E::HashValue {
+                field: rows.get(ix)?.0.clone(),
+                value: nb,
+            },
+            (Body::Hash { rows, .. }, 0) if !new.is_empty() => {
+                let (old, value) = rows.get(ix)?.clone();
+                E::HashField {
+                    old,
+                    new: nb,
+                    value,
+                }
+            }
+            (Body::List { rows }, 1) if ix < rows.len() => E::ListElem {
+                index: self.page * PAGE + ix as u64,
+                value: nb,
+            },
+            (Body::Set { rows, .. }, 1) => E::SetMember {
+                old: rows.get(ix)?.clone(),
+                new: nb,
+            },
+            (Body::Zset { rows }, 0) => E::ZsetScore {
+                member: rows.get(ix)?.0.clone(),
+                score: new.to_string(),
+            },
+            (Body::Zset { rows }, 1) => {
+                let (old, score) = rows.get(ix)?.clone();
+                E::ZsetMember {
+                    old,
+                    new: nb,
+                    score,
+                }
+            }
+            _ => return None,
+        })
+    }
+
+    /// Double-click or F2: the cell turns into a text field.
+    fn start_cell(&mut self, ix: usize, col: u8, window: &mut Window, cx: &mut Context<Self>) {
+        self.sel = Some((ix, col));
+        cx.notify();
+        if self
+            .cell
+            .as_ref()
+            .is_some_and(|c| c.ix == ix && c.col == col)
+        {
+            return;
+        }
+        let Some(bytes) = self.cell_bytes(ix, col) else {
+            return;
+        };
+        if !self.guard(cx) {
+            return;
+        }
+        let Ok(text) = String::from_utf8(bytes) else {
+            return crate::shell::toast::show(t!("redis.binary_readonly").to_string(), cx);
+        };
+        if text.contains(['\n', '\r']) {
+            // A one-line field would flatten it: the dialog edits it whole.
+            return if col == 1 && matches!(self.body, Body::Hash { .. } | Body::List { .. }) {
+                self.edit_row(ix, window, cx)
+            } else {
+                crate::shell::toast::show(t!("redis.binary_readonly").to_string(), cx)
+            };
+        }
+        let input = cx.new(|cx| {
+            let mut s = InputState::new(window, cx);
+            s.set_value(text.clone(), window, cx);
+            s
+        });
+        let sub = cx.subscribe_in(
+            &input,
+            window,
+            |this, _, ev: &InputEvent, window, cx| match ev {
+                InputEvent::PressEnter { .. } => this.commit_cell(window, cx),
+                InputEvent::Blur => this.cancel_cell(cx),
+                _ => {}
+            },
+        );
+        input.update(cx, |s, cx| {
+            s.focus(window, cx);
+            s.select_all(window, cx);
+        });
+        self.cell = Some(CellEditor {
+            ix,
+            col,
+            input,
+            orig: text,
+            _sub: sub,
+        });
+        cx.notify();
+    }
+
+    fn cancel_cell(&mut self, cx: &mut Context<Self>) {
+        if self.cell.take().is_some() {
+            cx.notify();
+        }
+    }
+
+    /// Enter: sends the edit and reloads. A bad score keeps the field open.
+    fn commit_cell(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some((ix, col, new, orig)) = self.cell.as_ref().map(|c| {
+            (
+                c.ix,
+                c.col,
+                c.input.read(cx).value().to_string(),
+                c.orig.clone(),
+            )
+        }) else {
+            return;
+        };
+        let plan = match self.cell_edit(ix, col, &new) {
+            Some(e) if new != orig => core_edit::plan_edit(self.key.as_bytes(), &e),
+            _ => Ok(core_edit::EditPlan {
+                cmds: vec![],
+                atomic: false,
+            }),
+        };
+        let Ok(plan) = plan else {
+            return crate::shell::toast::show(t!("redis.score_invalid").to_string(), cx);
+        };
+        self.cell = None;
+        self.focus.focus(window, cx);
+        self.write_plan(plan, cx);
+        cx.notify();
+    }
+
     fn delete_row(&mut self, ix: usize, cx: &mut Context<Self>) {
         let key = self.key.as_bytes().to_vec();
         let cmds = match &self.body {
@@ -741,7 +1025,7 @@ impl KeyView {
                 .unwrap_or_default(),
             Body::Set { rows, .. } => rows
                 .get(ix)
-                .map(|v| (String::new(), core::cell_text(v, 400), false, true))
+                .map(|v| (String::new(), core::cell_text(v, 400), true, true))
                 .unwrap_or_default(),
             Body::Zset { rows } => rows
                 .get(ix)
@@ -770,6 +1054,49 @@ impl KeyView {
         }
     }
 
+    /// One cell of a row: its text, or the text field while it is edited. Double-click edits.
+    fn cell_el(
+        &self,
+        ix: usize,
+        col: u8,
+        text: String,
+        editable: bool,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        let t = crate::shell::theme::tokens(cx);
+        let mono = cx.theme().mono_font_family.clone();
+        // Padding and the negative margin cancel: the highlight reaches past the text, nothing moves.
+        let el = div()
+            .id(("redis-cell", ix * 2 + col as usize))
+            .px(px(3.))
+            .mx(px(-3.))
+            .rounded(px(R_XS))
+            .font_family(mono)
+            .text_size(px(12.));
+        if let Some(c) = self.cell.as_ref().filter(|c| c.ix == ix && c.col == col) {
+            return el
+                .on_action(
+                    cx.listener(|this, _: &crate::shell::keymap::act::Escape, _, cx| {
+                        this.cancel_cell(cx)
+                    }),
+                )
+                .child(Input::new(&c.input).w_full());
+        }
+        el.truncate()
+            .when(self.sel == Some((ix, col)), |d| d.bg(t.on))
+            .when(editable, |d| {
+                d.on_click(cx.listener(move |this, ev: &ClickEvent, window, cx| {
+                    if ev.click_count() >= 2 {
+                        this.start_cell(ix, col, window, cx);
+                    } else {
+                        this.sel = Some((ix, col));
+                        cx.notify();
+                    }
+                }))
+            })
+            .child(text)
+    }
+
     fn render_row(&self, ix: usize, cx: &mut Context<Self>) -> AnyElement {
         let t = crate::shell::theme::tokens(cx);
         let mono = cx.theme().mono_font_family.clone();
@@ -785,6 +1112,8 @@ impl KeyView {
                 .into_any_element();
         }
         let (a, b, editable, removable) = self.cells(ix);
+        // Hash field names and zset scores are editable too; list indexes and set rows have no first column.
+        let can0 = matches!(self.body, Body::Hash { .. } | Body::Zset { .. });
         let first_w = match &self.body {
             Body::List { .. } | Body::Zset { .. } => 90.,
             Body::Set { .. } => 0.,
@@ -793,6 +1122,7 @@ impl KeyView {
         };
         h_flex()
             .id(("redis-row", ix))
+            .w_full()
             .h(px(ROW))
             .px(px(S6))
             .gap(px(S5))
@@ -800,27 +1130,20 @@ impl KeyView {
             .hover(|d| d.bg(t.hv))
             .when(first_w > 0., |d| {
                 d.child(
-                    div()
+                    self.cell_el(ix, 0, a, can0, cx)
                         .flex_none()
                         .w(px(first_w))
-                        .truncate()
-                        .font_family(mono.clone())
-                        .text_size(px(12.))
-                        .text_color(t.tx2)
-                        .child(a),
+                        .text_color(t.tx2),
                 )
             })
             .child(
-                div()
+                self.cell_el(ix, 1, b, editable, cx)
                     .flex_1()
                     .min_w_0()
-                    .truncate()
-                    .font_family(mono)
-                    .text_size(px(12.))
-                    .text_color(t.tx)
-                    .child(b),
+                    .text_color(t.tx),
             )
-            .when(editable, |d| {
+            // A set row has no dialog to open: its member is edited in the cell.
+            .when(editable && !matches!(self.body, Body::Set { .. }), |d| {
                 d.child(
                     ib(
                         ("redis-edit", ix),
@@ -851,8 +1174,9 @@ impl KeyView {
 }
 
 impl Render for KeyView {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let t = crate::shell::theme::tokens(cx);
+        self.ensure_editor(window, cx);
         let ty = self.meta.as_ref().map(|m| m.ty.clone()).unwrap_or_default();
         let len = self.meta.as_ref().map_or(0, |m| m.len);
         let head = self.render_head(cx);
@@ -864,6 +1188,25 @@ impl Render for KeyView {
             .id("redis-key")
             .track_focus(&self.focus)
             .size_full()
+            // F2 edits the selected cell.
+            .on_key_down(cx.listener(|this, ev: &KeyDownEvent, window, cx| {
+                if ev.keystroke.key == "f2"
+                    && this.cell.is_none()
+                    && let Some((ix, col)) = this.sel
+                {
+                    this.start_cell(ix, col, window, cx);
+                }
+            }))
+            // Ctrl+S (the Save command, as bound) saves the string editor; elsewhere it passes on.
+            .on_action(
+                cx.listener(|this, _: &crate::shell::keymap::act::Save, _, cx| {
+                    if this.is_dirty(cx) {
+                        this.save_string(cx);
+                    } else {
+                        cx.propagate();
+                    }
+                }),
+            )
             .child(head)
             .children(self.error.as_ref().map(|e| error_box(e, cx)))
             .children(tools.map(|x| {
@@ -952,7 +1295,7 @@ impl KeyView {
                     false,
                     cx,
                 )
-                .on_click(cx.listener(|this, _, _, cx| this.load(cx))),
+                .on_click(cx.listener(|this, _, _, cx| this.refresh(cx))),
             )
             .when(have, |h| {
                 h.child(
@@ -1039,10 +1382,12 @@ impl KeyView {
         let t = crate::shell::theme::tokens(cx);
         let btn = |id: &'static str, label: String| Button::new(id).label(label);
         let mode = self.mode;
+        let dirty = self.is_dirty(cx);
         match &self.body {
             Body::Str { .. } => Some(
                 h_flex()
                     .gap(px(S4))
+                    .items_center()
                     .child(
                         btn("redis-s-auto", t!("redis.fmt_auto").into_owned())
                             .selected(mode == StrMode::Auto)
@@ -1078,13 +1423,41 @@ impl KeyView {
                             ),
                         )
                     })
-                    .child(
-                        btn("redis-s-edit", t!("redis.edit_value").into_owned())
-                            .primary()
-                            .on_click(
-                                cx.listener(|this, _, window, cx| this.edit_string(window, cx)),
-                            ),
-                    )
+                    // Editable text: Save / Revert act on the inline editor. Binary, partial or Hex
+                    // values keep the dialog, which explains why they cannot be edited.
+                    .when(self.text.is_none(), |h| {
+                        h.child(
+                            btn("redis-s-edit", t!("redis.edit_value").into_owned())
+                                .primary()
+                                .on_click(
+                                    cx.listener(|this, _, window, cx| this.edit_string(window, cx)),
+                                ),
+                        )
+                    })
+                    .when(self.text.is_some(), |h| {
+                        h.when(dirty, |h| {
+                            h.child(
+                                div()
+                                    .text_size(px(TX_XS))
+                                    .text_color(t.yel)
+                                    .child(format!("● {}", t!("redis2.modified"))),
+                            )
+                        })
+                        .child(
+                            btn("redis-s-revert", t!("redis2.revert").into_owned())
+                                .disabled(!dirty)
+                                .tooltip(t!("redis2.revert_tip").to_string())
+                                .on_click(cx.listener(|this, _, window, cx| {
+                                    this.revert_string(window, cx)
+                                })),
+                        )
+                        .child(
+                            btn("redis-s-save", t!("redis.save").into_owned())
+                                .primary()
+                                .disabled(!dirty)
+                                .on_click(cx.listener(|this, _, _, cx| this.save_string(cx))),
+                        )
+                    })
                     .into_any_element(),
             ),
             Body::List { .. } => Some(
@@ -1113,6 +1486,7 @@ impl KeyView {
     /// The value list, or a centred message while loading, missing or empty.
     fn render_body(&self, n: usize, ty: &str, cx: &mut Context<Self>) -> AnyElement {
         let t = crate::shell::theme::tokens(cx);
+        let mono = cx.theme().mono_font_family.clone();
         match &self.body {
             Body::Loading => div()
                 .flex_1()
@@ -1137,6 +1511,16 @@ impl KeyView {
                 .justify_center()
                 .text_color(t.tx3)
                 .child(t!("redis.type_unsupported", ty = ty.to_string()).into_owned())
+                .into_any_element(),
+            Body::Str { .. } if self.text.is_some() => div()
+                .flex_1()
+                .min_h_0()
+                .p(px(S4))
+                .children(self.text.as_ref().map(|e| {
+                    Textarea::new(&e.state)
+                        .h(relative(1.))
+                        .font_family(mono.clone())
+                }))
                 .into_any_element(),
             _ if n == 0 => div()
                 .flex_1()

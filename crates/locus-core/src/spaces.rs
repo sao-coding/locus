@@ -174,6 +174,9 @@ pub struct SpacesFile {
     /// Width of the right-hand panel in pixels (dragged by its edge).
     #[serde(default = "default_right_width")]
     pub right_width: f32,
+    /// Width of the Redis key list (dragged by its edge), shared by all Redis tabs.
+    #[serde(default = "default_redis_list_width")]
+    pub redis_list_width: f32,
 }
 
 /// Views of the sidebar, picked by the icon tabs at its top. More views
@@ -278,6 +281,7 @@ mod tests {
             sidebar_width: 300.0,
             right_panel: Some(RightPanel::Schema),
             right_width: 264.0,
+            redis_list_width: 340.0,
         };
         let s = serde_json::to_string(&f).unwrap();
         assert!(!s.contains("password"));
@@ -305,6 +309,10 @@ mod tests {
 
 pub fn default_right_width() -> f32 {
     264.0
+}
+
+pub fn default_redis_list_width() -> f32 {
+    340.0
 }
 
 pub fn default_sidebar_width() -> f32 {

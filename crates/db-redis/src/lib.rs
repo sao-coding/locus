@@ -89,6 +89,28 @@ impl RedisDriver {
         Ok(Reply::from_value(v))
     }
 
+    /// Commands in one MULTI / EXEC: the connection is shared, so separate `cmd` calls could
+    /// interleave with other commands. All of them run or none.
+    pub async fn atomic(&self, cmds: &[Vec<Vec<u8>>]) -> Result<(), String> {
+        let mut pipe = redis::pipe();
+        pipe.atomic();
+        for args in cmds {
+            let name = std::str::from_utf8(args.first().ok_or("empty command")?)
+                .map_err(|e| e.to_string())?;
+            let mut c = redis::cmd(name);
+            for a in &args[1..] {
+                c.arg(a.as_slice());
+            }
+            pipe.add_command(c);
+        }
+        let mut conn = self.conn.clone();
+        let _: redis::Value = pipe
+            .query_async(&mut conn)
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
     /// `PING` + `INFO server`: the version for the connection test.
     pub async fn test(&self) -> Result<String, String> {
         self.cmd(&["PING"]).await?;
