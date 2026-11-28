@@ -4804,7 +4804,7 @@ dependencies = [
  "encoding_rs",
  "encoding_rs_io",
  "hex",
- "imagesize 0.13.0",
+ "imagesize 0.14.0",
  "jiff",
  "log",
  "minisign-verify",
